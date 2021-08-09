@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 import argparse
 import subprocess
+from datetime import datetime
 
 parser = argparse.ArgumentParser(prog='converter', description="Converts data from .tpx3 to .h5")
 parser.add_argument('--x', dest='executable', default='./a.out', help="The compiled C++ code for converting to .txt")
@@ -20,8 +21,11 @@ if __name__ == '__main__':
     filename=args.filename
     in_name=filename
     out_name=filename[:-4]+'h5'
+    
+    print('Starting C++ Conversion:', datetime.now().strftime("%H:%M:%S"))
     proc = subprocess.run([args.executable, filename], capture_output=True)
     
+    print('Collecting Data :', datetime.now().strftime("%H:%M:%S"))
     with open(args.intermediate) as f:
         data=f.readlines()
     data=[x.strip().split() for x in data]
@@ -47,10 +51,12 @@ if __name__ == '__main__':
             y.append(int(d[4]))
     
     if not args.nocomp:
+        print('Starting Compensation:', datetime.now().strftime("%H:%M:%S"))
         diff=np.diff(toa)
         correction=[-sum(diff[0:i][np.where(diff[0:i]<0)]) for i in range(len(diff))]
         toa=[toa[i]+correction[min(i,len(correction)-1)] for i in range(len(toa))]
     
+    print('Saving:', datetime.now().strftime("%H:%M:%S"))
     with h5py.File(out_name,'w') as f:
         f.create_dataset('x',data=x)
         f.create_dataset('y',data=y)
