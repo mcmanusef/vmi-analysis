@@ -12,6 +12,7 @@ import subprocess
 parser = argparse.ArgumentParser(prog='converter', description="Converts data from .tpx3 to .h5")
 parser.add_argument('--x', dest='executable', default='./a.out', help="The compiled C++ code for converting to .txt")
 parser.add_argument('--i', dest='intermediate', default='converted.txt', help="The intermediate text file")
+parser.add_argument('--nocomp',action='store_true',help="Do not compensate for 26.8 s jumps in TOA")
 parser.add_argument('filename')
 args = parser.parse_args()
 
@@ -45,9 +46,10 @@ if __name__ == '__main__':
             x.append(int(d[3]))
             y.append(int(d[4]))
     
-    diff=np.diff(toa)
-    correction=[-sum(diff[0:i][np.where(diff[0:i]<0)]) for i in range(len(diff))]
-    toa=[toa[i]+correction[min(i,len(correction)-1)] for i in range(len(toa))]
+    if not args.nocomp:
+        diff=np.diff(toa)
+        correction=[-sum(diff[0:i][np.where(diff[0:i]<0)]) for i in range(len(diff))]
+        toa=[toa[i]+correction[min(i,len(correction)-1)] for i in range(len(toa))]
     
     with h5py.File(out_name,'w') as f:
         f.create_dataset('x',data=x)
