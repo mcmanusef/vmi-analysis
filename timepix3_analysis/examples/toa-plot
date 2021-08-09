@@ -1,0 +1,31 @@
+#! /bin/env python3
+
+import sys
+import math
+import argparse
+
+import h5py
+from numba import njit
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(prog='toa-plot', description="Plot TOA values as function of hit number, useful to check if TOA rollover correction works correctly")
+parser.add_argument('--step', dest='step', type=int, default=1, help="Step through the data at this step size, to improve performance")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+f = h5py.File(args.hdf_file, "r")
+
+# Directly slicing the HDF5 file is slow due to limitations
+# of the h5py library.
+toa = f["toa"][:][::args.step]
+
+
+plt.figure()
+plt.title('Time of arrival')
+plt.xlabel('Hit number')
+plt.ylabel('TOA (us)')
+plt.plot(toa * 1e-6) # Convert from picoseconds to us
+plt.show()
+

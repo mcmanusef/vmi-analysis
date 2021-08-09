@@ -1,0 +1,63 @@
+#! /bin/env python3
+import argparse
+
+import h5py
+import numpy as np
+from numba import njit
+
+import matplotlib.pyplot as plt
+
+from tpx_hdf_utilities import empty_image
+
+parser = argparse.ArgumentParser(prog='cluster-image', description=
+"""
+Show image of clusters with a cluster index within the given range. The clusters will be 
+plotted in random colors. This program is useful to check if clustering works correctly.
+""")
+parser.add_argument('--index-range', dest='index_range', required=True, type=int, nargs=2,
+    metavar=('INDEX_LOW', 'INDEX_HIGH'),
+    help="Only plot clusters with a cluster index in this range")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(11e6)
+
+HISTOGRAM_BLOCK_SIZE = int(50e6)
+
+f = h5py.File(args.hdf_file, "r")
+
+cluster_index = f['cluster_index']
+x = f['x']
+y = f['y']
+
+image = empty_image(f)
+
+for idx in range(0, len(x), BLOCK_SIZE):
+    cluster_block = cluster_index[idx:idx+BLOCK_SIZE]
+    x_block = y[idx:idx+BLOCK_SIZE]
+    y_block = x[idx:idx+BLOCK_SIZE]
+    
+    mask = (args.index_range[0] <= cluster_block) & (cluster_block <= args.index_range[1])
+    image[x_block[mask], y_block[mask]] = cluster_block[mask]
+
+    if cluster_block[-1] > (args.index_range[1] + 100000):
+        # 100000 clusters past the end range,
+        # chance of still finding a cluster within the range is basically zero
+        break
+    
+plt.figure()
+# Trick to plot histogram of already binned data,
+# see documentation of plt.hist function.
+# Also convert picoseconds to seconds
+print('Approximate number of clusters found: ', np.unique(image).size - 1)
+plt.title(f'Clusters ({args.index_range[0]} <= index <= {args.index_range[1]})')
+plt.xlabel('x')
+plt.ylabel('y')
+
+colors = np.random.rand(args.index_range[1] - args.index_range[0] + 1, 3)
+colors[0] = np.array([1, 1, 1])
+plt.imshow(colors[np.where(image == 0, 0, image - args.index_range[0])])
+plt.show()
+
+
+

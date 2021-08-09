@@ -1,0 +1,70 @@
+#! /bin/env python3
+
+import sys
+import math
+import argparse
+
+import h5py
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tpx_hdf_utilities import calculate_tof, empty_image
+
+parser = argparse.ArgumentParser(prog='tof-binning', description="Calculate TOT image within a certain TOF bin")
+parser.add_argument('--frame', dest='frame_index', type=int, default=-1, help="Calculate TOT image only of this frame. If left unspecificed the data of all frames is summed")
+parser.add_argument('--max', dest='max', type=int, default=None, help="Max value of the colorbar")
+parser.add_argument('--tdc', dest='type', type=int, default=1, help="Edge to use for TOF calculation. Rising TDC1 (=1) Falling TDC1 (=2) Rising TDC2 (=3) Falling TDC2 (=4)")
+parser.add_argument('--tof-range', dest='tof_range', required=True, type=float, nargs=2, help="Edges of the TOF bin (in us), all hits outside this bin will be ignored")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(2e7)
+
+f = h5py.File(args.hdf_file, "r")
+
+# Assume that we have enough memory to store TDC
+tdc = f["tdc_time"][:][f["tdc_type"][:] == args.type]
+
+toa = f["toa"]
+frame = f["frame_number"]
+
+tot = f["tot"]
+x = f["x"]
+y = f["y"]
+
+if len(tdc) == 0:
+    print('No TDC\'s in dataset, TOF values will coincide with TOA values')
+
+tdc_index = 0
+image = empty_image(f)
+
+for idx in range(0, len(toa), BLOCK_SIZE):
+        
+    toa_block = toa[idx:idx+BLOCK_SIZE]
+    tot_block = tot[idx:idx+BLOCK_SIZE]
+    x_block = x[idx:idx+BLOCK_SIZE]
+    y_block = y[idx:idx+BLOCK_SIZE]
+     
+    tof, tdc_index = calculate_tof(tdc if len(tdc) else np.zeros(1), toa_block, tdc_index)
+     
+    mask = (args.tof_range[0]*1e6 <= tof) & (tof <= args.tof_range[1]*1e6)
+     
+    if args.frame_index != -1:
+        frame_block = frame[idx:idx+BLOCK_SIZE]
+              
+        if frame_block[0] > args.frame_index:
+            break
+        
+        mask &= frame_block == args.frame_index
+    
+    np.add.at(image, (y_block[mask], x_block[mask]), tot_block[mask])
+    print('%.1f %%\r' % (idx / len(toa) * 100), end='')
+
+plt.figure()
+plt.title('Sum of TOT values (ns) between TOF values %.2f us and %.2f us' % (args.tof_range[0], args.tof_range[1]))
+plt.xlabel('Pixel')
+plt.ylabel('Pixel')
+plt.imshow(image, vmax=args.max)
+plt.colorbar()
+plt.show()
+

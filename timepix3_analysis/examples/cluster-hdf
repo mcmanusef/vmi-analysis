@@ -1,0 +1,126 @@
+#! /bin/env python3
+import argparse
+
+import h5py
+import numpy as np
+from numba import njit
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
+from tpx_hdf_utilities import empty_image
+
+parser = argparse.ArgumentParser(prog='cluster-hdf', description=
+"""
+Create a secondary HDF5 file with cluster information. The information saved is
+the centroided position (32 bit float), the sum of TOT values in ns (uint32), the first TOA in ps (int64) and the number of hits in the cluster (uint32).
+""")
+parser.add_argument('-o', dest='output_file', default='cluster.hdf5', help="output file to write the cluster information to (default cluster.hdf5)")
+parser.add_argument('input_file', metavar='input_hdf', type=str, nargs=1)
+
+args = parser.parse_args()
+
+BLOCK_SIZE = int(5e6)
+CLUSTER_BLOCK_SIZE = int(20e6)
+
+f = h5py.File(args.input_file[0], "r")
+
+cluster_index = f['cluster_index']
+x = f['x']
+y = f['y']
+tot = f['tot']
+toa = f['toa']
+
+x_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.float32)
+y_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.float32)
+tot_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.uint32)
+toa_first = np.zeros(CLUSTER_BLOCK_SIZE, np.int64)
+count = np.zeros(CLUSTER_BLOCK_SIZE, np.uint32)
+
+@njit
+def update_cluster_info(start_idx,
+    # Input:
+    cluster_block, x_block, y_block, tot_block, toa_block,
+    # Output:
+    x_sum, y_sum, tot_sum, toa_first, count):
+    
+    end_of_block = False
+    
+    for idx, x_, y_, tot_, toa_ in zip(cluster_block,
+                                       x_block,
+                                       y_block,
+                                       tot_block,
+                                       toa_block):
+        
+        arr_idx = idx - start_idx
+        
+        if 0 <= arr_idx < CLUSTER_BLOCK_SIZE:
+            x_sum[arr_idx] += x_
+            y_sum[arr_idx] += y_
+            tot_sum[arr_idx] += tot_
+            toa_first[arr_idx] = min(toa_first[arr_idx], toa_) if toa_first[arr_idx] != 0 else toa_
+            count[arr_idx] += 1
+        elif arr_idx >= CLUSTER_BLOCK_SIZE:
+            end_of_block = True
+    
+    return end_of_block
+
+
+
+number_of_clusters = np.max(cluster_index[-10000:]) + 1 # +1 because cluster indices are zero indexed
+
+def create_dataset(hdf_file, name, dtype):
+    return hdf_file.create_dataset(name, (number_of_clusters,), dtype=dtype, chunks=True, maxshape=(None,))
+
+with h5py.File(args.output_file, 'w') as output_file:
+    
+    start_idx = 0
+    out_tot_sum = create_dataset(output_file, 'tot_sum', np.uint32)
+    out_first_toa= create_dataset(output_file, 'first_toa', np.int64)
+    out_x = create_dataset(output_file, 'x', np.float32)
+    out_y = create_dataset(output_file, 'y', np.float32)
+    out_count = create_dataset(output_file, 'count', np.uint32)
+     
+    idx = 0
+    while idx < len(tot):
+        
+        # Read next block of information from HDF file
+        cluster_block = cluster_index[idx:idx+BLOCK_SIZE]
+        tot_block = tot[idx:idx+BLOCK_SIZE]
+        toa_block = toa[idx:idx+BLOCK_SIZE]
+        x_block = x[idx:idx+BLOCK_SIZE]
+        y_block = y[idx:idx+BLOCK_SIZE]
+        
+        if update_cluster_info(start_idx, cluster_block, x_block, y_block, tot_block, toa_block,
+                               x_sum, y_sum, tot_sum, toa_first, count):
+            
+            # We have found the last cluster index in the current 'cluster block'
+            # Write out the data to the HDF file and reset the values.
+            out_tot_sum[start_idx:start_idx+CLUSTER_BLOCK_SIZE] = tot_sum
+            out_first_toa[start_idx:start_idx+CLUSTER_BLOCK_SIZE] = toa_first
+            out_x[start_idx:start_idx+CLUSTER_BLOCK_SIZE] = (x_sum / count).astype(np.float32)
+            out_y[start_idx:start_idx+CLUSTER_BLOCK_SIZE] = (y_sum / count).astype(np.float32)
+            out_count[start_idx:start_idx+CLUSTER_BLOCK_SIZE] = count
+            
+            x_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.float32)
+            y_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.float32)
+            tot_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.uint32)
+            toa_first = np.zeros(CLUSTER_BLOCK_SIZE, np.int64)
+            count = np.zeros(CLUSTER_BLOCK_SIZE, np.uint32)
+             
+            start_idx += CLUSTER_BLOCK_SIZE
+        else:
+            print(f'{idx / len(tot) * 100:.0f} %')
+            idx += BLOCK_SIZE
+    
+    # We have read all of the input HDF file. But we have accumulated
+    # information in the cluster blocks that still need to be written out.
+    to_write = number_of_clusters - start_idx    
+    
+    out_tot_sum[start_idx:number_of_clusters] = tot_sum[:to_write]
+    out_first_toa[start_idx:number_of_clusters] = toa_first[:to_write]
+    out_x[start_idx:number_of_clusters] = (x_sum[:to_write] / count[:to_write]).astype(np.float32)
+    out_y[start_idx:number_of_clusters] = (y_sum[:to_write] / count[:to_write]).astype(np.float32)
+    out_count[start_idx:number_of_clusters] = count[:to_write]
+
+print('100 %')

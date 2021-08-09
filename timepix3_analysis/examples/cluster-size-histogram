@@ -1,0 +1,68 @@
+#! /bin/env python3
+import argparse
+
+import h5py
+import numpy as np
+from numba import njit
+
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(prog='cluster-size-histogram', description="Calculate histogram of cluster sizes")
+parser.add_argument('--bins', dest='bins', type=int, default=100, help="Number of bins")
+parser.add_argument('--log', dest='log', action='store_true', help="Use a logarithmic scale for the y-axis")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(11e6)
+
+HISTOGRAM_BLOCK_SIZE = int(50e6)
+
+f = h5py.File(args.hdf_file, "r")
+
+cluster_index = f['cluster_index']
+toa = f['toa']
+
+@njit(boundscheck=True)
+def count(cluster_block, start_idx, counts):
+    end_of_block = False
+    
+    for idx in cluster_block:
+        if 0 <= idx - start_idx < HISTOGRAM_BLOCK_SIZE:
+            counts[idx - start_idx] += 1
+        elif idx - start_idx >= HISTOGRAM_BLOCK_SIZE:
+            end_of_block = True
+     
+    return end_of_block
+
+start_idx = 0
+counts = np.zeros(HISTOGRAM_BLOCK_SIZE, np.uint8)
+histogram = np.zeros(args.bins+1, np.int64)
+
+hdf_idx = 0
+
+while hdf_idx < len(toa):
+        
+    cluster_block = cluster_index[hdf_idx:hdf_idx+BLOCK_SIZE]
+    toa_block = toa[hdf_idx:hdf_idx+BLOCK_SIZE]
+
+    if count(cluster_block, start_idx, counts):
+        # Reached end of cluster block
+        histogram += np.bincount(counts, minlength=histogram.size)[:histogram.size]
+        start_idx += HISTOGRAM_BLOCK_SIZE
+        counts = np.zeros(HISTOGRAM_BLOCK_SIZE, np.uint8)
+    else:
+        hdf_idx += BLOCK_SIZE
+
+histogram += np.bincount(counts, minlength=histogram.size)[:histogram.size]
+
+plt.figure()
+plt.title('Cluster size histogram')
+plt.xlabel('Cluster size')
+plt.ylabel('Counts')
+if args.log:
+    plt.yscale('log')
+plt.bar(np.arange(1, args.bins+1), histogram[1:])
+plt.show()
+
+
+

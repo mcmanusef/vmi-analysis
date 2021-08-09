@@ -1,0 +1,64 @@
+#! /bin/env python3
+
+import sys
+import math
+import argparse
+
+import h5py
+from numba import njit
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tpx_hdf_utilities import empty_image
+
+parser = argparse.ArgumentParser(prog='tot-image.py', description="Calculate integrated TOT image from HDF5 file")
+parser.add_argument('--frame', dest='frame_index', type=int, default=-1, help="Calculate TOT image only of this frame. If left unspecificed the TOF histograms of all frames are summed")
+parser.add_argument('--max', dest='max', type=int, default=None, help="Max value of the colorbar")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(5e6)
+
+f = h5py.File(args.hdf_file, "r")
+
+tot = f["tot"]
+x = f["x"]
+y = f["y"]
+frame = f["frame_number"]
+
+image = empty_image(f)
+hits = 0
+
+for idx in range(0, len(tot), BLOCK_SIZE):
+     
+    tot_block = tot[idx:idx+BLOCK_SIZE]
+    x_block = x[idx:idx+BLOCK_SIZE]
+    y_block = y[idx:idx+BLOCK_SIZE]
+     
+    if args.frame_index != -1:
+        frame_block = frame[idx:idx+BLOCK_SIZE]
+
+        if frame_block[0] > args.frame_index:
+            break
+         
+        mask = frame_block == args.frame_index
+        
+        tot_block = tot_block[mask]
+        x_block = x_block[mask]
+        y_block = y_block[mask]
+     
+    hits += tot_block.size
+    np.add.at(image, (y_block, x_block), tot_block)
+    
+    print('%.1f %%\r' % (idx / len(tot) * 100), end='')
+
+print("Showing image with %d hits" % hits)
+
+plt.figure()
+plt.title('Integrated TOT image (ns)')
+plt.xlabel('Pixel')
+plt.ylabel('Pixel')
+plt.imshow(image, vmax=args.max)
+plt.colorbar()
+plt.show()
+

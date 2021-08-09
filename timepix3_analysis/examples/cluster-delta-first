@@ -1,0 +1,82 @@
+#! /bin/env python3
+import argparse
+
+import h5py
+import numpy as np
+from numba import njit
+
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(prog='cluster-delta-toa', description="Plot a histogram of the time delta of a hit with respect to the first hit in the cluster")
+parser.add_argument('--bin-size', dest='bin_size', type=float, default=100, help="Size of the histogram bins in ns")
+parser.add_argument('--log', dest='log', action='store_true', help="Use a logarithmic scale for the y-axis")
+parser.add_argument('--bins', dest='bins', type=int, default=100, help="Number of bins")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+CLUSTER_INFO_SIZE = int(50e6)
+BLOCK_SIZE = int(11e6)
+
+f = h5py.File(args.hdf_file, "r")
+
+cluster_index = f['cluster_index']
+toa_dataset = f['toa']
+
+@njit
+def update_cluster_info(start_idx, cluster_first, cluster_indices, toa, toa_delta):
+
+    assert len(cluster_indices) == len(toa)
+    
+    end_of_block = False
+    
+    for block_idx, cluster_idx, toa in zip(range(len(toa)), cluster_indices, toa):
+         
+        i = cluster_idx - start_idx
+         
+        if 0 <= i < CLUSTER_INFO_SIZE:
+
+            if cluster_first[i] == 0:
+                cluster_first[i] = toa
+                toa_delta[block_idx] = 0
+            else:
+                toa_delta[block_idx] = toa - cluster_first[i]
+        elif i >= CLUSTER_INFO_SIZE:
+            end_of_block = True
+     
+    return end_of_block
+
+start_idx = 0
+cluster_first = np.zeros(CLUSTER_INFO_SIZE, np.uint64)
+
+bin_edges = np.linspace(0, args.bin_size * 1e3 * args.bins, args.bins + 1)
+histogram = np.zeros(args.bins)
+
+hdf_idx = 0
+
+while hdf_idx < len(toa_dataset):
+        
+    cluster_indices = cluster_index[hdf_idx:hdf_idx+BLOCK_SIZE]
+    toa = toa_dataset[hdf_idx:hdf_idx+BLOCK_SIZE]
+    toa_delta = np.zeros(BLOCK_SIZE, np.uint64)
+     
+    if update_cluster_info(start_idx, cluster_first, cluster_indices, toa, toa_delta):
+         
+        cluster_first[:] = 0
+        start_idx += HISTOGRAM_BLOCK_SIZE
+    else:
+        hdf_idx += BLOCK_SIZE
+    
+    histogram += np.histogram(toa_delta[toa_delta != 0], bins=bin_edges)[0]
+
+
+plt.figure()
+plt.title('TOA difference with respect to first hit in a cluster')
+plt.xlabel('Difference (ns)')
+plt.ylabel('Counts')
+if args.log:
+    plt.yscale('log')
+plt.bar(np.arange(1, args.bins) * args.bin_size, histogram[1:], width=args.bin_size, align='edge')
+plt.show()
+
+
+

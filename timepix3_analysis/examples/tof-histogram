@@ -1,0 +1,63 @@
+#! /bin/env python3
+
+import sys
+import math
+import argparse
+
+import h5py
+from numba import njit
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+from tpx_hdf_utilities import calculate_tof
+
+parser = argparse.ArgumentParser(prog='tof-histogram', description="Calculate TOF histogram from HDF5 file")
+parser.add_argument('--frame', dest='frame_index', type=int, default=-1, help="Calculate TOF histogram only of this frame. If left unspecificed the TOF histograms of all frames are summed")
+parser.add_argument('--tdc', dest='type', type=int, default=1, help="Edge to use for TOF calculation. Rising TDC1 (=1) Falling TDC1 (=2) Rising TDC2 (=3) Falling TDC2 (=4)")
+parser.add_argument('--bin-size', dest='bin_size', type=float, default=10, help="Size of the histogram bins in us")
+parser.add_argument('--bins', dest='bins', type=int, default=100, help="Number of bins")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(2e7)
+
+f = h5py.File(args.hdf_file, "r")
+
+# Assume that we have enough memory to store TDC
+tdc_type = f["tdc_type"][:] 
+tdc = f["tdc_time"][:][tdc_type == args.type]
+toa = f["toa"]
+frame = f["frame_number"]
+
+if len(tdc) == 0:
+    print('No TDC\'s in dataset, TOF values will coincide with TOA values')
+
+bin_edges = np.linspace(0, args.bin_size * 1e6 * args.bins, args.bins + 1)
+#bin_edges = np.linspace(0, int(0.05e12), 100)
+histogram = np.zeros(bin_edges.size - 1)
+tdc_index = 0
+
+for idx in range(0, len(toa), BLOCK_SIZE):
+        
+    toa_block = toa[idx:idx+BLOCK_SIZE]
+    
+    if args.frame_index != -1:
+        frame_block = frame[idx:idx+BLOCK_SIZE]
+        toa_block = toa_block[frame_block == args.frame_index]
+        
+    tof, tdc_index = calculate_tof(tdc if len(tdc) else np.zeros(1), toa_block, tdc_index)
+    
+    histogram += np.histogram(tof, bins=bin_edges)[0]
+    print('%.1f %%\r' % (idx / len(toa) * 100), end='')
+
+plt.figure()
+# Trick to plot histogram of already binned data,
+# see documentation of plt.hist function.
+# Also convert picoseconds to seconds
+plt.title('Time of flight')
+plt.xlabel('Time (ms)')
+plt.ylabel('Counts')
+plt.hist(bin_edges[:-1] * 1e-9, bin_edges * 1e-9, weights=histogram)
+plt.show()
+

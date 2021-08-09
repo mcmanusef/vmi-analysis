@@ -1,0 +1,59 @@
+#! /bin/env python3
+
+import sys
+import math
+import argparse
+import ast
+
+import h5py
+from numba import njit
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(prog='tdc-plot', description="Draw a plot of the first TDC pulses")
+parser.add_argument('--N', type=int, default=10, help="Number of TDC edges to plot")
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(1e5)
+
+f = h5py.File(args.hdf_file, "r")
+
+tdc_time = f['tdc_time'][:args.N]
+tdc_type = f['tdc_type'][:args.N]
+
+tdc1_time = tdc_time[(tdc_type == 1) | (tdc_type == 2)]
+tdc1_type = tdc_type[(tdc_type == 1) | (tdc_type == 2)]
+
+tdc2_time = tdc_time[(tdc_type == 3) | (tdc_type == 4)]
+tdc2_type = tdc_type[(tdc_type == 3) | (tdc_type == 4)]
+
+tdc1_pulse = np.zeros_like(tdc1_time, np.uint8)
+tdc1_pulse[tdc1_type == 1] = 1
+
+tdc2_pulse = np.zeros_like(tdc2_time, np.uint8)
+tdc2_pulse[tdc2_type == 3] = 1
+
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+
+plt.subplots_adjust(hspace=0.5)
+
+ax1.set_xlabel('Time (ms)')
+ax2.set_xlabel('Time (ms)')
+
+ax1.step(tdc1_time * 1e-9, tdc1_pulse, label="TDC 1")
+ax2.step(tdc2_time * 1e-9, tdc2_pulse, label="TDC 2", color='orange')
+
+ax1.tick_params(axis='x', labelbottom=True)
+
+ax1.set_title('TDC 1')
+ax2.set_title('TDC 2')
+
+ax1.set_yticks([0, 1])
+ax1.set_yticklabels(['Low', 'High'])
+ax2.set_yticks([0, 1])
+ax2.set_yticklabels(['Low', 'High'])
+
+plt.show()
+

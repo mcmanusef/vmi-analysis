@@ -1,0 +1,96 @@
+#! /bin/env python3
+import argparse
+
+import h5py
+import numpy as np
+from numba import njit
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
+from tpx_hdf_utilities import empty_image
+
+parser = argparse.ArgumentParser(prog='cluster-tot-image', description=
+"""
+Show an image with the size of the clusters on the x-axis and the sum of the TOT values
+on the y-axis. The color of the image will be determined by the number of clusters.
+""")
+parser.add_argument('--max-tot', dest='max_tot', type=int, default=40, help="Maximum value of TOT sum (us) on the y-axis")
+parser.add_argument('--max-cluster', dest='max_cluster', type=int, default=100, help="Maximum cluster size on the x-axis")
+
+parser.add_argument('hdf_file')
+args = parser.parse_args()
+
+BLOCK_SIZE = int(11e6)
+CLUSTER_BLOCK_SIZE = int(50e6)
+
+f = h5py.File(args.hdf_file, "r")
+
+cluster_index = f['cluster_index']
+tot = f['tot']
+
+TOT_range = 1000 * args.max_tot
+image = np.zeros( (100, args.max_cluster), dtype=np.uint64)
+
+@njit(boundscheck=True)
+def add_to_image(image, counts, tot_sum):
+    
+    for c, t in zip(counts, tot_sum):
+
+        if c == 0:
+            continue
+        
+        tot_idx = 100 - int(t/TOT_range * 100)
+        count_idx = c
+        
+        if 0 <= tot_idx < 100 and 0 <= count_idx < image.shape[1]:
+            image[tot_idx, count_idx] += 1
+
+@njit 
+def update_cluster_info(start_idx, cluster_block, tot_block, count, tot_sum):
+    end_of_block = False
+    
+    for idx, tot in zip(cluster_block, tot_block):
+        arr_idx = idx - start_idx
+
+        if 0 <= arr_idx < CLUSTER_BLOCK_SIZE:
+            count[arr_idx] += 1
+            tot_sum[arr_idx] += tot
+        elif arr_idx >= CLUSTER_BLOCK_SIZE:
+            end_of_block = True
+
+    return end_of_block
+
+start_idx = 0
+tot_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.uint64)
+count = np.zeros(CLUSTER_BLOCK_SIZE, np.uint64)
+
+idx = 0
+while idx < len(tot):
+    cluster_block = cluster_index[idx:idx+BLOCK_SIZE]
+    tot_block = tot[idx:idx+BLOCK_SIZE]
+
+    if update_cluster_info(start_idx, cluster_block, tot_block, count, tot_sum):
+        add_to_image(image, counts, tot_sum)
+
+        tot_sum = np.zeros(CLUSTER_BLOCK_SIZE, np.uint64)
+        count = np.zeros(CLUSTER_BLOCK_SIZE, np.uint64)
+
+        start_idx += CLUSTER_BLOCK_SIZE
+    else:
+        idx += BLOCK_SIZE
+
+
+add_to_image(image, count, tot_sum)
+
+plt.figure()
+plt.title(f'Cluster TOT sum and count')
+plt.xlabel('Cluster size')
+plt.ylabel('Sum of TOT (ns)')
+plt.imshow(image, norm=LogNorm(vmin=1, vmax=image.max()))
+plt.colorbar(label="Number of clusters")
+plt.yticks(np.arange(0, 100, 10), np.arange(100, 0, -10) * TOT_range/100)
+plt.show()
+
+
+
