@@ -99,8 +99,8 @@ def cluster_analysis(filename,groupsize=int(1e9),start=1+25e-6,end=1+30e-6,rever
     xm=np.zeros(num)
     ym=np.zeros(num)
     tm=np.zeros(num)
+    toam=np.zeros(num)
     totm=np.zeros(num)
-    tota=np.zeros(num)
     cur_pulse=0
     print('Averaging Across Clusters:', datetime.now().strftime("%H:%M:%S"))
     #Find weighted average of x,y,tot,toa
@@ -118,8 +118,8 @@ def cluster_analysis(filename,groupsize=int(1e9),start=1+25e-6,end=1+30e-6,rever
             xm[i]=np.average(x[idx], weights=tot[idx])
             ym[i]=np.average(y[idx], weights=tot[idx])
             tm[i]=np.average(time_after[idx], weights=tot[idx])
-            #totm[i]=max(tot[idx])
-            tota[i]=np.average(tot[idx], weights=tot[idx])
+            toam[i]=np.average(toa[idx],weights=tot[idx])
+            totm[i]=np.average(tot[idx], weights=tot[idx])
             i=i+1
         
     print(len(xm))
@@ -137,8 +137,9 @@ def cluster_analysis(filename,groupsize=int(1e9),start=1+25e-6,end=1+30e-6,rever
         g=f.create_group('Cluster')
         g.create_dataset('x',data=xm)
         g.create_dataset('y',data=ym)
-        g.create_dataset('toa',data=tm)
-        g.create_dataset('tot',data=tota)
+        g.create_dataset('t',data=tm)
+        g.create_dataset('toa',data=toam)
+        g.create_dataset('tot',data=totm)
         
 
 if __name__ == '__main__':

@@ -11,22 +11,24 @@ import subprocess
 from datetime import datetime
 from numba import njit
 from numba import prange
-from numba.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-
-@njit('float64[:](float64[:], float64[:])')
-def compensate(toa,diff):
+@njit('f8[:](f8[:], f8[:],i8)')
+def compensate(toa,diff,period):
     n=len(toa)
     # correction=[-sum(diff[0:i][np.where(diff[0:i]<0)]) for i in range(len(diff))]
     # toa=[toa[i]+correction[min(i,len(correction)-1)] for i in range(len(toa))]
     toa_comp=np.zeros_like(toa)
     toa_comp[0]=toa[0]
     for i in range(n-1):
-        toa_comp[i+1]=toa_comp[i]+max(0,diff[i])
+        if diff[i]<-period/2:
+            diff[i]+=period
+        toa_comp[i+1]=toa_comp[i]+diff[i]
     return toa_comp
 
 @njit(parallel=True)
@@ -77,14 +79,22 @@ if __name__ == '__main__':
             tdc_time.append(float(d[2])*1e12)
         elif int(d[0])==1:
             toa.append(float(d[1])*1e12)
-            tot.append(int(d[2]))
+            tot.append(int(d[2])//25)
             x.append(int(d[3]))
             y.append(int(d[4]))
     
     if not args.nocomp:
         print('Starting Compensation:', datetime.now().strftime("%H:%M:%S"))
         diff=np.diff(toa)
-        toa=compensate(toa,diff)
+        toa_max=26843545600000
+        toa=compensate(np.array(toa),diff,toa_max)
+        #toa=np.unwrap(toa,period=toa_max)
+        
+        
+        diff=np.diff(tdc_time)
+        tdc_max=107374182400000
+        #tdc_time=np.unwrap(tdc_time,period=tdc_max)
+        tdc_time=compensate(np.array(tdc_time),diff,tdc_max)
         
     print('Saving:', datetime.now().strftime("%H:%M:%S"))
     with h5py.File(out_name,'w') as f:

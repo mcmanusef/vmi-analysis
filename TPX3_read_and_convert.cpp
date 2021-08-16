@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 						Single chip, using "int (Chipnr) +3"						
 						Quad chips, using "int (Chipnr)"						
 						************************************************************/						
-                        switch (int (chipnr)) // for quad chips;
+                        switch (int (chipnr)+3) // for quad chips;
                         {
 
                         case 0:

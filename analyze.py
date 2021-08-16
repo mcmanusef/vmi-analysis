@@ -22,9 +22,12 @@ plt.close('all')
 gc.collect()
 boardLayout = SL.singleLayout
 
+zmin=251500
+zmax=253000
+
 delta_shots_max = 900*1e6 #convert \mu s to ps
 delta_event_to_tdc2=10*1e6 #convert \mu s to ps
-name='Data2000000'#'new_tdc1_test000000'#'arLightin2.3-7000002' #'xe_2tdc_vert_8_000000'#
+name='LGM_FP_HP000000'#'new_tdc1_test000000'#'arLightin2.3-7000002' #'xe_2tdc_vert_8_000000'#
 stony=0
 in_name=[name+".tpx3"]
 out_name=name+".h5"
@@ -55,20 +58,22 @@ with h5py.File(out_name, mode='r') as fh5:
     tof_corr=np.searchsorted(pulse_times,tof_times)
     t_tof=1e-3*(tof_times-pulse_times[tof_corr-1])
     
+    plt.figure(-1)
+    plt.hist(np.diff(pulse_times)*1e-9,bins=10)
+    
     plt.figure(0)
-    plt.hist(t_tof,bins=1000, range=[0,1e6])
+    plt.hist(t_tof,bins=100, range=[0,1e6])
     #plt.scatter(x[0:max_to_plot],time_after[0:max_to_plot])
     
     plt.figure(1)
-    plt.hist(time_after,bins=100, range=[0,1e6])
+    plt.hist(time_after,bins=100, range=[zmin,zmax])
     
     x_s=fh5['x'][()][0:max_to_plot]
     y_s=fh5['y'][()][0:max_to_plot]
     t_s=time_after[0:max_to_plot]#+tot[0:max_to_plot]
     tot_s=fh5['tot'][()][0:max_to_plot]
     
-    zmin=00+4000*stony
-    zmax=1e6#1000+4000*stony
+    
     in_window=np.where(np.logical_and(t_s>zmin,t_s<zmax))
     
     x_s=x_s[in_window]
@@ -84,8 +89,7 @@ with h5py.File(out_name, mode='r') as fh5:
 
 z_s=((t_s-zmin)*256/(zmax-zmin)).astype(int)
 
-plt.figure(1)
-plt.hist(np.diff(pulse_times)*1e-9,bins=20,range=[1+25e-6,1+30e-6])#,weights=tot_s)
+#,weights=tot_s)
 
 # plt.figure(2)
 # plt.hist2d(t_s,y_s,bins=256,range=[[0,1000],[0,256]])#,weights=tot_s)
@@ -101,7 +105,7 @@ plt.ylabel("x")
 
 plt.figure(3)
 #plt.subplot(223)
-plt.hist2d(t_s,tot_s,bins=256,range=[[0,1e6],[0,256]])#,weights=tot_s, vmax=40000)
+plt.hist2d(t_s,tot_s,bins=128,range=[[zmin,zmax],[0,128]])#,weights=tot_s, vmax=40000)
 plt.xlabel("toa")
 plt.ylabel("tot")
 
