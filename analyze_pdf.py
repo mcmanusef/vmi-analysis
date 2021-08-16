@@ -153,7 +153,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
             x = fh5['Cluster']['x'][()]
             y = fh5['Cluster']['y'][()]
             tot = fh5['Cluster']['tot'][()]
-            toa = fh5['Cluster']['toa'][()]
+            t = fh5['Cluster']['t'][()]
         
         
         plt.figure(figsize=fsize)
@@ -162,7 +162,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         index=np.where(np.logical_and(toa>toa_int[0],toa<toa_int[1]))
         xs=x[index]
         ys=y[index]
-        ts=toa[index]
+        ts=t[index]
         tots=tot[index]
         
         plt.subplot(223)

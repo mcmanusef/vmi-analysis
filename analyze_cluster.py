@@ -14,7 +14,7 @@ from matplotlib.cm import ScalarMappable as SM
 plt.close('all')
 
 n=256
-rt=[252020,252120]#[0,1e6]#
+rt=[251920,252120]
 rtot=[0,50]
 
 if 1:
