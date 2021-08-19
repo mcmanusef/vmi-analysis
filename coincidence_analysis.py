@@ -51,8 +51,8 @@ with h5py.File(in_name,mode='r')as f:
     ys=np.array([a for ll in ys for a in ll])
     ts=np.array([a for ll in ts for a in ll])
     
-    n=64
-    rt=[251920,252120]
+    n=256
+    rt=[251800,252200]
     index=np.where(np.logical_and(ts>rt[0], ts<rt[1]))[0]
     xs=xs[index]
     ys=ys[index]

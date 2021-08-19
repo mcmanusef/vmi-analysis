@@ -14,13 +14,13 @@ from matplotlib.cm import ScalarMappable as SM
 plt.close('all')
 
 n=256
-rt=[251920,252120]
+rt=[251820,252120]
 rtot=[0,50]
 
-if 1:
+if 0:
     rtc=rt-np.average(rt)
 else:
-    rtc=[-20,20]
+    rtc=[-150,-100]
 
 name='LightMagFP000001'#'LnGM_FP000000'#'Data2000000'#
 in_name=name+'_cluster_r.h5'#'ar004'#'xe_2tdc_vert_8_000000'

@@ -34,7 +34,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         
     fsize=(10,10)
     window=[0, 0, 1, 0.95]
-    rtot=[0,50]
+    rtot=[0,200]
     n=256
     
     pulse_times=tdc_time[()][np.where(tdc_type==1)]
@@ -140,7 +140,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     
     plt.subplot(222)
     plt.title("ToA vs ToT")
-    plt.hist2d(ts, tots, bins=256, range=[toa_int,[0,100]])
+    plt.hist2d(ts, tots, bins=256, range=[toa_int,rtot])
     plt.xlabel("ToA (ns)")
     plt.ylabel("ToT (ns)")
     plt.tight_layout(rect=window)
@@ -159,7 +159,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         plt.figure(figsize=fsize)
         plt.suptitle('Clustered VMI')
         
-        index=np.where(np.logical_and(toa>toa_int[0],toa<toa_int[1]))
+        index=np.where(np.logical_and(t>toa_int[0],t<toa_int[1]))
         xs=x[index]
         ys=y[index]
         ts=t[index]
@@ -185,7 +185,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
             
         plt.subplot(222)
         plt.title("ToA vs ToT")
-        a=plt.hist2d(toa, tot , bins=256, range=[toa_int,rtot])
+        a=plt.hist2d(t, tot , bins=256, range=[toa_int,rtot])
         plt.xlabel("ToA (ns)")
         plt.ylabel("ToT (ns)")
         plt.tight_layout(rect=window)
