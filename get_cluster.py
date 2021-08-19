@@ -12,7 +12,7 @@ from multiprocessing import Pool
 from datetime import datetime
 import argparse
 import os
-
+#%% Initializing
 parser = argparse.ArgumentParser(prog='get_cluster', description="Clusters data with rejection based on pulse time differences")
 parser.add_argument('--g', dest='groupsize', type=int, default=int(1e9), help="Clusters this many pulses at a time")
 parser.add_argument('--start', dest='start', type=float, default=0, help="Start of rejection window in ms")
@@ -58,8 +58,6 @@ if __name__ == '__main__':
     time_after=1e-3*(toa-pulse_times[pulses-1])
     
     
-    
-    
     #%% Formatting Data
     print('Formatting and Rejecting Data:', datetime.now().strftime("%H:%M:%S"))
     data=[]
@@ -71,6 +69,7 @@ if __name__ == '__main__':
         if idxl<idxr:
             data.append([x[idxl:idxr],y[idxl:idxr]])
     dlength=sum([len(i[0]) for i in data])
+    
     
     #%% Clustering Data
     print('Clustering:', datetime.now().strftime("%H:%M:%S"))    
@@ -87,7 +86,8 @@ if __name__ == '__main__':
     
     clust=np.zeros(dlength, dtype=int)
     pulse_index=np.zeros(len(data),dtype=int)
-        
+    
+    
     #%% Collecting Clustered Data
     print('Collecting Cluster Indicies:', datetime.now().strftime("%H:%M:%S"))
     #Collect all data into one array
@@ -108,6 +108,7 @@ if __name__ == '__main__':
     toam=np.zeros(num)
     totm=np.zeros(num)
     cur_pulse=0
+
     
     #%% Averaging Across Clusters
     print('Averaging Across Clusters:', datetime.now().strftime("%H:%M:%S"))
@@ -131,6 +132,7 @@ if __name__ == '__main__':
             i=i+1
         
     print(len(xm))
+
     
     #%% Saving Data to Output File
     print('Saving:', datetime.now().strftime("%H:%M:%S"))

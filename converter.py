@@ -12,13 +12,11 @@ from datetime import datetime
 from numba import njit
 from numba import prange
 import platform
-
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
-
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
-
+#%% Initializing
 @njit('f8[:](f8[:], f8[:],i8)')
 def compensate(toa,diff,period):
     #Compensates for jumps down of period in toa
@@ -40,8 +38,8 @@ def string_process(data):
         out[i]=data[i].strip().split()
     return out
 
-
 if __name__ == '__main__':
+    
     parser = argparse.ArgumentParser(prog='converter', description="Converts data from .tpx3 to .h5")
     parser.add_argument('--x', dest='executable', default='TPX3_read_and_convert.exe' if platform.system()=='Windows' else './a.out', help="The compiled C++ code for converting to .txt")
     parser.add_argument('--o', dest='output', default='notset', help="The output HDF5 file")
@@ -49,17 +47,19 @@ if __name__ == '__main__':
     parser.add_argument('--noread',action='store_true',help="Read directly from intermediate file")
     parser.add_argument('filename')
     
-    
-    
     args = parser.parse_args()
     filename=args.filename
     in_name=filename
     
     out_name=filename[:-4]+'h5' if args.output=='notset' else args.output
+    
+    
     #%% Running C++ Conversion Code
     if not args.noread:
         print('Starting C++ Conversion:', datetime.now().strftime("%H:%M:%S"))
         proc = subprocess.run([args.executable, filename], capture_output=True)
+    
+    
     #%% Collecting Data from Intermediate File
     print('Collecting Data :', datetime.now().strftime("%H:%M:%S"))
     with open('converted.txt') as f:
@@ -85,6 +85,7 @@ if __name__ == '__main__':
             x.append(int(d[3]))
             y.append(int(d[4]))
     
+    
     #%% Compensating for Discontinuities
     if not args.nocomp:
         print('Starting Compensation:', datetime.now().strftime("%H:%M:%S"))
@@ -95,6 +96,7 @@ if __name__ == '__main__':
         diff=np.diff(tdc_time)
         tdc_max=107374182400000
         tdc_time=compensate(np.array(tdc_time),diff,tdc_max)
+    
     
     #%% Saving Data to H5 File
     print('Saving:', datetime.now().strftime("%H:%M:%S"))

@@ -38,7 +38,6 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     rtot=[0,200]
     n=256
     
-    
     pulse_times=tdc_time[()][np.where(tdc_type==1)]
     pulse_corr=np.searchsorted(pulse_times,toa[()])
     time_after=1e-3*(toa[()]-pulse_times[pulse_corr-1])
@@ -102,6 +101,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     ts=time_after[index]
     tots=tot[index]
     
+    
     #%% Page 2: Time Cropped Spectra
     plt.figure(figsize=fsize)
     plt.suptitle('Time Cropped')
@@ -155,6 +155,8 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     pdf.savefig()
     
     if not args.noclust:
+        
+        
         #%% Loading Clustered Data
         print('Loading Clustered Data:', datetime.now().strftime("%H:%M:%S"))
         with h5py.File(args.filename, mode='r') as fh5:
@@ -163,6 +165,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
             tot = fh5['Cluster']['tot'][()]
             t = fh5['Cluster']['t'][()]
         print('Loading Clustered Data:', datetime.now().strftime("%H:%M:%S"))
+
 
         #%%Page 4: Clustered VMI
         plt.figure(figsize=fsize)
@@ -201,6 +204,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         
         pdf.savefig()
         
+        
         #%% ToA Correction
         print('Starting ToA Correction:', datetime.now().strftime("%H:%M:%S"))
         
@@ -215,6 +219,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
             toa_correction[corr]=means[i]
         
         tfix=ts-toa_correction
+        
         
         #%% Page 5: ToA Corrected VMI
         plt.figure(figsize=fsize)
