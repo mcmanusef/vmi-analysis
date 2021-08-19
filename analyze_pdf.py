@@ -8,12 +8,12 @@ Created on Fri Aug 13 11:41:02 2021
 import h5py
 import matplotlib.backends.backend_pdf
 import matplotlib as mpl
+from datetime import datetime
 mpl.rc('image', cmap='jet')
 mpl.rcParams['font.size']=12
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
-from matplotlib.cm import ScalarMappable as SM
 plt.close('all')    
 
 parser = argparse.ArgumentParser(prog='Analyze Data', description="Analyze a clustered dataset and save the data to a pdf")
@@ -23,19 +23,21 @@ parser.add_argument('filename')
 args = parser.parse_args()
 
 with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
-
+    #%% Loading Data
+    print('Loading Unclustered Data:', datetime.now().strftime("%H:%M:%S"))
     with h5py.File(args.filename, mode='r') as fh5:
-        tdc_time=fh5['tdc_time'][()] # tdc times are stored in ps
+        tdc_time=fh5['tdc_time'][()]
         tdc_type = fh5['tdc_type'][()]
         x = fh5['x'][()]
         y = fh5['y'][()]
         tot = fh5['tot'][()]
         toa = fh5['toa'][()]
-        
+    
     fsize=(10,10)
     window=[0, 0, 1, 0.95]
     rtot=[0,200]
     n=256
+    
     
     pulse_times=tdc_time[()][np.where(tdc_type==1)]
     pulse_corr=np.searchsorted(pulse_times,toa[()])
@@ -45,6 +47,8 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     tof_corr=np.searchsorted(pulse_times,tof_times)
     t_tof=1e-3*(tof_times-pulse_times[tof_corr-1])
     
+
+    #%% Page 1: Unprocessed Data
     plt.figure(figsize=fsize)
     plt.suptitle('Unprocessed')
     plt.subplot(221)
@@ -80,9 +84,8 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     pdf.savefig()
     
     
-    
-    plt.figure(figsize=fsize)
-    plt.suptitle('Time Cropped')
+    #%% Time Cropping Data
+    print('Time Cropping:', datetime.now().strftime("%H:%M:%S"))
     
     toa_peak=toa_bins[np.where(toa_hist==max(toa_hist))][0]
     tof_peak=tof_bins[np.where(tof_hist==max(tof_hist))][0]
@@ -98,6 +101,10 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     ys=y[index]
     ts=time_after[index]
     tots=tot[index]
+    
+    #%% Page 2: Time Cropped Spectra
+    plt.figure(figsize=fsize)
+    plt.suptitle('Time Cropped')
     
     plt.subplot(211)
     plt.hist(t_tof,bins=100, range=tof_int)
@@ -116,7 +123,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     pdf.savefig()
     
     
-    
+    #%% Page 3: Time Cropped VMI
     plt.figure(figsize=fsize)
     plt.suptitle('VMI Time Cropped')
     
@@ -128,14 +135,14 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     
     plt.subplot(224)
     plt.hist2d(ts,xs,bins=256,range=[toa_int,[0,256]])
-    plt.xlabel("t")
+    plt.xlabel("t (ns)")
     plt.ylabel("x")
     plt.tight_layout(rect=window)
     
     plt.subplot(221)
     plt.hist2d(ys,ts,bins=256,range=[[0,256],toa_int])
     plt.xlabel("y")
-    plt.ylabel("t")
+    plt.ylabel("t (ns)")
     plt.tight_layout(rect=window)
     
     plt.subplot(222)
@@ -147,15 +154,17 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     
     pdf.savefig()
     
-    
     if not args.noclust:
+        #%% Loading Clustered Data
+        print('Loading Clustered Data:', datetime.now().strftime("%H:%M:%S"))
         with h5py.File(args.filename, mode='r') as fh5:
             x = fh5['Cluster']['x'][()]
             y = fh5['Cluster']['y'][()]
             tot = fh5['Cluster']['tot'][()]
             t = fh5['Cluster']['t'][()]
-        
-        
+        print('Loading Clustered Data:', datetime.now().strftime("%H:%M:%S"))
+
+        #%%Page 4: Clustered VMI
         plt.figure(figsize=fsize)
         plt.suptitle('Clustered VMI')
         
@@ -192,6 +201,8 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         
         pdf.savefig()
         
+        #%% ToA Correction
+        print('Starting ToA Correction:', datetime.now().strftime("%H:%M:%S"))
         
         totspace=np.linspace(rtot[0],rtot[1], num=n)
         dtot=totspace[1]-totspace[0]
@@ -205,8 +216,9 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         
         tfix=ts-toa_correction
         
+        #%% Page 5: ToA Corrected VMI
         plt.figure(figsize=fsize)
-        plt.suptitle('TOA Corrected VMI')
+        plt.suptitle('ToA Corrected VMI')
         
         plt.subplot(223)
         plt.hist2d(ys,xs,bins=256,range=[[0,256],[0,256]])
