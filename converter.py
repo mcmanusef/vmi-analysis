@@ -20,6 +20,25 @@ warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 # %% Initializing
 
 
+@njit
+def numbadiff(x):
+    """
+    Numba version of np.diff
+
+    Parameters
+    ----------
+    x : float[:]
+        Input Array.
+
+    Returns
+    -------
+    float[:]
+        np.diff(x)
+
+    """
+    return x[1:] - x[:-1]
+
+
 @njit('f8[:](f8[:], i8)')
 def compensate(toa, period):
     """
@@ -39,7 +58,7 @@ def compensate(toa, period):
 
     """
     # Compensates for jumps down of period in toa
-    diff = np.diff(toa)
+    diff = numbadiff(toa)
     n = len(toa)
     toa_comp = np.zeros_like(toa)
     toa_comp[0] = toa[0]

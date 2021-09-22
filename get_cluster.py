@@ -116,7 +116,7 @@ if __name__ == '__main__':
     clusters = list(np.zeros(len(data)))
     for i in range(int(len(data)/args.groupsize)+1):
         temp = min((i+1)*args.groupsize, len(data))
-        with Pool(os.cpu_count) as p:
+        with Pool(os.cpu_count()) as p:
             to_add = p.map(get_clusters, data[i*args.groupsize:temp])
             clusters[i*args.groupsize:temp] = list(to_add)
 
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     print('Collecting Cluster Indicies:',
           datetime.now().strftime("%H:%M:%S"))
     # Collect all data into one array
-    for (i, c) in clusters:
+    for (i, c) in enumerate(clusters):
         temp = max(c)
         c = np.where(c == -1, c, c+current_index)
         clust[place:place+len(c)] = c

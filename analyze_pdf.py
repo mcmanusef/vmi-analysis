@@ -20,6 +20,8 @@ parser = argparse.ArgumentParser(
     prog='Analyze Data', description="Analyze a clustered dataset and save the data to a pdf")
 parser.add_argument('--out', dest='output',
                     default="output.pdf", help="Output Filename")
+parser.add_argument('--t', dest='t', type=int,
+                    default=0, help="time in ns at which the laser is in the chamber")
 parser.add_argument('--noclust', action='store_true',
                     help="Do not analyze any clustered data.")
 parser.add_argument('filename')
@@ -43,11 +45,11 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
 
     pulse_times = tdc_time[()][np.where(tdc_type == 1)]
     pulse_corr = np.searchsorted(pulse_times, toa[()])
-    time_after = 1e-3*(toa[()]-pulse_times[pulse_corr-1])
+    time_after = 1e-3*(toa[()]-pulse_times[pulse_corr-1])-args.t
 
     tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
     tof_corr = np.searchsorted(pulse_times, tof_times)
-    t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])
+    t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
 
     # %% Page 1: Unprocessed Data
     plt.figure(figsize=fsize)
@@ -68,7 +70,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
 
     plt.subplot(223)
     plt.hist(t_tof, bins=100, range=[0, 1e6])
-    tof_hist, tof_bins = np.histogram(t_tof, bins=10000, range=[0, 1e6])
+    tof_hist, tof_bins = np.histogram(t_tof, bins=1000, range=[0, 1e6])
     plt.title("Ion TOF Spectrum")
     plt.xlabel("TOF (ns)")
     plt.ylabel("Count")
@@ -162,8 +164,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
             x = fh5['Cluster']['x'][()]
             y = fh5['Cluster']['y'][()]
             tot = fh5['Cluster']['tot'][()]
-            t = fh5['Cluster']['t'][()]
-        print('Loading Clustered Data:', datetime.now().strftime("%H:%M:%S"))
+            t = fh5['Cluster']['t'][()]-args.t
 
         # %%Page 4: Clustered VMI
         plt.figure(figsize=fsize)
@@ -183,14 +184,14 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
 
         plt.subplot(224)
         plt.hist2d(ts, xs, bins=256, range=[toa_int, [0, 256]])
-        plt.xlabel("t")
+        plt.xlabel("t (ns)")
         plt.ylabel("x")
         plt.tight_layout(rect=window)
 
         plt.subplot(221)
         plt.hist2d(ys, ts, bins=256, range=[[0, 256], toa_int])
         plt.xlabel("y")
-        plt.ylabel("t")
+        plt.ylabel("t (ns)")
         plt.tight_layout(rect=window)
 
         plt.subplot(222)
@@ -232,7 +233,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         plt.subplot(224)
         plt.hist2d(tfix, xs, bins=256, range=[
                    [-toa_range/2, toa_range/2], [0, 256]])
-        plt.xlabel("t")
+        plt.xlabel("t (ns)")
         plt.ylabel("x")
         plt.tight_layout(rect=window)
 
@@ -240,7 +241,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         plt.hist2d(ys, tfix, bins=256, range=[
                    [0, 256], [-toa_range/2, toa_range/2]])
         plt.xlabel("y")
-        plt.ylabel("t")
+        plt.ylabel("t (ns)")
         plt.tight_layout(rect=window)
 
         plt.subplot(222)

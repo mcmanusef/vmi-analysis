@@ -9,15 +9,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import matplotlib as mpl
+from matplotlib.cm import ScalarMappable as SM
 mpl.rc('image', cmap='jet')
 plt.close('all')
 
-name = 'LightMagFP0000001'
-in_name = name+'_cluster_r.h5'
+# 'Ar_P_L_G_DVT000001'  # 'ar_Mike000000'  # "Ar_S_000001"  #
+name = 'xe_2tdc_horiz_10_000000'  # "9_3 data\\N_P_L_G000001"
+in_name = name+'_cluster.h5'
 
-n = 256
-tof_range = [0, 1e6]
-rt = [251800, 252200]
+n = 128
+tof_range = [4720, 4752]
+rt = [4325, 4425]
 
 with h5py.File(in_name, mode='r') as f:
     tdc_time = f['tdc_time'][()]
@@ -41,6 +43,7 @@ with h5py.File(in_name, mode='r') as f:
     xs = [[]]*len(tof_index)
     ys = [[]]*len(tof_index)
     ts = [[]]*len(tof_index)
+    tofs = [[]]*len(tof_index)
 
     for [j, i] in enumerate(tof_corr[tof_index]):
         idxr = np.searchsorted(pulse_corr, i, side='right')
@@ -49,21 +52,21 @@ with h5py.File(in_name, mode='r') as f:
             xs[j] = x[idxl:idxr]
             ys[j] = y[idxl:idxr]
             ts[j] = t_e[idxl:idxr]
+            tofs[j] = np.array([t_i[tof_index][j]]*(idxr-idxl))
 
     xs = np.array([a for ll in xs for a in ll])
     ys = np.array([a for ll in ys for a in ll])
     ts = np.array([a for ll in ts for a in ll])
+    tofs = np.array([a for ll in tofs for a in ll])
 
     index = np.where(np.logical_and(ts > rt[0], ts < rt[1]))[0]
     xs = xs[index]
     ys = ys[index]
     ts = ts[index]
-
-    print(len(tof_index))
-    print(len(xs))
+    tofs = tofs[index]
 
     plt.figure(1)
-    plt.hist(t_i[tof_index], bins=100)
+    plt.hist(t_i[tof_index], range=tof_range, bins=200)
 
     plt.figure(2)
     plt.subplot(223)
@@ -71,12 +74,37 @@ with h5py.File(in_name, mode='r') as f:
     plt.xlabel("y")
     plt.ylabel("x")
 
+    print(tof_range)
+
     plt.subplot(224)
-    plt.hist2d(ts, xs, bins=n, range=[rt, [0, 256]])
+    plt.hist2d(tofs, xs, bins=n, range=[tof_range, [0, 256]])
     plt.xlabel("t")
     plt.ylabel("x")
 
     plt.subplot(221)
-    plt.hist2d(ys, ts, bins=n, range=[[0, 256], rt])
+    plt.hist2d(ys, tofs, bins=n, range=[[0, 256], tof_range])
     plt.xlabel("y")
     plt.ylabel("t")
+    plt.ylabel("t")
+
+
+plt.figure(5)
+ax = plt.axes(projection='3d')
+h, edges = np.histogramdd((xs, ys, tofs), bins=n, range=[
+                          [0, 256], [0, 256], tof_range])
+xs, ys, zs = np.meshgrid(edges[0][:-1]+edges[0][1]/2,
+                         edges[1][:-1]+edges[1][1]/2, edges[2][:-1]+edges[2][1]/2)
+
+xs, ys, zs, h = (xs.flatten(), ys.flatten(), zs.flatten(), h.flatten())
+
+ax.set_xlabel("X")
+ax.set_ylabel("Y")
+ax.set_zlabel("ToF (ns)")
+index = np.where(h > 1)
+
+cm = SM().to_rgba(h[index])
+#cm[:, 3] = h[index]/max(h[index])
+
+
+ax.scatter3D(xs[index], ys[index], zs[index], color=cm, s=h[index])
+# b=plt.hist(y_s[index], bins=n,range=[0,256])#, range=rtc)
