@@ -12,9 +12,9 @@ mpl.rc('image', cmap='jet')
 plt.close('all')
 
 # ['Kr_P_L_G000000', 'Kr_P_L_G000001']
-files = ['Ar_P_L_G_05kV000001', 'Ar_P_L_G_DVT2000000',
+files = ['Ar_P_L_G_05kV000001', 'ar_Mike000000', 'Ar_P_L_G_DVT2000000',
          'Ar_P_L_G_25VT000000', 'Ar_P_L_G_3kV000000']
-names = ['0.5 kV (F)', '2.0 kV (T)', '2.5kV (T)',
+names = ['0.5 kV (F)', '1 kV (Last Week)', '2.0 kV (T)', '2.5kV (T)',
          '3.0kV (F)']  # ['Friday', 'Thursday']
 
 files = ['9_3 data\\'+i+'_cluster.h5' for i in files]
