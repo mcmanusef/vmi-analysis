@@ -25,6 +25,9 @@ parser.add_argument('--start', dest='start',
                     type=float, default=0,
                     help="Start of rejection window in ms")
 
+parser.add_argument('--t', dest='t', type=int,
+                    default=0, help="time in ns at which the laser is in the chamber")
+
 parser.add_argument('--end', dest='end',
                     type=float, default=1e9,
                     help="End of rejection window in ms")
@@ -93,7 +96,11 @@ if __name__ == '__main__':
         np.diff(pulse_times) <= 1e9*args.end)))[0]
 
     pulses = np.searchsorted(pulse_times, toa)
-    time_after = 1e-3*(toa-pulse_times[pulses-1])
+    time_after = 1e-3*(toa-pulse_times[pulses-1])-args.t
+
+    tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
+    tof_corr = np.searchsorted(pulse_times, tof_times)
+    t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
 
     # %% Formatting Data
     print('Formatting and Rejecting Data:',
@@ -178,6 +185,7 @@ if __name__ == '__main__':
         f.create_dataset('x', data=x)
         f.create_dataset('y', data=y)
         f.create_dataset('t', data=time_after)
+        f.create_dataset('t_tof', data=t_tof)
         f.create_dataset('toa', data=toa)
         f.create_dataset('tot', data=tot)
         f.create_dataset('tdc_time', data=tdc_time)
