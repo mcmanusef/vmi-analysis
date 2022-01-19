@@ -69,7 +69,7 @@ def compensate(toa, period):
     return toa_comp
 
 
-@njit(parallel=True)
+# @njit(parallel=True)
 def string_process(data):
     """
     Strip newline characters and split data into separate numbers.
@@ -86,8 +86,9 @@ def string_process(data):
 
     """
     out = [['']]*len(data)
-    for i in prange(len(data)):
-        out[i] = data[i].strip().split()
+    for i in range(len(data)):
+        a = data[i].strip().split()
+        out[i] = a
     return out
 
 
@@ -127,6 +128,7 @@ if __name__ == '__main__':
         data = f.readlines()
     data = string_process(data)
 
+    print('Sorting Data :', datetime.now().strftime("%H:%M:%S"))
     x = []
     y = []
     toa = []

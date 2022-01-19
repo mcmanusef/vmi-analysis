@@ -28,16 +28,15 @@ zmax = 5000
 delta_shots_max = 900*1e6  # convert \mu s to ps
 delta_event_to_tdc2 = 10*1e6  # convert \mu s to ps
 # 'new_tdc1_test000000'#'arLightin2.3-7000002' #'xe_2tdc_vert_8_000000'#
-name = 'xe_2tdc_vert_8_000000_cluster'  # 'ar_Mike000000_cluster'
+name = 'ar1000000'#'xe_2tdc_vert_8_000000_cluster'  # 'ar_Mike000000_cluster'
 stony = 0
 in_name = [name+".tpx3"]
 out_name = name+".h5"
 gaps = 0
 maxTOADiff = 1  # /1000000
 clusterSquareSize = 16
-
-#conv = Converter(in_name, out_name, boardLayout, gaps, clusterSquareSize, maxTOADiff, cluster=True)
-
+conv = Converter(in_name, out_name, boardLayout, gaps, clusterSquareSize, maxTOADiff, cluster=True)
+print('b')
 max_to_plot = -1
 
 with h5py.File(out_name, mode='r') as fh5:

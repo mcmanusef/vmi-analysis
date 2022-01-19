@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep  7 15:35:54 2021
+Created on Wed Jan 19 14:00:13 2022
 
 @author: mcman
 """
@@ -9,35 +9,30 @@ import matplotlib.pyplot as plt
 import h5py
 import matplotlib as mpl
 mpl.rc('image', cmap='jet')
-plt.close('all')
+plt.close(fig=1)
 
-# ['Kr_P_L_G000000', 'Kr_P_L_G000001']
-# ['Ar_P_L_G_05kV000001', 'ar_Mike000000', 'Ar_P_L_G_DVT2000000',
-files = ["air000003_cluster.h5"]
-# 'Ar_P_L_G_25VT000000', 'Ar_P_L_G_3kV000000']
-# ['0.5 kV (F)', '1 kV (Last Week)', '2.0 kV (T)', '2.5kV (T)',
-names = ["TOF"]
-# '3.0kV (F)']  # ['Friday', 'Thursday']
-
-#files = ['9_3 data\\'+i+'_cluster.h5' for i in files]
+files = ["air000001.h5"]
+names = ["Air1"]
 
 offset = 252000
 tof_range = [0, 4000]
 
-plt.figure()
+plt.figure(1)
 
 for i, fname in enumerate(files):
     with h5py.File(fname, mode='r') as f:
         tdc_time = f['tdc_time'][()]
         tdc_type = f['tdc_type'][()]
-        pulse_times = tdc_time[()][np.where(tdc_type == 1)]
-        print(len(pulse_times))
-        tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
+        times = tdc_time[()][np.where(tdc_type == 1)]
+        lengths = np.diff(tdc_time)[np.where(tdc_type == 1)]
+        pulse_times = times[np.where(lengths > 1e6)]
+        tof_times = times[np.where(lengths < 1e6)]
         tof_corr = np.searchsorted(pulse_times, tof_times)
         t_i = 1e-3*(tof_times-pulse_times[tof_corr-1])-offset
+        print(len(pulse_times))
+        print(len(tof_times))
 
     plt.hist(t_i, bins=300, range=tof_range, label=names[i], density=False)
-    print(len(t_i[np.where(t_i < 4000)]))
 
 
 plt.title("Combined TOF Spectrum")
