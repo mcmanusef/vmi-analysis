@@ -35,21 +35,16 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
         tdc_type = fh5['tdc_type'][()]
         x = fh5['x'][()]
         y = fh5['y'][()]
+        time_after = fh5['t'][()]
         tot = fh5['tot'][()]
         toa = fh5['toa'][()]
+        t_tof = fh5['t_tof'][()]
+        pulse_times = fh5['pulse_times'][()]
 
     fsize = (10, 10)
     window = [0, 0, 1, 0.95]
     rtot = [0, 200]
     n = 256
-
-    pulse_times = tdc_time[()][np.where(tdc_type == 1)]
-    pulse_corr = np.searchsorted(pulse_times, toa[()])
-    time_after = 1e-3*(toa[()]-pulse_times[pulse_corr-1])-args.t
-
-    tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
-    tof_corr = np.searchsorted(pulse_times, tof_times)
-    t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
 
     # %% Page 1: Unprocessed Data
     plt.figure(figsize=fsize)
@@ -92,8 +87,8 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     toa_peak = toa_bins[np.where(toa_hist == max(toa_hist))][0]
     tof_peak = tof_bins[np.where(tof_hist == max(tof_hist))][0]
 
-    toa_range = 1000
-    tof_range = 2000
+    toa_range = 2000
+    tof_range = 8000
 
     toa_int = [toa_peak-toa_range/2, toa_peak+toa_range/2]
     tof_int = [tof_peak-tof_range/2, tof_peak+tof_range/2]

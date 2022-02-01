@@ -32,6 +32,9 @@ parser.add_argument('--end', dest='end',
                     type=float, default=1e9,
                     help="End of rejection window in ms")
 
+parser.add_argument('--combined', action='store_true',
+                    help="Use TDC1 for both TOF and Laser Timing pulses")
+
 parser.add_argument('--reverse', action='store_true',
                     help="Reject all data within window")
 
@@ -89,7 +92,22 @@ if __name__ == '__main__':
         toa = fh5['toa'][()]
 
     toa = np.where(np.logical_and(x >= 194, x < 204), toa-25000, toa)
-    pulse_times = tdc_time[np.where(tdc_type == 1)]
+    if not args.combined:
+        pulse_times = tdc_time[np.where(tdc_type == 1)]
+        tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
+        tof_corr = np.searchsorted(pulse_times, tof_times)
+        t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
+
+    else:
+        times = tdc_time[()][np.where(tdc_type == 1)]
+        lengths = np.diff(tdc_time)[np.where(tdc_type == 1)]
+        pulse_times = times[np.where(lengths > 1e6)]
+        tof_times = times[np.where(lengths < 1e6)]
+        tof_corr = np.searchsorted(pulse_times, tof_times)
+        t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
+        etof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
+        etof_corr = np.searchsorted(pulse_times, etof_times)
+        t_etof = 1e-3*(etof_times-pulse_times[etof_corr-1])-args.t
 
     to_keep = np.where(np.logical_xor(args.reverse, np.logical_and(
         1e9*args.start <= np.diff(pulse_times),
@@ -97,10 +115,6 @@ if __name__ == '__main__':
 
     pulses = np.searchsorted(pulse_times, toa)
     time_after = 1e-3*(toa-pulse_times[pulses-1])-args.t
-
-    tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
-    tof_corr = np.searchsorted(pulse_times, tof_times)
-    t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
 
     # %% Formatting Data
     print('Formatting and Rejecting Data:',
@@ -182,10 +196,13 @@ if __name__ == '__main__':
     # %% Saving Data to Output File
     print('Saving:', datetime.now().strftime("%H:%M:%S"))
     with h5py.File(out_name, 'w') as f:
+        f.create_dataset('pulse_times', data=pulse_times)
         f.create_dataset('x', data=x)
         f.create_dataset('y', data=y)
         f.create_dataset('t', data=time_after)
         f.create_dataset('t_tof', data=t_tof)
+        if args.combined:
+            f.create_dataset('t_etof', data=t_etof)
         f.create_dataset('toa', data=toa)
         f.create_dataset('tot', data=tot)
         f.create_dataset('tdc_time', data=tdc_time)

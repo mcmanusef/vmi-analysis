@@ -14,7 +14,7 @@ mpl.rc('image', cmap='jet')
 plt.close('all')
 
 n = 256
-rt = [4000, 5000]
+rt = [-20, 20]
 rtot = [0, 200]
 
 if 0:
@@ -23,8 +23,8 @@ else:
     rtc = [-10, 10]
 
 # 'LightMagFP000001'#'LnGM_FP000000'#'Data2000000'#
-name = 'xe_2tdc_vert_8_000000'
-in_name = name+'_cluster.h5'  # 'ar004'#
+name = 'LightMagFP000000'
+in_name = name+'_corrected.h5'  # 'ar004'#
 
 use_cluster = 1
 with h5py.File(in_name, mode='r')as f:

@@ -11,20 +11,15 @@ import matplotlib as mpl
 mpl.rc('image', cmap='jet')
 plt.close('all')
 
-# ['Kr_P_L_G000000', 'Kr_P_L_G000001']
-# ['Ar_P_L_G_05kV000001', 'ar_Mike000000', 'Ar_P_L_G_DVT2000000',
-files = ["air000003_cluster.h5"]
-# 'Ar_P_L_G_25VT000000', 'Ar_P_L_G_3kV000000']
-# ['0.5 kV (F)', '1 kV (Last Week)', '2.0 kV (T)', '2.5kV (T)',
-names = ["TOF"]
-# '3.0kV (F)']  # ['Friday', 'Thursday']
 
-#files = ['9_3 data\\'+i+'_cluster.h5' for i in files]
+files = ["air000000_cluster.h5", "air000003_cluster.h5"]
+names = ["Air0", "Air3"]
+
 
 offset = 252000
-tof_range = [0, 4000]
+tof_range = [0, 8000]
 
-plt.figure()
+plt.figure(0)
 
 for i, fname in enumerate(files):
     with h5py.File(fname, mode='r') as f:
@@ -34,7 +29,7 @@ for i, fname in enumerate(files):
         print(len(pulse_times))
         tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
         tof_corr = np.searchsorted(pulse_times, tof_times)
-        t_i = 1e-3*(tof_times-pulse_times[tof_corr-1])-offset
+        t_i = 1e-3*(tof_times-pulse_times[tof_corr-1])-offset+4000*i
 
     plt.hist(t_i, bins=300, range=tof_range, label=names[i], density=False)
     print(len(t_i[np.where(t_i < 4000)]))

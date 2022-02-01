@@ -103,6 +103,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--out', dest='output',
                         default='notset', help="The output HDF5 file")
+
     parser.add_argument('--nocomp', action='store_true',
                         help="Do not compensate for 26.8 s jumps in ToA and 107.3 s jumps in TDC")
 
