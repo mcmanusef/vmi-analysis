@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
         unsigned long long temp;
 		
         for (unsigned long long i = 0; i < NumofPacket; i++) {
+			cout << i <<" / " << NumofPacket << endl
             memcpy(HeaderBuffer, &datapacket[i], 8);  			
             if (HeaderBuffer[0] == 'T' && HeaderBuffer[1] == 'P' && HeaderBuffer[2] == 'X') {
                 int size = ((0xff & HeaderBuffer[7]) << 8) | (0xff & HeaderBuffer[6]);
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
                         TDC_timestamp = coarsetime * 25E-9 + trigtime_fine * time_unit*1E-9;
 						//uncomment below to save TDC timestamps into the txt file                        
 						xy_file <<"0  " << tdc_type << "  " << setprecision(15) << TDC_timestamp << endl;  
-                        cout<< "TDC timestamp: " << setprecision(15) << TDC_timestamp << endl;
+                        //cout<< "TDC timestamp: " << setprecision(15) << TDC_timestamp << endl;
 						numofTDC=numofTDC+1;												
                         break;
 
@@ -155,7 +156,7 @@ int main(int argc, char *argv[])
 
 						//uncomment below to save the chip data into the text file;
 						xy_file << "1  " << setprecision(15) << global_timestamp / 1E9 << "  " << TOTns << "  " << x << "  " << y << endl;   //toa, tot, x and y data can be saved into txt data
-                        cout<< "Chip-ToA: " << setprecision(15) << global_timestamp / 1E9 << "  ToT: " << TOTns << " x: " << x << " y: " << y << endl;
+                        // cout<< "Chip-ToA: " << setprecision(15) << global_timestamp / 1E9 << "  ToT: " << TOTns << " x: " << x << " y: " << y << endl;
 					    
                         break;
 
