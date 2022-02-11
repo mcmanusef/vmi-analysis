@@ -87,8 +87,8 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     toa_peak = toa_bins[np.where(toa_hist == max(toa_hist))][0]
     tof_peak = tof_bins[np.where(tof_hist == max(tof_hist))][0]
 
-    toa_range = 2000
-    tof_range = 8000
+    toa_range = 200
+    tof_range = 16000
 
     toa_int = [toa_peak-toa_range/2, toa_peak+toa_range/2]
     tof_int = [tof_peak-tof_range/2, tof_peak+tof_range/2]
@@ -105,7 +105,7 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     plt.suptitle('Time Cropped')
 
     plt.subplot(211)
-    plt.hist(t_tof, bins=100, range=tof_int)
+    plt.hist(t_tof, bins=500, range=tof_int)
     plt.title("Ion TOF Spectrum")
     plt.xlabel("TOF (ns)")
     plt.ylabel("Count")

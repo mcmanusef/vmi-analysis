@@ -70,7 +70,7 @@ def compensate(toa, period):
 
 
 # @njit(parallel=True)
-def string_process(data):
+def string_process(file, num_lines):
     """
     Strip newline characters and split data into separate numbers.
 
@@ -85,11 +85,20 @@ def string_process(data):
         A list of the individual numbers in each line, as strings
 
     """
-    out = [['']]*len(data)
-    for i in range(len(data)):
-        a = data[i].strip().split()
-        out[i] = a
-    return out
+    out = [['']]*num_lines
+    tcount = 0
+    ccount = 0
+    for i, line in enumerate(file):
+        d = line.strip().split()
+        if d[0] == "0":
+            out[i] = [0, int(d[1])+1, float(d[2])*1e12]
+            tcount = tcount+1
+        elif d[0] == "1":
+            out[i] = [1, float(d[1])*1e12, int(d[2])//25, int(d[3]), int(d[4])]
+            ccount = ccount+1
+        else:
+            out[i] = d
+    return out, ccount, tcount
 
 
 if __name__ == '__main__':
@@ -126,8 +135,10 @@ if __name__ == '__main__':
     # %% Collecting Data from Intermediate File
     print('Collecting Data :', datetime.now().strftime("%H:%M:%S"))
     with open('converted.txt') as f:
-        data = f.readlines()
-    data = string_process(data)
+        num_lines = sum(1 for line in f)
+
+    with open('converted.txt') as f:
+        data, clen, tlen = string_process(f, num_lines)
 
     print('Sorting Data :', datetime.now().strftime("%H:%M:%S"))
     x = []
@@ -141,13 +152,13 @@ if __name__ == '__main__':
     for d in data:
         # Sorts data
         if int(d[0]) == 0:
-            tdc_type.append(int(d[1])+1)
-            tdc_time.append(float(d[2])*1e12)
+            tdc_type.append(d[1])
+            tdc_time.append(d[2])
         elif int(d[0]) == 1:
-            toa.append(float(d[1])*1e12)
-            tot.append(int(d[2])//25)
-            x.append(int(d[3]))
-            y.append(int(d[4]))
+            toa.append(d[1])
+            tot.append(d[2])
+            x.append(d[3])
+            y.append(d[4])
 
     # %% Compensating for Discontinuities
     if not args.nocomp:

@@ -12,12 +12,12 @@ mpl.rc('image', cmap='jet')
 plt.close('all')
 
 
-files = ["air000000_cluster.h5", "air000003_cluster.h5"]
-names = ["Air0", "Air3"]
+files = ["ar000000_cluster.h5"]
+names = ["Data"]
 
 
 offset = 252000
-tof_range = [0, 8000]
+tof_range = [0, 16000]
 
 plt.figure(0)
 

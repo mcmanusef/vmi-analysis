@@ -1,2 +1,5 @@
 .spyproject
 .vs
+*.tpx3
+*.h5
+*.pdf

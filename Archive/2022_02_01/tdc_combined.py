@@ -11,11 +11,11 @@ import matplotlib as mpl
 mpl.rc('image', cmap='jet')
 plt.close(fig=1)
 
-files = ["air000001.h5"]
+files = ["ar000000.h5"]
 names = ["Air1"]
 
-offset = 252000*0
-tof_range = [0, 1000000]
+offset = 252000
+tof_range = [0, 16000]
 
 plt.figure(1)
 
