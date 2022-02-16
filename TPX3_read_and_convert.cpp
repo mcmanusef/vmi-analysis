@@ -51,14 +51,17 @@ int main(int argc, char *argv[])
         unsigned long long temp64;
         cout << "filesize: " << fileLength/(1024*1024) <<"MB" << endl;
         unsigned long long NumofPacket = fileLength / 8;
+        cout << "C" << endl;
         unsigned long long* datapacket = new unsigned long long [NumofPacket];
+        cout << "A" << endl;
         myfile.read((char*) datapacket, fileLength);
         myfile.close();
+        cout << "B" << endl;
         char* HeaderBuffer = new char[8];
         unsigned long long temp;
 		
         for (unsigned long long i = 0; i < NumofPacket; i++) {
-			cout << i <<" / " << NumofPacket << endl
+            cout << i << " / " << NumofPacket << endl;
             memcpy(HeaderBuffer, &datapacket[i], 8);  			
             if (HeaderBuffer[0] == 'T' && HeaderBuffer[1] == 'P' && HeaderBuffer[2] == 'X') {
                 int size = ((0xff & HeaderBuffer[7]) << 8) | (0xff & HeaderBuffer[6]);
