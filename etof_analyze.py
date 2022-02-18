@@ -19,7 +19,7 @@ in_name = name+'_cluster.h5'
 
 
 tof_range = [252200, 252400]
-n = 300  # 4*np.diff(tof_range)[0]
+n = 4*np.diff(tof_range)[0]
 rt = [252200, 252400]
 
 with h5py.File(in_name, mode='r') as f:
