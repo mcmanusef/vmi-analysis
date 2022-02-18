@@ -50,9 +50,9 @@ with matplotlib.backends.backend_pdf.PdfPages(args.output) as pdf:
     plt.figure(figsize=fsize)
     plt.suptitle('Unprocessed')
     plt.subplot(221)
-    plt.hist(np.diff(pulse_times)*1e-3-1e6, bins=10)
+    plt.hist(np.diff(pulse_times)*1e-6, bins=300, range=[0, 1100])
     plt.title("Pulse Times")
-    plt.xlabel('Pulse Time Differences (ns-1ms)')
+    plt.xlabel('Pulse Time Differences (us)')
     plt.ylabel('Counts')
     plt.tight_layout(rect=window)
 

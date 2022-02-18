@@ -100,7 +100,10 @@ if __name__ == '__main__':
 
     else:
         times = tdc_time[()][np.where(tdc_type == 1)]
-        lengths = np.diff(tdc_time)[np.where(tdc_type == 1)]
+        if not tdc_type[-1] == 1:
+            lengths = np.diff(tdc_time)[np.where(tdc_type == 1)]
+        else:
+            lengths = np.diff(tdc_time)[np.where(tdc_type == 1)[:-1]]
         pulse_times = times[np.where(lengths > 1e6)]
         tof_times = times[np.where(lengths < 1e6)]
         tof_corr = np.searchsorted(pulse_times, tof_times)
@@ -203,11 +206,14 @@ if __name__ == '__main__':
         f.create_dataset('t_tof', data=t_tof)
         if args.combined:
             f.create_dataset('t_etof', data=t_etof)
+            f.create_dataset('etof_corr', data=etof_corr)
         f.create_dataset('toa', data=toa)
         f.create_dataset('tot', data=tot)
         f.create_dataset('tdc_time', data=tdc_time)
         f.create_dataset('tdc_type', data=tdc_type)
         f.create_dataset('cluster_index', data=clust)
+        f.create_dataset('pulse_index', data=pulses)
+        f.create_dataset('tof_corr', data=tof_corr)
 
         g = f.create_group('Cluster')
         g.create_dataset('x', data=xm)
@@ -215,3 +221,4 @@ if __name__ == '__main__':
         g.create_dataset('t', data=tm)
         g.create_dataset('toa', data=toam)
         g.create_dataset('tot', data=totm)
+        g.create_dataset('pulse_index', data=pulse_index)

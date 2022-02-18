@@ -13,14 +13,14 @@ from matplotlib.cm import ScalarMappable as SM
 mpl.rc('image', cmap='jet')
 plt.close('all')
 
-# 'Ar_P_L_G_DVT000001'  # 'ar_Mike000000'  # "Ar_S_000001"  #
-name = 'ar000002'  # "9_3 data\\N_P_L_G000001"
+
+name = 'kr000000'
 in_name = name+'_cluster.h5'
 
 
-tof_range = [252100, 252150]
-n = 4*np.diff(tof_range)[0]
-rt = [251900, 252200]
+tof_range = [252200, 252400]
+n = 300  # 4*np.diff(tof_range)[0]
+rt = [252200, 252400]
 
 with h5py.File(in_name, mode='r') as f:
     tdc_time = f['tdc_time'][()]

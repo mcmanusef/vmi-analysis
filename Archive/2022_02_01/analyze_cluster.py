@@ -14,7 +14,7 @@ mpl.rc('image', cmap='jet')
 plt.close('all')
 
 n = 256
-rt = [-20, 20]
+rt = [252000, 252100]
 rtot = [0, 200]
 
 if 0:
@@ -23,8 +23,8 @@ else:
     rtc = [-10, 10]
 
 # 'LightMagFP000001'#'LnGM_FP000000'#'Data2000000'#
-name = 'LightMagFP000000'
-in_name = name+'_corrected.h5'  # 'ar004'#
+name = '../../arp'
+in_name = name+'_cluster.h5'  # 'ar004'#
 
 use_cluster = 1
 with h5py.File(in_name, mode='r')as f:
@@ -58,7 +58,14 @@ tot_s = tot[index]
 
 plt.figure(1)
 plt.subplot(223)
-plt.hist2d(y_s, x_s, bins=n, range=[[0, 256], [0, 256]])
+H, xedges, yedges = np.histogram2d(
+    y_s, x_s, bins=n, range=[[0, 256], [0, 256]])
+H = np.reshape(H, n**2)
+print(max(H))
+H = np.reshape(np.where(H > 1/10*max(H), 1/10*max(H), H), (n, n))
+print(H)
+plt.imshow(H ** 2, interpolation='bicubic')
+# plt.hist2d(y_s, x_s, bins=n, range=[[0, 256], [0, 256]])
 plt.xlabel("y")
 plt.ylabel("x")
 
@@ -132,7 +139,7 @@ plt.figure(5)
 ax = plt.axes(projection='3d')
 h, edges = np.histogramdd((x_s[index], y_s[index], tfix[index]), bins=n, range=[
                           [0, 256], [0, 256], rtc])
-xs, ys, zs = np.meshgrid(edges[0][:-1]+edges[0][1]/2,
+xs, ys, zs = np.meshgrid(edges[0][: -1]+edges[0][1]/2,
                          edges[1][:-1]+edges[1][1]/2, edges[2][:-1]+edges[2][1]/2)
 
 xs, ys, zs, h = (xs.flatten(), ys.flatten(), zs.flatten(), h.flatten())
@@ -148,5 +155,6 @@ ax.scatter3D(xs[index], ys[index], zs[index], color=cm, s=h[index]*2)
 
 
 ax.scatter3D(xs[index], ys[index], zs[index], color=cm, s=h[index]*2)
+# b=plt.hist(y_s[index], bins=n,range=[0,256])#, range=rtc)
 # b=plt.hist(y_s[index], bins=n,range=[0,256])#, range=rtc)
 # b=plt.hist(y_s[index], bins=n,range=[0,256])#, range=rtc)
