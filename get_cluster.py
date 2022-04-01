@@ -32,14 +32,21 @@ parser.add_argument('--end', dest='end',
                     type=float, default=1e9,
                     help="End of rejection window in ms")
 
-parser.add_argument('--combined', action='store_true',
+parser.add_argument('--uncombined', action='store_true',
                     help="Use TDC1 for both TOF and Laser Timing pulses")
+
+parser.add_argument('--single', action='store_true',
+                    help="Do not use multithreading to preserve RAM")
 
 parser.add_argument('--reverse', action='store_true',
                     help="Reject all data within window")
 
 parser.add_argument('--out', dest='output',
                     default='notset', help="The output HDF5 file")
+
+parser.add_argument('--max', dest='max',
+                    type=int, default=10000,
+                    help="Max pixel events per laser shot")
 
 parser.add_argument('filename')
 args = parser.parse_args()
@@ -92,7 +99,7 @@ if __name__ == '__main__':
         toa = fh5['toa'][()]
 
     toa = np.where(np.logical_and(x >= 194, x < 204), toa-25000, toa)
-    if not args.combined:
+    if args.uncombined:
         pulse_times = tdc_time[np.where(tdc_type == 1)]
         tof_times = tdc_time[()][np.where(tdc_type[()] == 3)]
         tof_corr = np.searchsorted(pulse_times, tof_times)
@@ -119,6 +126,8 @@ if __name__ == '__main__':
         np.diff(pulse_times) <= 1e9*args.end)))[0]
 
     pulses = np.searchsorted(pulse_times, toa)
+    while not max(pulses) == pulses[-1]:
+        pulses = pulses[0:-1]
     time_after = 1e-3*(toa-pulse_times[pulses-1])-args.t
 
     # %% Formatting Data
@@ -127,23 +136,36 @@ if __name__ == '__main__':
     data = []
     num = max(pulses)+1
 
+    loss = 0
     # Format data into correct format
     for i in to_keep:
         idxr = np.searchsorted(pulses, i, side='right')
         idxl = np.searchsorted(pulses, i, side='left')
         if idxl < idxr:
-            data.append([x[idxl:idxr], y[idxl:idxr]])
+            if idxr-idxl > args.max:
+                loss = loss+(idxr-idxl)/len(x)
+                print("Warning, Discarded pulse number {pulse}, due to having {num} pixel events ({perc:.2}%)".format(
+                    pulse=i+1, num=idxr-idxl, perc=(idxr-idxl)/len(x)*100))
+            else:
+                data.append([x[idxl:idxr], y[idxl:idxr]])
 
+    print("Total Loss = ", loss*100)
     # %% Clustering Data
 
     print('Clustering:',
           datetime.now().strftime("%H:%M:%S"))
     # Gather data
     clusters = list(np.zeros(len(data)))
+    threads = os.cpu_count() if not args.single else 1
     for i in range(int(len(data)/args.groupsize)+1):
         temp = min((i+1)*args.groupsize, len(data))
-        with Pool(os.cpu_count()) as p:
-            to_add = p.map(get_clusters, data[i*args.groupsize:temp])
+        print("Group "+str(i)+"/"+str(int(len(data)/args.groupsize)+1))
+        if not args.single:
+            with Pool(threads) as p:
+                to_add = p.map(get_clusters, data[i*args.groupsize:temp])
+                clusters[i*args.groupsize:temp] = list(to_add)
+        else:
+            to_add = map(get_clusters, data[i*args.groupsize:temp])
             clusters[i*args.groupsize:temp] = list(to_add)
 
     # %% Collecting Clustered Data
@@ -207,7 +229,7 @@ if __name__ == '__main__':
         f.create_dataset('y', data=y)
         f.create_dataset('t', data=time_after)
         f.create_dataset('t_tof', data=t_tof)
-        if args.combined:
+        if not args.uncombined:
             f.create_dataset('t_etof', data=t_etof)
             f.create_dataset('etof_corr', data=etof_corr)
         f.create_dataset('toa', data=toa)

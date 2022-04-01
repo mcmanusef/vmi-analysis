@@ -11,7 +11,6 @@ import argparse
 import subprocess
 from datetime import datetime
 from numba import njit
-from numba import prange
 import platform
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
@@ -42,7 +41,7 @@ def numbadiff(x):
 
 def h5append(dataset, newdata):
     """
-    Appends data to the end of a h5 dataset
+    Append data to the end of a h5 dataset
 
     Parameters
     ----------
@@ -155,8 +154,9 @@ if __name__ == '__main__':
         f.create_dataset('tdc_type', data=[-1], chunks=(
             1024,), maxshape=(None,))
 
+    t0 = 0
     for [i, filename] in enumerate(os.listdir(args.path)):
-        print("File:"+str(i+1)+"/"+str(len(os.listdir(args.path))+1))
+        print("File:"+str(i+1)+"/"+str(len(os.listdir(args.path))))
         in_name = args.path+"/"+filename
         print(in_name)
 
@@ -188,9 +188,9 @@ if __name__ == '__main__':
             # Sorts data
             if int(d[0]) == 0:
                 tdc_type.append(d[1])
-                tdc_time.append(d[2])
+                tdc_time.append(d[2]+t0)
             elif int(d[0]) == 1:
-                toa.append(d[1])
+                toa.append(d[1]+t0)
                 tot.append(d[2])
                 x.append(d[3])
                 y.append(d[4])
@@ -204,6 +204,8 @@ if __name__ == '__main__':
             tdc_max = 107374182400000
             tdc_time = compensate(np.array(tdc_time), tdc_max)
 
+        t0 = max(max(toa), max(tdc_time))
+        print(t0)
         # %% Saving Data to H5 File
         print('Saving:', datetime.now().strftime("%H:%M:%S"))
         with h5py.File(out_name, 'r+') as f:

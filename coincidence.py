@@ -6,23 +6,76 @@ Created on Fri Feb 18 12:29:11 2022
 """
 
 
-import mayavi.mlab as mlab
+# import mayavi.mlab as mlab
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import matplotlib as mpl
 from matplotlib.cm import ScalarMappable as SM
 from datetime import datetime
-import scipy.interpolate as inter
+# import scipy.interpolate as inter
+from skimage import measure
+
+
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.patches import FancyArrowPatch
+from mpl_toolkits.mplot3d import proj3d
+
+
+class Arrow3D(FancyArrowPatch):
+    def __init__(self, xs, ys, zs, *args, **kwargs):
+        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    def draw(self, renderer):
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+        FancyArrowPatch.draw(self, renderer)
+
+
+def double_arrow(ax, com, direction, length):
+    """
+    Plots a 3d double arrow with a given center, direction and length
+
+    Parameters
+    ----------
+    ax : Matplotlib Axes
+        the axes to add the double arrow.
+    com : Float[3]
+        Center of the double arrow.
+    direction : Float[3]
+        Normalized Direction.
+    length : num
+        The full length of the arrow.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    a1 = Arrow3D([com[1]-length/3*direction[1], com[1]+length/2*direction[1]],
+                 [com[0]-length/3*direction[0], com[0]+length/2*direction[0]],
+                 [com[2]-length/3*direction[2], com[2]+length/2*direction[2]],
+                 mutation_scale=20, lw=2, arrowstyle="-|>", color="r", zorder=1000)
+    ax.add_artist(a1)
+
+    a2 = Arrow3D([com[1]+length/3*direction[1], com[1]-length/2*direction[1]],
+                 [com[0]+length/3*direction[0], com[0]-length/2*direction[0]],
+                 [com[2]+length/3*direction[2], com[2]-length/2*direction[2]],
+                 mutation_scale=20, lw=2, arrowstyle="-|>", color="r", zorder=1000)
+    ax.add_artist(a2)
+
 
 mpl.rc('image', cmap='jet')
 plt.close('all')
 
-name = 'kr000000'
+name = 'xe002'
 in_name = name+'_cluster.h5'
 
 t0 = 252.2  # in us
-tof_range = [0, 20]  # in us
+tof_range = [0, 40]  # in us
 etof_range = [20, 40]  # in ns
 
 t0 = t0*1000
@@ -112,7 +165,7 @@ plt.figure(2)
 plt.hist(ts, bins=etof_bins, range=etof_range)
 
 
-nbins = 128
+nbins = 32
 plt.figure(3)
 ax = plt.axes(projection='3d')
 h, edges = np.histogramdd((xs, ys, ts), bins=[nbins, nbins, etof_bins], range=[
@@ -129,35 +182,36 @@ xc, yc, zc, h = (xc.flatten(), yc.flatten(), zc.flatten(), h.flatten())
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("ToF (ns)")
-index = np.where(h > 0)
-
-#mpl.rc('image', cmap='plasma')
-cm = SM().to_rgba(h[index])
-cm[:, 3] = np.sqrt(h[index]/max(h[index]))
+index = np.where(h >= 1)
 mpl.rc('image', cmap='jet')
-ax.scatter3D(yc[index], xc[index], zc[index], color=cm, s=h[index]**2)
+cm = SM().to_rgba(h[index])
+cm[:, 3] = np.sqrt(h[index]/max(h[index]))**6
+
+# ax.scatter3D(yc[index], xc[index], zc[index], color=cm, s=h[index]*100/max(h[index]))
 
 xc, yc, zc, h = (np.reshape(xc, shape), np.reshape(yc, shape),
                  np.reshape(zc, shape), np.reshape(h, shape))
 
+numbins = 10
+minbin = 1
 
-def interpolation(x, y, z):
-    return inter.interpn((xc[0, :, 0]/256, yc[:, 0, 0]/256, (zc[0, 0, :] - etof_range[0])/np.diff(etof_range)[0]), h, (x, y, z), method="linear")
+numbins = min(numbins, int(h.max())-minbin)
 
-
-[xgrid, ygrid, zgrid] = np.mgrid[0:1:nbins*1j, 0:1:nbins*1j, 0:1:etof_bins*1j]
-# mlab.contour3d(xgrid, ygrid, zgrid, interpolation(
-#     xgrid, ygrid, zgrid), contours=10, transparent=True, extent=[0, 1, 0, 1, 0, 1])
-
-mlab.points3d(xgrid, ygrid, zgrid, interpolation(
-    xgrid, ygrid, zgrid)+1, extent=[0, 1, 0, 1, 0, 1])
-mlab.axes()
+cm = SM().to_rgba(np.array(range(numbins))**1)
+cm[:, 3] = (np.array(range(numbins))/numbins)**1
+for i in range(numbins):
+    iso_val = i*(int(h.max())-minbin)/numbins+minbin
+    verts, faces, _, _ = measure.marching_cubes_lewiner(
+        h, iso_val, spacing=(256/nbins, 256/nbins, np.diff(etof_range)[0]/etof_bins))
+    ax.plot_trisurf(verts[:, 0], verts[:, 1], faces, verts[:, 2]+etof_range[0],
+                    color=cm[i], shade=True, zorder=numbins+100-i)
+mpl.rc('image', cmap='gray')
 
 ax.set_xlim(left=0, right=256)
 ax.set_ylim(bottom=0, top=256)
 ax.set_zlim(bottom=etof_range[0], top=etof_range[1])
 
-xc, yc, zc = np.meshgrid(xx, yy, zz)
+#xc, yc, zc = np.meshgrid(xx, yy, zz)
 
 xyhist = np.histogramdd((ys, xs), bins=nbins, range=[[0, 256], [0, 256]])[0]
 xzhist = np.histogramdd((xs, ts), bins=[nbins, etof_bins], range=[
@@ -165,25 +219,14 @@ xzhist = np.histogramdd((xs, ts), bins=[nbins, etof_bins], range=[
 yzhist = np.histogramdd((ys, ts), bins=[nbins, etof_bins], range=[
                         [0, 256], etof_range])[0]
 
-
-# xy = mlab.imshow(xyhist, extent=[0, 1, 0, 1, 0, 0], name="xy")
-# xz = mlab.imshow(xzhist, extent=[0, 1, 0, 1, 0, 0], name="xz")
-# yz = mlab.imshow(yzhist, extent=[0, 1, 0, 1, 0, 0], name="yz")
-
-# xy.actor.orientation = [0, 0, 0]
-# xz.actor.orientation = [90, 90, 90]
-# yz.actor.orientation = [90, 90, 0]
-
-# xz.actor.position = [0.5, 0, 0.5]
-# yz.actor.position = [0, 0.5, 0.5]
-
-
 ax.plot_surface(xc[:, :, 0], yc[:, :, 0], zc[:, :, 0],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xyhist))
+                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xyhist), zorder=-1)
 ax.plot_surface(xc[:, 0, :], yc[:, 0, :], zc[:, 0, :],
-                rcount=nbins, ccount=etof_bins, facecolors=SM().to_rgba(yzhist))
+                rcount=nbins, ccount=etof_bins, facecolors=SM().to_rgba(yzhist), zorder=-2)
 ax.plot_surface(xc[0, :, :], yc[0, :, :], zc[0, :, :],
-                rcount=nbins, ccount=etof_bins, facecolors=SM().to_rgba(xzhist))
+                rcount=nbins, ccount=etof_bins, facecolors=SM().to_rgba(xzhist), zorder=-3)
+
+ax.view_init(elev=15., azim=45.)
 
 plt.figure(4)
 plt.suptitle('Time Resolved VMI')
@@ -191,7 +234,7 @@ plt.suptitle('Time Resolved VMI')
 plt.subplot(223)
 # plt.imshow(np.histogramdd((ys, xs), bins=256, range=[
 #            [0, 256], [0, 256]])[0], interpolation='gaussian')
-plt.hist2d(ys, xs, bins=128, range=[[0, 256], [0, 256]])
+plt.hist2d(ys, xs, bins=256, range=[[0, 256], [0, 256]])
 plt.xlabel("y")
 plt.ylabel("x")
 
@@ -206,10 +249,36 @@ plt.hist2d(ys, ts, bins=[256, etof_bins], range=[
            [0, 256], etof_range])
 plt.xlabel("y")
 plt.ylabel("t (ns)")
-plt.ylabel("t (ns)")
-plt.ylabel("t (ns)")
-plt.xlabel("y")
-plt.ylabel("t (ns)")
-plt.ylabel("t (ns)")
-plt.ylabel("t (ns)")
-plt.ylabel("t (ns)")
+
+
+xc, yc, zc, h = (xc.flatten(), yc.flatten(), zc.flatten(), h.flatten())
+
+com = [sum(h*xc)/sum(h), sum(h*yc)/sum(h), sum(h*zc)/sum(h)]
+
+xn, yn, zn = ((xc-com[0])/256, (yc-com[1])/256,
+              (zc-com[2])/np.diff(etof_range)[0])
+# %% Axis Calculations
+
+Ixx = sum(h*yn**2+h*zn**2)
+Iyy = sum(h*xn**2+h*zn**2)
+Izz = sum(h*yn**2+h*xn**2)
+
+Ixy = sum(h*xn*yn)
+Ixz = sum(h*xn*zn)
+Iyz = sum(h*zn*yn)
+
+I = [[Ixx, -Ixy, -Ixz], [-Ixy, Iyy, -Iyz], [-Ixz, -Iyz, Izz]]
+
+evals, evecs = np.linalg.eig(I)
+
+index = np.where(evals == min(evals))[0][0]
+
+# a = np.linspace(-128, 128, num=2)
+# ax.plot(com[1]+a*evecs[index][1], com[0]+a*evecs[index]
+#         [0], com[2]+a*evecs[index][2], 'r', zorder=1000)
+
+
+print(evecs)
+# double_arrow(ax, com, evecs[index] * [256, 256, np.diff(etof_range)[0]], 1)
+
+#ax.view_init(elev=45., azim=80.)
