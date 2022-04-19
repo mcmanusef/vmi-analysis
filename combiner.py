@@ -184,12 +184,22 @@ if __name__ == '__main__':
         tdc_time = []
         tdc_type = []
 
+        first = False
+        print(len(data))
+        data = data[5000:-5000]
         for d in data:
             # Sorts data
             if int(d[0]) == 0:
+                if first:
+                    t0 = t0 - d[2]+1
+                    first = False
                 tdc_type.append(d[1])
                 tdc_time.append(d[2]+t0)
+
             elif int(d[0]) == 1:
+                if first:
+                    t0 = t0 - d[1]+1
+                    first = False
                 toa.append(d[1]+t0)
                 tot.append(d[2])
                 x.append(d[3])
@@ -204,8 +214,11 @@ if __name__ == '__main__':
             tdc_max = 107374182400000
             tdc_time = compensate(np.array(tdc_time), tdc_max)
 
+        # print(toa[:10], toa[-10:])
+        # print(tdc_time[:10], tdc_time[-10:])
         t0 = max(max(toa), max(tdc_time))
         print(t0)
+
         # %% Saving Data to H5 File
         print('Saving:', datetime.now().strftime("%H:%M:%S"))
         with h5py.File(out_name, 'r+') as f:

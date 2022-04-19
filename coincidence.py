@@ -6,7 +6,7 @@ Created on Fri Feb 18 12:29:11 2022
 """
 
 
-# import mayavi.mlab as mlab
+import mayavi.mlab as mlab
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
@@ -71,12 +71,12 @@ def double_arrow(ax, com, direction, length):
 mpl.rc('image', cmap='jet')
 plt.close('all')
 
-name = 'xe002'
+name = 'mid'
 in_name = name+'_cluster.h5'
 
 t0 = 252.2  # in us
 tof_range = [0, 40]  # in us
-etof_range = [20, 40]  # in ns
+etof_range = [0, 40]  # in ns
 
 t0 = t0*1000
 tof_range = np.array(tof_range)*1000
@@ -160,12 +160,16 @@ etof_bins = int(min(int(np.diff(etof_range)/0.26), 300))
 print(etof_bins)
 plt.figure(1)
 plt.hist(tofs, bins=300, range=tof_range)
+#plt.hist(t_tof, bins=300, range=tof_range)
 
 plt.figure(2)
 plt.hist(ts, bins=etof_bins, range=etof_range)
+#plt.hist(t_etof, bins=etof_bins, range=etof_range)
 
 
-nbins = 32
+etof_bins = etof_bins//2
+nbins = etof_bins
+
 plt.figure(3)
 ax = plt.axes(projection='3d')
 h, edges = np.histogramdd((xs, ys, ts), bins=[nbins, nbins, etof_bins], range=[
@@ -182,30 +186,46 @@ xc, yc, zc, h = (xc.flatten(), yc.flatten(), zc.flatten(), h.flatten())
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("ToF (ns)")
-index = np.where(h >= 1)
+index = np.where(h >= 0)
 mpl.rc('image', cmap='jet')
 cm = SM().to_rgba(h[index])
-cm[:, 3] = np.sqrt(h[index]/max(h[index]))**6
+cm[:, 3] = np.sqrt(h[index]/max(h[index]))**1
 
 # ax.scatter3D(yc[index], xc[index], zc[index], color=cm, s=h[index]*100/max(h[index]))
 
 xc, yc, zc, h = (np.reshape(xc, shape), np.reshape(yc, shape),
                  np.reshape(zc, shape), np.reshape(h, shape))
 
-numbins = 10
+numbins = 100
 minbin = 1
 
 numbins = min(numbins, int(h.max())-minbin)
 
 cm = SM().to_rgba(np.array(range(numbins))**1)
-cm[:, 3] = (np.array(range(numbins))/numbins)**1
+cm[:, 3] = (np.array(range(numbins))/numbins)**1.5
+mlab.close(all=True)
+mlab.figure(figure="surfaces", bgcolor=(1, 1, 1))
+
+
 for i in range(numbins):
     iso_val = i*(int(h.max())-minbin)/numbins+minbin
     verts, faces, _, _ = measure.marching_cubes_lewiner(
         h, iso_val, spacing=(256/nbins, 256/nbins, np.diff(etof_range)[0]/etof_bins))
+
     ax.plot_trisurf(verts[:, 0], verts[:, 1], faces, verts[:, 2]+etof_range[0],
                     color=cm[i], shade=True, zorder=numbins+100-i)
+
+    mlab.triangular_mesh(verts[:, 0]/256, verts[:, 1]/256, verts[:, 2]/np.diff(etof_range)[0],
+                         faces, color=tuple(cm[i, :3]), opacity=cm[i, 3])
+    # mlab.contour3d(h, contours=[iso_val], transparent=True, color=[cm[i][]])
 mpl.rc('image', cmap='gray')
+
+
+mlab.figure(figure="3d", bgcolor=(1, 1, 1))
+p = .3
+
+d = np.where(h > 0.08*np.max(h), h/np.max(h), 0)
+mlab.pipeline.volume(mlab.pipeline.scalar_field(d**p), vmin=0, vmax=(0.7)**p)
 
 ax.set_xlim(left=0, right=256)
 ax.set_ylim(bottom=0, top=256)
@@ -226,26 +246,28 @@ ax.plot_surface(xc[:, 0, :], yc[:, 0, :], zc[:, 0, :],
 ax.plot_surface(xc[0, :, :], yc[0, :, :], zc[0, :, :],
                 rcount=nbins, ccount=etof_bins, facecolors=SM().to_rgba(xzhist), zorder=-3)
 
+
 ax.view_init(elev=15., azim=45.)
 
 plt.figure(4)
 plt.suptitle('Time Resolved VMI')
 
 plt.subplot(223)
+nhist = 128
 # plt.imshow(np.histogramdd((ys, xs), bins=256, range=[
 #            [0, 256], [0, 256]])[0], interpolation='gaussian')
-plt.hist2d(ys, xs, bins=256, range=[[0, 256], [0, 256]])
+plt.hist2d(ys, xs, bins=nhist, range=[[0, 256], [0, 256]])
 plt.xlabel("y")
 plt.ylabel("x")
 
 plt.subplot(224)
-plt.hist2d(ts, xs, bins=[etof_bins, 256], range=[
+plt.hist2d(ts, xs, bins=[etof_bins, nhist], range=[
            etof_range, [0, 256]])
 plt.xlabel("t (ns)")
 plt.ylabel("x")
 
 plt.subplot(221)
-plt.hist2d(ys, ts, bins=[256, etof_bins], range=[
+plt.hist2d(ys, ts, bins=[nhist, etof_bins], range=[
            [0, 256], etof_range])
 plt.xlabel("y")
 plt.ylabel("t (ns)")

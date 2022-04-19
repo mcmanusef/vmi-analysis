@@ -136,6 +136,7 @@ if __name__ == '__main__':
     data = []
     num = max(pulses)+1
 
+    pixelhits = 0
     loss = 0
     # Format data into correct format
     for i in to_keep:
@@ -144,12 +145,15 @@ if __name__ == '__main__':
         if idxl < idxr:
             if idxr-idxl > args.max:
                 loss = loss+(idxr-idxl)/len(x)
-                print("Warning, Discarded pulse number {pulse}, due to having {num} pixel events ({perc:.2}%)".format(
+                print("    Warning, Discarded pulse number {pulse}, due to having {num} pixel events ({perc:.2}%)".format(
                     pulse=i+1, num=idxr-idxl, perc=(idxr-idxl)/len(x)*100))
             else:
                 data.append([x[idxl:idxr], y[idxl:idxr]])
+                pixelhits = pixelhits+idxr-idxl
 
-    print("Total Loss = ", loss*100)
+    print("    Total Loss = ", loss*100)
+    print("    Total Data = {p}/{x} ({d:.2}%)".format(p=pixelhits,
+                                                      x=len(x), d=pixelhits/len(x)*100))
     # %% Clustering Data
 
     print('Clustering:',
@@ -159,7 +163,7 @@ if __name__ == '__main__':
     threads = os.cpu_count() if not args.single else 1
     for i in range(int(len(data)/args.groupsize)+1):
         temp = min((i+1)*args.groupsize, len(data))
-        print("Group "+str(i)+"/"+str(int(len(data)/args.groupsize)+1))
+        print("    Group "+str(i)+"/"+str(int(len(data)/args.groupsize)+1))
         if not args.single:
             with Pool(threads) as p:
                 to_add = p.map(get_clusters, data[i*args.groupsize:temp])
@@ -218,7 +222,6 @@ if __name__ == '__main__':
             totm[i] = np.average(tot[idx], weights=tot[idx])
             i = i+1
 
-    print(len(xm))
     pulse_corr = np.searchsorted(pulse_times, toam)
 
     # %% Saving Data to Output File
