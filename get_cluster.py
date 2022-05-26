@@ -12,6 +12,11 @@ from multiprocessing import Pool
 from datetime import datetime
 import argparse
 import os
+from numba import njit
+from numba import errors
+import warnings
+# warnings.simplefilter('ignore', category=errors.NumbaDeprecationWarning)
+# warnings.simplefilter('ignore', category=errors.NumbaPendingDeprecationWarning)
 
 # %% Initializing
 parser = argparse.ArgumentParser(prog='get_cluster',
@@ -250,3 +255,4 @@ if __name__ == '__main__':
         g.create_dataset('toa', data=toam)
         g.create_dataset('tot', data=totm)
         g.create_dataset('pulse_corr', data=pulse_corr)
+    print('Finished:', datetime.now().strftime("%H:%M:%S"))

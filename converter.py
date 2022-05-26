@@ -178,3 +178,4 @@ if __name__ == '__main__':
         f.create_dataset('tot', data=tot)
         f.create_dataset('tdc_time', data=tdc_time)
         f.create_dataset('tdc_type', data=tdc_type)
+    print('Finished:', datetime.now().strftime("%H:%M:%S"))

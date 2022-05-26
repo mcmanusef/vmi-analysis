@@ -6,7 +6,6 @@ Created on Fri Feb 18 12:29:11 2022
 """
 
 
-import warnings
 import mayavi.mlab as mlab
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,23 +15,11 @@ from matplotlib.cm import ScalarMappable as SM
 from datetime import datetime
 # import scipy.interpolate as inter
 from skimage import measure
-from numba import jit
-from numba import njit
-from numba import prange
-from numba import errors
-from numba.typed import List
+
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d
-import logging
-logging.disable(logging.WARNING)
-
-warnings.simplefilter('ignore', category=errors.NumbaDeprecationWarning)
-warnings.simplefilter('ignore', category=errors.NumbaPendingDeprecationWarning)
-
-# %% Initializing
-print('Initializing:', datetime.now().strftime("%H:%M:%S"))
 
 
 class Arrow3D(FancyArrowPatch):
@@ -81,50 +68,15 @@ def double_arrow(ax, com, direction, length):
     ax.add_artist(a2)
 
 
-@njit("i8[:],i8[:],f8[:],f8[:],f8[:]")
-def __e_coincidence(etof_corr, pulse_corr, x, y, t_etof):
-    xint = List()
-    yint = List()
-    tint = List()
-    for [j, i] in enumerate(etof_corr):
-        idxr = np.searchsorted(pulse_corr, i, side='right')
-        idxl = np.searchsorted(pulse_corr, i, side='left')
-
-        for k in range(idxl < idxr):
-            xint.append(x[idxl:idxr][k])
-            yint.append(y[idxl:idxr][k])
-            tint.append(t_etof[j])
-    return xint, yint, tint
-
-
-@njit("i8[:],i8[:],f8[:],f8[:],f8[:],f8[:]")
-def __i_coincidence(tof_corr, pulse_corr, x, y, t, t_tof):
-    xs = List()
-    ys = List()
-    ts = List()
-    tofs = List()
-    for [j, i] in enumerate(tof_corr):
-        idxr = np.searchsorted(pulse_corr, i, side='right')
-        idxl = np.searchsorted(pulse_corr, i, side='left')
-
-        for k in range(idxl < idxr):
-            xs.append(x[idxl:idxr][k])
-            ys.append(y[idxl:idxr][k])
-            ts.append(t[idxl:idxr][k])
-            tofs.append(t_tof[j])
-    return xs, ys, ts, tofs
-
-
 mpl.rc('image', cmap='jet')
 plt.close('all')
 
-# %% Parameters
 name = 'mid'
-in_name = "xe101_cluster.h5"  #
+in_name = name+'_cluster.h5'  # "xe101_cluster.h5"  #
 
 t0 = 252.2  # in us
 tof_range = [0, 40]  # in us
-etof_range = [20, 52]  # in ns
+etof_range = [0, 40]  # in ns
 
 t0 = t0*1000
 tof_range = np.array(tof_range)*1000
@@ -151,13 +103,27 @@ with h5py.File(in_name, mode='r') as f:
 # %% e-TOF Coincidence
 print('Starting e-ToF Coincidence:', datetime.now().strftime("%H:%M:%S"))
 
-
 etof_index = np.where(np.logical_and(
     t_etof > etof_range[0], t_etof < etof_range[1]))[0]
+xint = [[]]*len(etof_index)
+yint = [[]]*len(etof_index)
+tint = [[]]*len(etof_index)
 
-xint, yint, tint = __e_coincidence(etof_corr[etof_index], pulse_corr, x, y, t_etof[etof_index])
+for [j, i] in enumerate(etof_corr[etof_index]):
+    if j % 1000000 == 0:
+        print("    {num:.2f}%".format(num=100*j/len(etof_index)))
+    idxr = np.searchsorted(pulse_corr, i, side='right')
+    idxl = np.searchsorted(pulse_corr, i, side='left')
 
-xint, yint, tint = np.array(xint), np.array(yint), np.array(tint)
+    if idxl < idxr:
+        xint[j] = x[idxl:idxr]
+        yint[j] = y[idxl:idxr]
+        tint[j] = np.array([t_etof[etof_index][j]]*(idxr-idxl))
+
+
+xint = np.array([a for ll in xint for a in ll])
+yint = np.array([a for ll in yint for a in ll])
+tint = np.array([a for ll in tint for a in ll])
 
 # %% i-TOF Coincidence
 
@@ -165,26 +131,40 @@ print('Starting i-ToF Coincidence:', datetime.now().strftime("%H:%M:%S"))
 tof_index = np.where(np.logical_and(
     t_tof > tof_range[0], t_tof < tof_range[1]))[0]
 
+xs = [[]]*len(tof_index)
+ys = [[]]*len(tof_index)
+ts = [[]]*len(tof_index)
+tofs = [[]]*len(tof_index)
 
-xs, ys, ts, tofs = __i_coincidence(
-    tof_corr[tof_index], pulse_corr, xint, yint, tint, t_tof[tof_index])
+for [j, i] in enumerate(tof_corr[tof_index]):
+    if j % 10000 == 0:
+        print("    {num:.2f}%".format(num=100*j/len(tof_index)))
+    idxr = np.searchsorted(pulse_corr, i, side='right')
+    idxl = np.searchsorted(pulse_corr, i, side='left')
 
-xs = np.array(xs)
-ys = np.array(ys)
-ts = np.array(ts)
-tofs = np.array(tofs)
+    if idxl < idxr:
+        xs[j] = xint[idxl:idxr]
+        ys[j] = yint[idxl:idxr]
+        ts[j] = tint[idxl:idxr]
+        tofs[j] = np.array([t_tof[tof_index][j]]*(idxr-idxl))
+
+xs = np.array([a for ll in xs for a in ll])
+ys = np.array([a for ll in ys for a in ll])
+ts = np.array([a for ll in ts for a in ll])
+tofs = np.array([a for ll in tofs for a in ll])
 
 # %% Plotting
 print('Plotting:', datetime.now().strftime("%H:%M:%S"))
 
 etof_bins = int(min(int(np.diff(etof_range)/0.26), 300))
+print(etof_bins)
 plt.figure(1)
 plt.hist(tofs, bins=300, range=tof_range)
-# plt.hist(t_tof, bins=300, range=tof_range)
+#plt.hist(t_tof, bins=300, range=tof_range)
 
 plt.figure(2)
 plt.hist(ts, bins=etof_bins, range=etof_range)
-# plt.hist(t_etof, bins=etof_bins, range=etof_range)
+#plt.hist(t_etof, bins=etof_bins, range=etof_range)
 
 
 etof_bins = etof_bins//2
@@ -195,8 +175,6 @@ ax = plt.axes(projection='3d')
 h, edges = np.histogramdd((xs, ys, ts), bins=[nbins, nbins, etof_bins], range=[
                           [0, 256], [0, 256], etof_range])
 
-
-#h = np.log(h+0.5)
 
 xx = np.linspace(0, 256, num=nbins)
 yy = np.linspace(0, 256, num=nbins)
@@ -240,7 +218,6 @@ for i in range(numbins):
     mlab.triangular_mesh(verts[:, 0]/256, verts[:, 1]/256, verts[:, 2]/np.diff(etof_range)[0],
                          faces, color=tuple(cm[i, :3]), opacity=cm[i, 3])
     # mlab.contour3d(h, contours=[iso_val], transparent=True, color=[cm[i][]])
-# mlab.axes()
 mpl.rc('image', cmap='gray')
 
 
@@ -254,10 +231,9 @@ ax.set_xlim(left=0, right=256)
 ax.set_ylim(bottom=0, top=256)
 ax.set_zlim(bottom=etof_range[0], top=etof_range[1])
 
-# xc, yc, zc = np.meshgrid(xx, yy, zz)
+#xc, yc, zc = np.meshgrid(xx, yy, zz)
 
 xyhist = np.histogramdd((ys, xs), bins=nbins, range=[[0, 256], [0, 256]])[0]
-xyhist[0, 0] = 0
 xzhist = np.histogramdd((xs, ts), bins=[nbins, etof_bins], range=[
                         [0, 256], etof_range])[0]
 yzhist = np.histogramdd((ys, ts), bins=[nbins, etof_bins], range=[
@@ -273,36 +249,26 @@ ax.plot_surface(xc[0, :, :], yc[0, :, :], zc[0, :, :],
 
 ax.view_init(elev=15., azim=45.)
 
-plt.figure("Time Resolved VMI (Log)")
+plt.figure(4)
 plt.suptitle('Time Resolved VMI')
 
 plt.subplot(223)
-nhist = 2048
-temp = np.histogramdd((ys, xs), bins=nhist, range=[
-    [0, 256], [0, 256]])[0]+0.5
-temp[0, 0] = 0.5
-temp = np.transpose(temp)
-
-plt.imshow(np.log(temp), interpolation='gaussian', aspect='auto',
-           origin='bottom', extent=(0, 256, 0, 256))
+nhist = 128
+# plt.imshow(np.histogramdd((ys, xs), bins=256, range=[
+#            [0, 256], [0, 256]])[0], interpolation='gaussian')
+plt.hist2d(ys, xs, bins=nhist, range=[[0, 256], [0, 256]])
 plt.xlabel("y")
 plt.ylabel("x")
 
 plt.subplot(224)
-temp = np.histogramdd((ts, xs), bins=(etof_bins, nhist), range=[
-    etof_range, (0, 256)])[0]+0.5
-temp = np.transpose(temp)
-plt.imshow(np.log(temp), interpolation='gaussian', aspect='auto',
-           origin='bottom', extent=(etof_range[0], etof_range[1], 0, 256))
+plt.hist2d(ts, xs, bins=[etof_bins, nhist], range=[
+           etof_range, [0, 256]])
 plt.xlabel("t (ns)")
 plt.ylabel("x")
 
 plt.subplot(221)
-temp = np.histogramdd((ys, ts), bins=[nhist, etof_bins], range=[
-    (0, 256), etof_range])[0]+0.5
-temp = np.transpose(temp)
-plt.imshow(np.log(temp), interpolation='gaussian', aspect='auto',
-           origin='bottom', extent=(0, 256, etof_range[0], etof_range[1]))
+plt.hist2d(ys, ts, bins=[nhist, etof_bins], range=[
+           [0, 256], etof_range])
 plt.xlabel("y")
 plt.ylabel("t (ns)")
 
@@ -334,18 +300,7 @@ index = np.where(evals == min(evals))[0][0]
 #         [0], com[2]+a*evecs[index][2], 'r', zorder=1000)
 
 
-# print(evecs)
+print(evecs)
 # double_arrow(ax, com, evecs[index] * [256, 256, np.diff(etof_range)[0]], 1)
 
-# ax.view_init(elev=45., azim=80.)
-# double_arrow(ax, com, evecs[index] * [256, 256, np.diff(etof_range)[0]], 1)
-
-# ax.view_init(elev=45., azim=80.)
-# ax.view_init(elev=45., azim=80.)
-# ax.view_init(elev=45., azim=80.)
-# ax.view_init(elev=45., azim=80.)
-# -*- coding: utf-8 -*-
-# ax.view_init(elev=45., azim=80.)
-# ax.view_init(elev=45., azim=80.)
-# -*- coding: utf-8 -*-
-print('Finished:', datetime.now().strftime("%H:%M:%S"))
+#ax.view_init(elev=45., azim=80.)

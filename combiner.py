@@ -186,7 +186,7 @@ if __name__ == '__main__':
 
         first = False
         print(len(data))
-        data = data[5000:-5000]
+        data = data[20000:-20000]
         for d in data:
             # Sorts data
             if int(d[0]) == 0:
@@ -228,3 +228,4 @@ if __name__ == '__main__':
             h5append(f['tot'], tot)
             h5append(f['tdc_time'], tdc_time)
             h5append(f['tdc_type'], tdc_type)
+    print('Finished:', datetime.now().strftime("%H:%M:%S"))
