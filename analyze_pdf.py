@@ -40,7 +40,7 @@ parser.add_argument('--pol', dest='pol', type=float, nargs=2,
                     default=[0, 0], help="angle of major axis (in degrees ccw from s-polarization) and ratio between major and minor axes")
 parser.add_argument('filename')
 
-args = parser.parse_args("xe005_e_cluster.h5 --t 500 --pol -26 0.7".split())
+args = parser.parse_args()
 
 
 @njit
