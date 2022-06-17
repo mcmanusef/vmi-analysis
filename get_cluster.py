@@ -37,6 +37,10 @@ parser.add_argument('--end', dest='end',
                     type=float, default=1e9,
                     help="End of rejection window in ms")
 
+parser.add_argument('--cutoff', dest='cutoff',
+                    type=float, default=500,
+                    help="Time cutoff between itof and laser pulses in ns")
+
 parser.add_argument('--uncombined', action='store_true',
                     help="Use TDC1 for both TOF and Laser Timing pulses")
 
@@ -114,12 +118,12 @@ if __name__ == '__main__':
         times = tdc_time[()][np.where(tdc_type == 1)]
         if not tdc_type[-1] == 1:
             lengths = np.diff(tdc_time)[np.where(tdc_type == 1)]
-            pulse_times = times[np.where(lengths > 1e6)]
-            tof_times = times[np.where(lengths < 1e6)]
+            pulse_times = times[np.where(lengths > 1e3*args.cutoff)]
+            tof_times = times[np.where(lengths < 1e3*args.cutoff)]
         else:
             lengths = np.diff(tdc_time)[np.where(tdc_type == 1)[:-1]]
-            pulse_times = times[np.where(lengths > 1e6)[:-1]]
-            tof_times = times[np.where(lengths < 1e6)[:-1]]
+            pulse_times = times[np.where(lengths > 1e3*args.cutoff)[:-1]]
+            tof_times = times[np.where(lengths < 1e3*args.cutoff)[:-1]]
         tof_corr = np.searchsorted(pulse_times, tof_times)
         t_tof = 1e-3*(tof_times-pulse_times[tof_corr-1])-args.t
         etof_times = tdc_time[()][np.where(tdc_type[()] == 3)]

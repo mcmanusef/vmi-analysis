@@ -6,6 +6,7 @@ Created on Mon May  9 15:17:41 2022
 """
 
 
+from scipy.fft import fftn, fftshift, ifftshift
 import warnings
 import mayavi.mlab as mlab
 import numpy as np
@@ -17,10 +18,7 @@ from datetime import datetime
 import scipy.interpolate as inter
 import scipy.optimize as optim
 from skimage import measure
-from sklearn.linear_model import LinearRegression
-from numba import jit
 from numba import njit
-from numba import prange
 from numba import errors
 from numba.typed import List
 
@@ -36,52 +34,6 @@ warnings.simplefilter('ignore', category=errors.NumbaPendingDeprecationWarning)
 
 # %% Initializing
 print('Initializing:', datetime.now().strftime("%H:%M:%S"))
-
-
-class Arrow3D(FancyArrowPatch):
-    def __init__(self, xs, ys, zs, *args, **kwargs):
-        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
-        self._verts3d = xs, ys, zs
-
-    def draw(self, renderer):
-        xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
-        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        FancyArrowPatch.draw(self, renderer)
-
-
-def double_arrow(ax, com, direction, length):
-    """
-    Plots a 3d double arrow with a given center, direction and length
-
-    Parameters
-    ----------
-    ax : Matplotlib Axes
-        the axes to add the double arrow.
-    com : Float[3]
-        Center of the double arrow.
-    direction : Float[3]
-        Normalized Direction.
-    length : num
-        The full length of the arrow.
-
-    Returns
-    -------
-    None.
-
-    """
-
-    a1 = Arrow3D([com[1]-length/3*direction[1], com[1]+length/2*direction[1]],
-                 [com[0]-length/3*direction[0], com[0]+length/2*direction[0]],
-                 [com[2]-length/3*direction[2], com[2]+length/2*direction[2]],
-                 mutation_scale=20, lw=2, arrowstyle="-|>", color="r", zorder=1000)
-    ax.add_artist(a1)
-
-    a2 = Arrow3D([com[1]+length/3*direction[1], com[1]-length/2*direction[1]],
-                 [com[0]+length/3*direction[0], com[0]-length/2*direction[0]],
-                 [com[2]+length/3*direction[2], com[2]-length/2*direction[2]],
-                 mutation_scale=20, lw=2, arrowstyle="-|>", color="r", zorder=1000)
-    ax.add_artist(a2)
 
 
 @njit
@@ -119,7 +71,6 @@ def __i_coincidence(tof_corr, pulse_corr, x, y, t, t_tof):
 
 
 def P_xy(x):
-
     return (np.sqrt(5.8029e-4)*(x))*np.sqrt(2*0.03675)
 
 
@@ -257,6 +208,24 @@ def angular_profile(data, spacing, rrange):
 
 
 def radial2d(data, spacing):
+    """
+    Finds a 2d array of data integrated around the cylindrical axis
+
+    Parameters
+    ----------
+    data : Float[:,:,:]
+        Array of data
+    spacing : f
+        spacing of grid.
+
+    Returns
+    -------
+    rb : Float[:,:]
+        Brightness of each ring at x.
+    r : f[:]
+        radius of each ring
+    """
+
     l = data.shape[2]
     testrb, r = radial_profile(data[1, :, :], spacing)
 
@@ -276,11 +245,14 @@ plt.close('all')
 
 # %% Parameters
 name = 'mid'
-in_name = "J:\\ctgroup\\DATA\\UCONN\\VMI\\VMI\\20220404\\xe104_cluster.h5"  #
+in_name = "xe006_e_cluster.h5"  # "J:\\ctgroup\\DATA\\UCONN\\VMI\\VMI\\20220404\\xe104_cluster.h5"  #
 
-t0 = 252.2  # in us
+t0 = 0.5  # in us
+t0f = 30
 tof_range = [0, 40]  # in us
-etof_range = [20, 50]  # in ns
+etof_range = [20, 40]  # in ns
+
+do_tof_gate = True
 
 t0 = t0*1000
 tof_range = np.array(tof_range)*1000
@@ -316,25 +288,26 @@ xint, yint, tint = __e_coincidence(etof_corr[etof_index], pulse_corr, x, y, t_et
 xint, yint, tint = np.array(xint), np.array(yint), np.array(tint)
 
 # %% i-ToF Coincidence
+if do_tof_gate:
+    print('Starting i-ToF Coincidence:', datetime.now().strftime("%H:%M:%S"))
+    tof_index = np.where(np.logical_and(
+        t_tof > tof_range[0], t_tof < tof_range[1]))[0]
 
-print('Starting i-ToF Coincidence:', datetime.now().strftime("%H:%M:%S"))
-tof_index = np.where(np.logical_and(
-    t_tof > tof_range[0], t_tof < tof_range[1]))[0]
+    xs, ys, ts, tofs = __i_coincidence(
+        tof_corr[tof_index], pulse_corr, xint, yint, tint, t_tof[tof_index])
 
-
-xs, ys, ts, tofs = __i_coincidence(
-    tof_corr[tof_index], pulse_corr, xint, yint, tint, t_tof[tof_index])
-
-xs = np.array(xs)
-ys = np.array(ys)
-ts = np.array(ts)
-tofs = np.array(tofs)
+    xs = np.array(xs)
+    ys = np.array(ys)
+    ts = np.array(ts)
+    tofs = np.array(tofs)
+else:
+    xs, ys, ts, tofs = xint, yint, tint, t_tof
 addnoise = True
-# %% Corrections to Momentum
+# %% Conversion to Momentum
 x0 = 119
 y0 = 133
 
-torem = np.where(np.logical_and(xs == 0, ys == 0))
+torem = np.where(np.logical_and(xs == 195, ys == 234))
 xs = np.delete(xs, torem)
 ys = np.delete(ys, torem)
 ts = np.delete(ts, torem)
@@ -344,171 +317,126 @@ if addnoise:
     addnoise = False
 px = P_xy(xs-x0)
 py = P_xy(ys-y0)
-pz = P_z(ts-30.7)
+pz = P_z(ts-t0f)
 
 
-# %% Plotting
-print('Plotting:', datetime.now().strftime("%H:%M:%S"))
+# %% Rotation
+print('Rotating:', datetime.now().strftime("%H:%M:%S"))
 mpl.rc('image', cmap='jet')
 
-width = 1.3555441711725957
+width = 1.5
 plot_range = [-width, width]
-
-plt.figure(1)
-plt.hist(tofs, bins=300, range=tof_range)
-
-plt.figure(2)
-plt.hist(pz, bins=300, range=plot_range)
-
 nbins = 256
 
-plt.figure(3)
-ax = plt.axes(projection='3d')
 h, edges = np.histogramdd((px, py, pz), bins=(nbins, nbins, nbins),
                           range=[plot_range, plot_range, plot_range])
 Xc, Yc, Zc = np.meshgrid(edges[0][:-1], edges[1][:-1], edges[2][:-1])
 h[0, 0, :] = np.zeros_like(h[0, 0, :])
-# h = np.log(h)
-numbins = 100
-minbin = 1
-numbins = min(numbins, int(h.max())-minbin)
-
-cm = SM().to_rgba(np.array(range(numbins))**1)
-cm[:, 3] = (np.array(range(numbins))/numbins)**1.5
-mlab.close(all=True)
-mlab.figure(figure="surfaces", bgcolor=(0, 0, 0))
-
-
-for i in range(numbins):
-    iso_val = i*(int(h.max())-minbin)/numbins+minbin
-    verts, faces, _, _ = measure.marching_cubes_lewiner(
-        h, iso_val, spacing=(2*width/nbins, 2*width/nbins, 2*width/nbins))
-
-    ax.plot_trisurf(verts[:, 0]-width, verts[:, 1]-width, faces, verts[:, 2]-width,
-                    color=cm[i], shade=True, zorder=numbins+100-i)
-
-    mlab.triangular_mesh(verts[:, 0]-width, verts[:, 1]-width, verts[:, 2]-width,
-                         faces, color=tuple(cm[i, :3]), opacity=cm[i, 3])
-    if i == 0:
-        mlab.axes()
-# mlab.axes()
-mpl.rc('image', cmap='gray')
-
-ax.set_xlim(left=-width, right=width)
-ax.set_ylim(bottom=-width, top=width)
-ax.set_zlim(bottom=-width, top=width)
-
-xyhist = np.histogramdd((py, px), bins=nbins, range=[plot_range, plot_range])[0]
-xyhist[0, 0] = 0
-xzhist = np.histogramdd((px, pz), bins=nbins, range=[plot_range, plot_range])[0]
-yzhist = np.histogramdd((py, pz), bins=nbins, range=[plot_range, plot_range])[0]
-
-ax.plot_surface(Xc[:, :, 0], Yc[:, :, 0], Zc[:, :, 0],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xyhist), zorder=-1)
-ax.plot_surface(Xc[:, 0, :], Yc[:, 0, :], Zc[:, 0, :],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(yzhist), zorder=-2)
-ax.plot_surface(Xc[0, :, :], Yc[0, :, :], Zc[0, :, :],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xzhist), zorder=-3)
-
-ax.view_init(elev=15., azim=45.)
-
-
-# %% Rotation
-
+h[-1, -1, :] = np.zeros_like(h[0, 0, :])
+numbins = 256
 
 x = Xc[0, :, 0]
 y = Yc[:, 0, 0]
 z = Zc[0, 0, :]
 
-fit = LinearRegression().fit(Xc[:, :, 0].flatten().reshape(-1, 1),
-                             Yc[:, :, 0].flatten().transpose().reshape(-1, 1),
-                             sample_weight=np.sum(h, axis=2).flatten())
+theta = -1
 
-Ixx = np.sum(h*Yc**2+h*Zc**2)
-Iyy = np.sum(h*Xc**2+h*Zc**2)
-Izz = np.sum(h*Yc**2+h*Xc**2)
+hp = inter.interpn((x, y, z), h, (Xc*np.cos(theta)+Yc*np.sin(theta),
+                                  Yc*np.cos(theta)-Xc*np.sin(theta), Zc),
+                   fill_value=0, bounds_error=False,)
 
-Ixy = np.sum(h*Xc*Yc)
-Ixz = np.sum(h*Xc*Zc)
-Iyz = np.sum(h*Yc*Zc)
+plt.figure("Rotation")
+plt.imshow(np.sum(hp, axis=2))
 
-I = [[Ixx, -Ixy, -Ixz], [-Ixy, Iyy, -Iyz], [-Ixz, -Iyz, Izz]]
+# %% Plotting
+print('Plotting:', datetime.now().strftime("%H:%M:%S"))
 
-evals, evecs = np.linalg.eig(I)
 
-index = np.where(evals == max(evals))[0][0]
+plt.figure('ToF Spectrum')
+plt.hist(tofs, bins=100, range=tof_range)
 
-theta = np.arctan(1/fit.coef_[0])[0]
+plt.figure('e-ToF Spectrum')
+plt.hist(ts, bins=200, range=etof_range)
 
-# for i in range(3):
-# mlab.plot3d([0, evecs[i][0]], [0, evecs[i][1]], [0, evecs[i][2]])
-# mlab.axes()
+plt.figure('p_z spectrum')
+plt.hist(pz, bins=300, range=plot_range)
 
-a = (Xc*np.cos(theta)+Yc*np.sin(theta), Yc*np.cos(theta)-Xc*np.sin(theta), Zc)
-hp = distribution = inter.interpn((x, y, z), h, (Xc*np.cos(theta)+Yc*np.sin(theta),
-                                                 Yc*np.cos(theta)-Xc*np.sin(theta), Zc),
-                                  fill_value=0, bounds_error=False,)
-
-plt.figure('Rotated 3d Projection')
-ax = plt.axes(projection='3d')
+# plt.figure('Rotated 3d Projection')
+# ax = plt.axes(projection='3d')
+mlab.close("Rotated 3d Projection")
 mlab.figure(figure="Rotated 3d Projection", bgcolor=(0, 0, 0))
+
+minbin = 1
+numbins = min(numbins, int(h.max())-minbin)
+cm = SM().to_rgba(np.array(range(numbins))**1)
+cm[:, 3] = (np.array(range(numbins))/numbins)**1.5
 
 for i in range(numbins):
     iso_val = i*(int(hp.max())-minbin)/numbins+minbin
     verts, faces, _, _ = measure.marching_cubes_lewiner(
         hp, iso_val, spacing=(2*width/nbins, 2*width/nbins, 2*width/nbins))
 
-    ax.plot_trisurf(verts[:, 0]-width, verts[:, 1]-width, faces, verts[:, 2]-width,
-                    color=cm[i], shade=True, zorder=numbins+100-i)
+    # ax.plot_trisurf(verts[:, 0]-width, verts[:, 1]-width, faces, verts[:, 2]-width,
+    #                 color=cm[i], shade=True, zorder=numbins+100-i)
 
     mlab.triangular_mesh(verts[:, 0]-width, verts[:, 1]-width, verts[:, 2]-width,
                          faces, color=tuple(cm[i, :3]), opacity=cm[i, 3])
     if i == 0:
         mlab.axes()
-
 mpl.rc('image', cmap='gray')
 
-ax.set_xlim(left=-width, right=width)
-ax.set_ylim(bottom=-width, top=width)
-ax.set_zlim(bottom=-width, top=width)
+# ax.set_xlim(left=-width, right=width)
+# ax.set_ylim(bottom=-width, top=width)
+# ax.set_zlim(bottom=-width, top=width)
 
-c = (0, 0, 0)
 
-cx = nbins//2+int(c[0]/np.diff(x)[0])
-cy = nbins//2+int(1/np.diff(y)[0]*c[1])
-cz = nbins//2+int(1/np.diff(z)[0]*c[2])
-
-w = 2
-
-xyhist = np.sum(hp[:, :, cz-w:cz+w], axis=2)
-xzhist = np.sum(hp[cy-w:cy+w, :, :], axis=0)
-yzhist = np.sum(hp[:, cx-w:cx+w, :], axis=1)
-
-ax.plot_surface(Xc[:, :, 0], Yc[:, :, 0], Zc[:, :, 0],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xyhist), zorder=-1)
-ax.plot_surface(Xc[:, 0, :], Yc[:, 0, :], Zc[:, 0, :],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(yzhist), zorder=-2)
-ax.plot_surface(Xc[0, :, :], Yc[0, :, :], Zc[0, :, :],
-                rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xzhist), zorder=-3)
-ax.view_init(elev=15., azim=45.)
-
-mpl.rc('image', cmap='viridis')
 plt.figure('VMI Cuts')
-plt.subplot(223)
-plt.imshow(xyhist, extent=(-width, width, -width, width), origin='lower')
-plt.xlabel("x")
-plt.ylabel("y")
-plt.subplot(224)
-plt.imshow(yzhist, extent=(-width, width, -width, width), origin='lower')
-plt.xlabel("z")
-plt.ylabel("y")
-plt.subplot(221)
-plt.imshow(xzhist.transpose(), extent=(-width, width, -width, width), origin='lower')
-plt.xlabel("x")
-plt.ylabel("z")
+for j, i in enumerate(np.linspace(-0.3, 0.3, num=9)):
+    c = (0, 0, 0)
+
+    cx = nbins//2+int(c[0]/np.diff(x)[0])
+    cy = nbins//2+int(1/np.diff(y)[0]*c[1])
+    cz = nbins//2+int(1/np.diff(z)[0]*c[2])
+
+    w = nbins//2
+
+    xyhist = np.sum(hp[:, :, cz-w:cz+w], axis=2)
+    xzhist = np.sum(hp[cy-w:cy+w, :, :], axis=0)
+    yzhist = np.sum(hp[:, cx-w:cx+w, :], axis=1)
+
+    mpl.rc('image', cmap='gray')
+    # ax.plot_surface(Xc[:, :, 0], Yc[:, :, 0], Zc[:, :, 0],
+    #                 rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xyhist), zorder=-1)
+    # ax.plot_surface(Xc[:, 0, :], Yc[:, 0, :], Zc[:, 0, :],
+    #                 rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(yzhist), zorder=-2)
+    # ax.plot_surface(Xc[0, :, :], Yc[0, :, :], Zc[0, :, :],
+    #                 rcount=nbins, ccount=nbins, facecolors=SM().to_rgba(xzhist), zorder=-3)
+    # ax.view_init(elev=15., azim=45.)
+
+    mpl.rc('image', cmap='viridis')
+    # plt.subplot(191+j).set_title("$p_x={px:.2f}$".format(px=i))
+
+    plt.subplot(223)
+    plt.imshow(xyhist, extent=(-width, width, -width, width), origin='lower')
+    plt.xlabel("x")
+    plt.ylabel("y")
+
+    plt.subplot(224)
+    plt.imshow(yzhist, extent=(-width, width, -width, width), origin='lower')
+    plt.xlabel("z")
+    plt.ylabel("y")
+
+    plt.subplot(221)
+    plt.imshow(xzhist.transpose(), extent=(-width, width, -width, width), origin='lower')
+    plt.xlabel("x")
+    plt.ylabel("z")
+
+
+plt.figure("Fourier Transform")
+plt.imshow(np.log(np.abs(ifftshift(fftn(fftshift(xyhist))))))
+
+
 plt.figure('width')
-
-
 plt.plot(z, getzwidth(z, x, xzhist), 'b')
 plt.twinx()
 plt.plot(z, np.sum(xzhist, axis=0), 'r')
@@ -528,8 +456,8 @@ for i, r in enumerate(radii):
     # plt.subplot(221+i,projection='polar')
     adist, an = angular_profile(yzhist, np.diff(x)[0], r)
     fit = optim.curve_fit(cos2, an[1:], adist)
-    ax2.plot(an[1:], adist, label='ATI Ring {}: angle={}'.format(i+1, fit[0]))
-    ax2.plot(an, cos2(an, fit[0][0], fit[0][1]))
+    ax2.plot(an[1:], adist, label='ATI Ring {}: angle={}'.format(i+1, fit[0][0]))
+    #ax2.plot(an, cos2(an, fit[0][0], fit[0][1]))
     ab, angle = angular_profile(xzhist, np.diff(x)[0], r)
     ax3.plot(angle[1:], ab)
 ax2.legend()
