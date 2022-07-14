@@ -4,4 +4,6 @@ Old Data
 *.tpx3
 *.h5
 *.pdf
+*.png
+*.mat
 converted.txt

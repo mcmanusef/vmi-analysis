@@ -23,9 +23,6 @@ from numba import errors
 from numba.typed import List
 
 
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.patches import FancyArrowPatch
-from mpl_toolkits.mplot3d import proj3d
 import logging
 logging.disable(logging.WARNING)
 
@@ -218,6 +215,8 @@ def radial2d(data, spacing):
     spacing : f
         spacing of grid.
 
+
+
     Returns
     -------
     rb : Float[:,:]
@@ -245,14 +244,14 @@ plt.close('all')
 
 # %% Parameters
 name = 'mid'
-in_name = "xe006_e_cluster.h5"  # "J:\\ctgroup\\DATA\\UCONN\\VMI\\VMI\\20220404\\xe104_cluster.h5"  #
+in_name = "small_cluster_old.h5"  #
 
-t0 = 0.5  # in us
-t0f = 30
+t0 = .5  # in us
+t0f = 28.75
 tof_range = [0, 40]  # in us
-etof_range = [20, 40]  # in ns
+etof_range = [20, 45]  # in ns
 
-do_tof_gate = True
+do_tof_gate = False
 
 t0 = t0*1000
 tof_range = np.array(tof_range)*1000
@@ -274,6 +273,7 @@ with h5py.File(in_name, mode='r') as f:
     t_etof = f['t_etof'][()]
     t_etof = t_etof-t0
     etof_corr = f['etof_corr'][()]
+    print(etof_corr)
 
 
 # %% e-ToF Coincidence
@@ -328,6 +328,9 @@ width = 1.5
 plot_range = [-width, width]
 nbins = 256
 
+h2, edges = np.histogramdd((xs, ys, ts), bins=(nbins, nbins, nbins),
+                           range=[[0, 256], [0, 256], etof_range])
+
 h, edges = np.histogramdd((px, py, pz), bins=(nbins, nbins, nbins),
                           range=[plot_range, plot_range, plot_range])
 Xc, Yc, Zc = np.meshgrid(edges[0][:-1], edges[1][:-1], edges[2][:-1])
@@ -340,10 +343,14 @@ y = Yc[:, 0, 0]
 z = Zc[0, 0, :]
 
 theta = -1
+phi = 176.0/180*np.pi
 
 hp = inter.interpn((x, y, z), h, (Xc*np.cos(theta)+Yc*np.sin(theta),
                                   Yc*np.cos(theta)-Xc*np.sin(theta), Zc),
-                   fill_value=0, bounds_error=False,)
+                   fill_value=0, bounds_error=False)
+
+hp = inter.interpn((x, y, z), hp, (Yc*np.cos(phi)-Zc*np.sin(phi), Xc, Zc *
+                                   np.cos(phi)+Yc*np.sin(phi)), fill_value=0, bounds_error=False)
 
 plt.figure("Rotation")
 plt.imshow(np.sum(hp, axis=2))
@@ -361,6 +368,9 @@ plt.hist(ts, bins=200, range=etof_range)
 plt.figure('p_z spectrum')
 plt.hist(pz, bins=300, range=plot_range)
 
+plt.figure('e-ToF raw')
+plt.imshow(np.log(np.sum(h2, axis=1)).transpose(), extent=(
+    0, 256, etof_range[0], etof_range[1]), origin='lower', aspect='auto')
 # plt.figure('Rotated 3d Projection')
 # ax = plt.axes(projection='3d')
 mlab.close("Rotated 3d Projection")
@@ -384,7 +394,7 @@ for i in range(numbins):
     if i == 0:
         mlab.axes()
 mpl.rc('image', cmap='gray')
-
+mlab.savefig(in_name.split("\\")[-1][:-11]+".png")
 # ax.set_xlim(left=-width, right=width)
 # ax.set_ylim(bottom=-width, top=width)
 # ax.set_zlim(bottom=-width, top=width)
@@ -465,4 +475,7 @@ ax2.legend()
 
 rb, r = radial2d(hp, np.diff(x)[0])
 plt.figure("2d radial profile")
+plt.imshow(rb.transpose(), origin='lower', extent=[-width, width, min(r), max(r)])
+plt.figure("2d radial profile")
+plt.imshow(rb.transpose(), origin='lower', extent=[-width, width, min(r), max(r)])
 plt.imshow(rb.transpose(), origin='lower', extent=[-width, width, min(r), max(r)])
