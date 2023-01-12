@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug  5 16:43:56 2021
-
-@author: mcman
+Combines multiple tpx3 files in a folder into a single unclustered h5 file
 """
 import h5py
 import os
@@ -155,7 +153,7 @@ if __name__ == '__main__':
             1024,), maxshape=(None,))
 
     t0 = 0
-    for [i, filename] in enumerate(os.listdir(args.path)):
+    for [i, filename] in enumerate(sorted(os.listdir(args.path))):
         print("File:"+str(i+1)+"/"+str(len(os.listdir(args.path))))
         in_name = args.path+"/"+filename
         print(in_name)

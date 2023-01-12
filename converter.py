@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug  5 16:43:56 2021
-
-@author: mcman
+Converts a single tpx3 file into a single unclustered h5 file
 """
 import h5py
 import numpy as np
