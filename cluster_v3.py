@@ -258,11 +258,11 @@ def cluster(data):
 
 def average_over_cluster_min(cluster_index, data):
     """
-   Compute the average of x and y over each cluster and the minimum value of t in each cluster.
+   Compute the average of x and y over each cluster and the value of t in each cluster at the max of the ToT.
 
    Parameters:
        cluster_index (numpy array): Array of cluster indices.
-       data (tuple of numpy arrays): Tuple of numpy arrays, containing the data to be processed. The tuple consists of (x, y, t, tot) arrays.
+       data (tuple of numpy arrays): Tuple of numpy arrays, containing the data to be processed. The tuple consists of (x, y, toa, tot) arrays.
 
    Returns:
        list: list of tuple, where each tuple contains the weighted average values of x and y and the minimum value of t, calculated for each cluster index.
@@ -274,7 +274,6 @@ def average_over_cluster_min(cluster_index, data):
         for i in range(count):
             elements = (np.average(data[0][cluster_index == i], weights=weight[cluster_index == i]),
                         np.average(data[1][cluster_index == i], weights=weight[cluster_index == i]),
-                        # np.average(data[2][cluster_index == i], weights=weight[cluster_index == i]**5))
                         data[2][cluster_index == i][np.argmax(weight[cluster_index == i])])
             mean_vals.append(elements)
         return mean_vals
