@@ -3,12 +3,9 @@
 Clusters an unclustered h5 file to a v3 clustered file, with seperate pixel, itof, and etof info.
 """
 # %% Initializing
-import warnings
-from numba import errors
 import h5py
 import numpy as np
 import argparse
-from numba import njit
 from datetime import datetime
 from numba.typed import List
 import functools
@@ -17,8 +14,6 @@ import os
 import sklearn.cluster as skcluster
 from multiprocessing import Pool
 from threading import Lock
-warnings.simplefilter('ignore', category=errors.NumbaDeprecationWarning)
-warnings.simplefilter('ignore', category=errors.NumbaPendingDeprecationWarning)
 
 
 # %%% Functions
@@ -50,13 +45,14 @@ def safetee(iterable, n=2):
 
 
 def pairwise(iterable):
-    # pairwise('ABCDEFG') --> AB BC CD DE EF FG
+    """Return an iterator that aggregates elements in pairs. Example: pairwise('ABCDEFG') --> AB BC CD DE EF FG"""
     a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
 
 
 def split_every(n, iterable):
+    """Return an iterator that splits the iterable into chunks of size n. Example: split_every(3, 'ABCDEFGH') --> ['A','B','C'] ['D','E','F'] ['G','H']"""
     i = iter(iterable)
     piece = list(itertools.islice(i, n))
     while piece:
@@ -65,15 +61,18 @@ def split_every(n, iterable):
 
 
 def is_val(iterable, val):
+    """Return an iterator that yields True if the element in the iterable is equal to the given value, otherwise False."""
     for i in iterable:
         yield i == val
 
 
 def index_iter(iter_tuple, index):
+    """Return an iterator that yields the element at the given index of each tuple in the iterable."""
     return map(lambda x: x[index], iter_tuple)
 
 
 def split_iter(iter_tuple, n):
+    """Return a tuple of n iterators, each of which yields the nth element of each tuple in the input iterable."""
     enum = enumerate(safetee(iter_tuple, n))
     return tuple(map(lambda x: index_iter(x[1], x[0]), enum))
 
@@ -81,26 +80,13 @@ def split_iter(iter_tuple, n):
 
 
 def h5append(dataset, newdata):
-    """
-    Append data to the end of a h5 dataset
-
-    Parameters
-    ----------
-    dataset : h5py Dataset
-        The dataset to append data to.
-    newdata : Array
-        The data to be appended.
-
-    Returns
-    -------
-    None.
-
-    """
+    """Append newdata to the end of dataset"""
     dataset.resize((dataset.shape[0] + len(newdata)), axis=0)
     dataset[-len(newdata):] = newdata
 
 
 def compare_diff(time, cutoff=1, greater=True):
+    """Return True where the difference between pairs is greater/less than cutoff depending on greater value"""
     if greater:
         return (time[1]-time[0] > cutoff)
     else:
@@ -108,31 +94,58 @@ def compare_diff(time, cutoff=1, greater=True):
 
 
 def iter_dataset(file, dataset):
+    """Return an iterator that yields the elements of dataset in file"""
     for chunk in file[dataset].iter_chunks():
         for i in file[dataset][chunk]:
             yield i
 
 
 def list_enum(enum):
-    i, li = enum[0], enum[1]
-    return [(i, x) for x in li]
+    """
+    Return a list of tuples of the form (i, x) for each x in l where i is the index of the element.
+    Parameters:
+        enum (tuple): (i, l) where i is an integer and l is a list.
+    Returns:
+        list: of tuples (i, x)
+    """
+    i, l = enum[0], enum[1]
+    return [(i, x) for x in l]
 
 # %%%% Run Specific
 
 
 def iter_file(file):
+    """
+    Iterate over datasets in a h5 file.
+
+    Parameters:
+        file (h5 file): file to iterate over.
+
+    Returns:
+        tuple: tuple of iterators for each dataset in the file.
+    """
     iter_fn = functools.partial(iter_dataset, file)
     datasets = ['tdc_time', 'tdc_type', 'x', 'y', 'tot', 'toa']
     return tuple(map(iter_fn, datasets))
 
 # Unused
-
-
-def toa_correct(toa_uncorr):
-    return np.where(np.logical_and(x >= 194, x < 204), toa_uncorr-25000, toa_uncorr)
+# def toa_correct(toa_uncorr):
+#     return np.where(np.logical_and(x >= 194, x < 204), toa_uncorr-25000, toa_uncorr)
 
 
 def get_times_iter(tdc_time, tdc_type, mode, cutoff):
+    """
+   Get an iterator for specific times based on the mode and cutoff.
+
+   Parameters:
+       tdc_time (iterator): iterator for tdc time.
+       tdc_type (iterator): iterator for tdc type.
+       mode (str): mode to filter times by, either 'etof', 'pulse', or 'itof'.
+       cutoff (float): cutoff value in nanoseconds.
+
+   Returns:
+       iterator: iterator for filtered times.
+   """
     if mode == 'etof':
         return itertools.compress(tdc_time, is_val(tdc_type, 3))
 
@@ -144,6 +157,17 @@ def get_times_iter(tdc_time, tdc_type, mode, cutoff):
 
 
 def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
+    """
+    Correct the pulse times so any pulses which are less than [cutoff] away from the prior pulse are delayed by [diff].
+
+    Parameters:
+        pulse_times (iterator): iterator for pulse times.
+        cutoff (float): cutoff value for time difference in ps, default is (1e9+1.5e4).
+        diff (float): time difference value in ps, default is 12666.
+
+    Returns:
+        iterator: iterator for corrected pulse times.
+    """
     for pt, pt1 in pairwise(pulse_times):
         if pt1-pt < cutoff:
             yield pt1+diff
@@ -152,6 +176,16 @@ def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
 
 
 def get_t_iter(pulse_times, times):
+    """
+    Get an iterator for the time difference between events and pulse times.
+
+    Parameters:
+        pulse_times (iterator): iterator for pulse times.
+        times (iterator): iterator for event times.
+
+    Returns:
+        iterator: iterator for the tuple of pulse index and time difference between events and pulse times.
+    """
     pte = enumerate(pulse_times)
     i, t0 = next(pte, (-1, -1))
     i1, t1 = next(pte, (-1, -1))
@@ -168,6 +202,19 @@ def get_t_iter(pulse_times, times):
 
 
 def format_data(corr, iters):
+    """
+    Format the data for output by grouping events by pulse.
+
+    Parameters:
+        corr (iterator): iterator for the corrected pulse index.
+        iters (list of iterators): list of iterators for data to format.
+
+    Returns:
+        iterator: iterator for formatted data.
+            Each element in the iterator is a list of numpy arrays, where each numpy array in the list corresponds
+            to a single dataset, and contains data for events that belong to a specific pulse. The number of events
+            in each numpy array corresponds to the number of events for that specific pulse.
+    """
     next(corr)
     pn = next(corr)
 
@@ -211,21 +258,15 @@ def cluster(data):
 
 def average_over_cluster_min(cluster_index, data):
     """
-    Average the data over each cluster, taking the minimum of the ToA instead.
+   Compute the average of x and y over each cluster and the minimum value of t in each cluster.
 
-    Parameters
-    ----------
-    cluster_index : array[int]
-        Array of cluster indicies
-    data : list[array]
-        List of arrays to average over each cluster.
+   Parameters:
+       cluster_index (numpy array): Array of cluster indices.
+       data (tuple of numpy arrays): Tuple of numpy arrays, containing the data to be processed. The tuple consists of (x, y, t, tot) arrays.
 
-    Returns
-    -------
-    mean_val: list[tuple]
-        List of the averaged values for each cluster
-
-    """
+   Returns:
+       list: list of tuple, where each tuple contains the weighted average values of x and y and the minimum value of t, calculated for each cluster index.
+   """
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
         count = max(cluster_index)+1
         weight = data[-1]
@@ -244,6 +285,20 @@ def average_over_cluster_min(cluster_index, data):
 
 
 def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None):
+    """
+    Save data to h5 file
+
+    Parameters:
+        name (str): name of the h5 file to be created.
+        clust_data (iterable): iterable containing data for clusters.
+        etof_data (iterable): iterable containing data for etof.
+        tof_data (iterable): iterable containing data for tof.
+        groupsize (int): number of data points to be written at a time.
+        maxlen (int): maximum number of data points to be written to the file.
+
+    Returns:
+        None
+    """
     with h5py.File(name, 'w') as f:
         first = True
         xd = f.create_dataset('x', [0.], chunks=groupsize, maxshape=(None,))
