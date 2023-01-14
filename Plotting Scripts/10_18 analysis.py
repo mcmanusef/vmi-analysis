@@ -55,14 +55,18 @@ def getmeans(edges):
 
 def angular_average(angles, low=0, high=2*np.pi, weights=None):
     adjusted = (angles-low)/(high-low)*(2*np.pi)
-    # plt.figure()
-    # plt.scatter(np.cos(adjusted), np.sin(adjusted), c='r', s=weights)
     xavg = np.average(np.cos(adjusted), weights=weights)
     yavg = np.average(np.sin(adjusted), weights=weights)
     out = np.arctan2(yavg, xavg)
-    # print(out)
-    # plt.scatter(xavg, yavg, c='b')
     return out/(2*np.pi)*(high-low)+low
+
+
+def angular_dev(angles, low=0, high=2*np.pi, weights=None):
+    adjusted = (angles-low)/(high-low)*(2*np.pi)
+    xavg = np.average(np.cos(adjusted), weights=weights)
+    yavg = np.average(np.sin(adjusted), weights=weights)
+    R = np.sqrt(xavg**2+yavg**2)
+    return np.sqrt(-2*np.log(R)) * (high-low) / (2*np.pi)
 
 
 for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), ('xe012_e.mat', 0.5), ('xe013_e.mat', 0.6), ('xe003_c.mat', 0.9), ("theory.mat", 0.6)]:  # , ('xe015_e.mat', -0.3), ('xe016_e.mat', -0.6)]:  # os.listdir(source):
@@ -155,18 +159,26 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
 
     angles_in = []
     max_angles = []
+    devs = []
     r_in = []
     n_inner = 11
     index = np.where(hist[peaks] == max(hist[peaks]))[0][0]
-
-    for b in np.linspace(-r[widths[index]]*.6, r[widths[index]]*.6, n_inner):
+    plt.figure(d+" Slice")
+    for i, b in enumerate(np.linspace(-r[widths[index]]*.6, r[widths[index]]*.6, n_inner)):
         mask = np.where(np.abs(rr-r[peaks[index]]-b) < 2*r[width]/n_inner, 1, 0)
         # plt.figure()
         # plt.imshow(mask)
 
         angulardist, angle_edges = np.histogram(theta.flatten() % np.pi, weights=(mask*sample).flatten(), bins=100)
         # max_angle = angle_edges[np.where(angulardist == max(angulardist))[0][0]]
+        if i == n_inner//2 or True:
+            ad, ae = np.histogram(theta.flatten(), weights=(mask*sample).flatten(), bins=100, normed=True)
+            # plt.axes(polar=True)
+            plt.plot(getmeans(ae), ad)
+
         mean_angle = angular_average(getmeans(angle_edges), high=np.pi, weights=angulardist**1) % np.pi
+        angle_dev = angular_dev(getmeans(angle_edges), high=np.pi, weights=angulardist**1)
+        devs.append(angle_dev)
         r_in.append(r[peaks[index]]+b)
 
         if angles_in != [] and abs(angles_in[-1]-mean_angle) > np.pi/2:
@@ -191,7 +203,8 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
         #     max_angles.append(max_angle)
     # %% Intra Rotation
     plt.figure("Mean First Ring Rotation")
-    plt.plot(r_in, np.asarray(angles_in)-angles_in[0], label=str(e), linewidth=2)
+    # plt.plot(r_in, np.asarray(angles_in)-angles_in[0], label=str(e), linewidth=2)
+    plt.errorbar(r_in, np.asarray(angles_in)-angles_in[0], yerr=devs, label=str(e), linewidth=2)
     plt.yticks(ticks=[-np.pi/4, 0, np.pi/4, np.pi/2], labels=["$-\pi/4$", "$0$", "$\pi/4$", "$\pi/2$"])
     plt.legend(fontsize=12)
     plt.xlabel("$p_r$", fontweight="bold")
@@ -205,8 +218,10 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
     # plt.ylabel("θ")
 
     plt.figure(d+" Unwrapped")
-    plt.plot(np.asarray(angles_in), r_in, color='orange')
-    plt.plot(np.asarray(angles_in)-np.pi, r_in, color='orange')
+    # plt.plot(np.asarray(angles_in), r_in, color='orange')
+    # plt.plot(np.asarray(angles_in)-np.pi, r_in, color='orange')
+    plt.errorbar(np.asarray(angles_in), r_in, xerr=devs, color='orange')
+    plt.errorbar(np.asarray(angles_in)-np.pi, r_in, xerr=devs, color='orange')
 
     plt.savefig(d[:-4]+"_polar.png")
 

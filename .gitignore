@@ -6,4 +6,5 @@ Old Data
 *.pdf
 *.png
 *.mat
+*.cv3
 converted.txt

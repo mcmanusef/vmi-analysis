@@ -48,7 +48,7 @@ ax[1, 0].axis('off')
 
 rtof = [520, 540]
 rtoa = [300, 330]
-ftof, ftoa = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0] < x[1] < rtoa[1], zip(tof, toa))))
+ftof, ftoa, __ = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0] < x[1] < rtoa[1] and not (194 < x[2] < 204), zip(tof, toa, x))))
 ax[0, 1].hist2d(ftof, ftoa, bins=100)
 
 # ax[0, 0].hist(ftoa, bins=(rtoa[1]-rtoa[0])*10, orientation='horizontal')
@@ -56,7 +56,7 @@ ax[0, 1].hist2d(ftof, ftoa, bins=100)
 
 for rtof in [(i, i+2) for i in range(520, 540, 2)]:
 
-    ftof, ftoa = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0] < x[1] < rtoa[1], zip(tof, toa))))
+    ftof, ftoa, __ = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0] < x[1] < rtoa[1] and not (194 < x[2] < 204), zip(tof, toa, x))))
 
     ax[0, 0].hist(ftoa, bins=(rtoa[1]-rtoa[0])*10, orientation='horizontal')
     ax[1, 1].hist(ftof, bins=(rtof[1]-rtof[0])*10)
