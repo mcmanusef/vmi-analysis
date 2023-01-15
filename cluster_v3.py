@@ -256,7 +256,7 @@ def cluster(data):
     return clst, data
 
 
-def average_over_cluster_min(cluster_index, data):
+def average_over_cluster(cluster_index, data):
     """
    Compute the average of x and y over each cluster and the value of t in each cluster at the max of the ToT.
 
@@ -391,7 +391,7 @@ if __name__ == '__main__':
 
     clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
 
-    averaged_cluster_data = itertools.starmap(average_over_cluster_min, clustered_data)
+    averaged_cluster_data = itertools.starmap(average_over_cluster, clustered_data)
 
     enumerated_data = itertools.chain.from_iterable(map(list_enum, enumerate(averaged_cluster_data)))
 
