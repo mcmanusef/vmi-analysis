@@ -58,7 +58,7 @@ def P_z(t):
 
 @njit(cache=True)
 def smear(x, amount=0.26):
-    return x/1000+np.random.rand()*amount
+    return x+np.random.rand()*amount
 
 
 @njit
@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     del coords, input_file, k, f, data, pol
 
-    # plt.figure(1)
-    # plt.hist2d(px, py, bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
-    # plt.figure(2)
-    # plt.hist(pz, bins=1000, range=[-1, 1])
+    plt.figure(1)
+    plt.hist2d(px, py, bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
+    plt.figure(2)
+    plt.hist(pz, bins=1000, range=[-1, 1])
