@@ -101,7 +101,7 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
 
     rr, theta = np.mgrid[0:0.8:0.8/n, -np.pi:np.pi:2*np.pi/n]
 
-    sample = blur2d(fn((rr*np.sin(theta), rr*np.cos(theta))), 0.01, 10)
+    sample = blur2d(fn((rr*np.cos(theta), rr*np.sin(theta))), 0.01, 10)
 
     plt.figure(d+" Unwrapped")
     plt.title(fr"\Large\boldmath$\epsilon={e}$ Unwrapped", )
@@ -203,8 +203,8 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
         #     max_angles.append(max_angle)
     # %% Intra Rotation
     plt.figure("Mean First Ring Rotation")
-    # plt.plot(r_in, np.asarray(angles_in)-angles_in[0], label=str(e), linewidth=2)
-    plt.errorbar(r_in, np.asarray(angles_in)-angles_in[0], yerr=devs, label=str(e), linewidth=2)
+    plt.plot(r_in, np.asarray(angles_in)-angles_in[0], label=str(e), linewidth=2)
+    # plt.errorbar(r_in, np.asarray(angles_in)-angles_in[0], yerr=devs, label=str(e), linewidth=2)
     plt.yticks(ticks=[-np.pi/4, 0, np.pi/4, np.pi/2], labels=["$-\pi/4$", "$0$", "$\pi/4$", "$\pi/2$"])
     plt.legend(fontsize=12)
     plt.xlabel("$p_r$", fontweight="bold")
@@ -218,10 +218,10 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
     # plt.ylabel("θ")
 
     plt.figure(d+" Unwrapped")
-    # plt.plot(np.asarray(angles_in), r_in, color='orange')
-    # plt.plot(np.asarray(angles_in)-np.pi, r_in, color='orange')
-    plt.errorbar(np.asarray(angles_in), r_in, xerr=devs, color='orange')
-    plt.errorbar(np.asarray(angles_in)-np.pi, r_in, xerr=devs, color='orange')
+    plt.plot(np.asarray(angles_in), r_in, color='orange')
+    plt.plot(np.asarray(angles_in)-np.pi, r_in, color='orange')
+    # plt.errorbar(np.asarray(angles_in), r_in, xerr=devs, color='orange')
+    # plt.errorbar(np.asarray(angles_in)-np.pi, r_in, xerr=devs, color='orange')
 
     plt.savefig(d[:-4]+"_polar.png")
 

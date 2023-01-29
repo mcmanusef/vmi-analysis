@@ -78,14 +78,14 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
     resample = fn((xx, yy))
 
     rr = np.sqrt(xx**2+yy**2)
-    theta = np.arctan2(xx, yy)
+    theta = np.arctan2(yy, xx)
     dr = xx[1, 1]-xx[0, 0]
 
     n = 1000
 
     rr, theta = np.mgrid[0:0.8:0.8/n, -np.pi:np.pi:2*np.pi/n]
 
-    sample = blur2d(fn((rr*np.sin(theta), rr*np.cos(theta))), 0.01, 10)
+    sample = blur2d(fn((rr*np.cos(-theta* np.sign(e)), rr*np.sin(-theta* np.sign(e)))), 0.01, 10)
 
     hist, edges = np.histogram(rr.flatten(), weights=sample.flatten(), bins=n, density=True)
     r = getmeans(edges)
@@ -112,13 +112,13 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
             angles.append(mean_angle)
 
     plt.sca(ax1)
-    plt.plot(r[peaks], (np.asarray(angles)-0*angles[0]-np.pi)*180/np.pi * np.sign(e), label=f"${np.abs(e)}$", linestyle='--', marker='o', linewidth=2, markersize=6)
+    plt.plot(r[peaks], (np.asarray(angles))*180/np.pi , label=f"${np.abs(e)}$", linestyle='--', marker='o', linewidth=2, markersize=6)
     # plt.yticks(ticks=[-np.pi/2, -np.pi/4, 0, np.pi/4], labels=["$-90$", "$-45$", "$0$", "$45$"])
     plt.xlabel("$p_r$", fontweight="bold")
     plt.ylabel(r"$\theta$", fontweight="bold")
 
     plt.annotate("$b$", xy=(0.9, 0.88), xycoords="axes fraction", fontweight='bold')
-    plt.ylim(-100, 19)
+    # plt.ylim(-100, 19)
     # plt.title("Rotation of Peaks Between ATI Rings", fontweight="bold")
     plt.tight_layout()
 
@@ -141,7 +141,7 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
             angles_in.append(mean_angle)
 
     plt.sca(ax2)
-    plt.plot(r_in, (np.asarray(angles_in)-angles_in[0])*180/np.pi * np.sign(e), label=f"${np.abs(e)}$", linewidth=1, marker='o')
+    plt.plot(r_in, (np.asarray(angles_in)-angles_in[0])*180/np.pi, label=f"${np.abs(e)}$", linewidth=1, marker='o')
     # plt.yticks(ticks=[-np.pi/4, 0, np.pi/4, np.pi/2], labels=["$-\pi/4$", "$0$", "$\pi/4$", "$\pi/2$"])
     # plt.yticks(ticks=[-np.pi/4, 0, np.pi/4, np.pi/2], labels=["$-45$", "$0$", "$45$", "$90$"])
     plt.xlabel("$p_r$", fontweight="bold")
