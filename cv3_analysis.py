@@ -9,6 +9,7 @@ import h5py
 import numpy as np
 import functools
 import itertools
+import random
 import matplotlib.pyplot as plt
 from numba import njit, vectorize
 
@@ -79,11 +80,17 @@ def rotate_coords(coords, theta=-1, phi=0):
     return zp * np.cos(phi)+yp*np.sin(phi), yp*np.cos(phi)-zp*np.sin(phi), xp
 
 
-if __name__ == '__main__':
-    input_file = "s.cv3"
-    pol = 0
+def partition(list_in, n):
+    indices = list(range(len(list_in)))
+    random.shuffle(indices)
+    index_partitions = [sorted(indices[i::n]) for i in range(n)]
+    return [[list_in[i] for i in index_partition]
+            for index_partition in index_partitions]
+
+
+def load_cv3(file, pol=0, width=0.05):
     data = {}
-    with h5py.File(input_file) as f:
+    with h5py.File(file) as f:
         for k in f.keys():
             data[k] = list(f[k][()])
 
@@ -91,16 +98,19 @@ if __name__ == '__main__':
         zip(data["cluster_corr"], zip(data["x"], data["y"])),
         zip(data["etof_corr"], map(smear, list(np.array(data["t_etof"])/1000)))))))
 
-    px, py, pz = zip(*list(
-        filter(lambda x: abs(x[2]) < 0.05,
+    px, py, pz = map(np.array, zip(*list(
+        filter(lambda x: abs(x[2]) < width,
                map(functools.partial(rotate_coords, phi=pol),
                    map(momentum_conversion,
                        map(centering,
-                           filter(in_good_pixels, coords)))))))
-
-    del coords, input_file, k, f, data, pol
-
-    plt.figure(1)
-    plt.hist2d(px, py, bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
-    plt.figure(2)
-    plt.hist(pz, bins=1000, range=[-1, 1])
+                           filter(in_good_pixels, coords))))))))
+    return px, py, pz
+# # %%
+#     parts = partition(list(range(len(px))), 10)
+#     plt.figure(1)
+#     hists = []
+#     for i in range(9):
+#         plt.subplot(331+i)
+#         plt.hist2d(px[parts[i]], py[parts[i]], bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
+#     # plt.figure(2)
+#     plt.hist2d(px, py, bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
