@@ -20,7 +20,7 @@ def getmeans(edges):
     return np.asarray([(a+b)/2 for a, b in pairwise(edges)])
 
 
-file = "cartesian-ellip06-pz0-tot-momspe-2d-sw.dat"
+file = "cartesian-ellip04-pz0-tot-momspe-2d-sw.dat"
 data = [[float(x) for x in l.split()] for l in open(file, 'r') if l.strip()]
 px, py, sig = map(list, zip(*data))
 
@@ -37,4 +37,4 @@ out_dict["xv"] = getmeans(xe)
 out_dict["yv"] = getmeans(ye)
 out_dict["zv"] = np.array(0)
 
-savemat("theory.mat", out_dict)
+savemat("theory_04.mat", out_dict)
