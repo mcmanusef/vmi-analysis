@@ -57,6 +57,6 @@ for d in sorted(os.listdir(args.dir)):
             print(a.stderr)
 
             print("\tclustering")
-            b = subprocess.run([sys.executable, "cluster1.py", "temp.h5",
-                               "--out", args.dir+"/"+args.dest+"/"+d+"_c.h5"])
+            b = subprocess.run([sys.executable, "cluster_v3.py", "temp.h5",
+                               "--out", args.dir+"/"+args.dest+"/"+d+".cv3"])
             print(b.stderr)
