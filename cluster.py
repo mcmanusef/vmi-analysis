@@ -18,6 +18,7 @@ import os
 import sklearn.cluster as skcluster
 from multiprocessing import Pool
 from threading import Lock
+
 warnings.simplefilter('ignore', category=errors.NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=errors.NumbaPendingDeprecationWarning)
 
@@ -90,9 +91,9 @@ def is_val(iterable, val):
 
 def compare_diff(time, cutoff=1, greater=True):
     if greater:
-        return (time[1]-time[0] > cutoff)
+        return time[1] - time[0] > cutoff
     else:
-        return (time[1]-time[0] < cutoff)
+        return time[1] - time[0] < cutoff
 
 
 def index_iter(iter_tuple, index):
@@ -105,17 +106,17 @@ def split_iter(iter_tuple, n):
 
 
 def toa_correct(toa_uncorr):
-    return np.where(np.logical_and(x >= 194, x < 204), toa_uncorr-25000, toa_uncorr)
+    return np.where(np.logical_and(x >= 194, x < 204), toa_uncorr - 25000, toa_uncorr)
 
 
-def correct_pulse_times(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
-    return np.where(np.diff(pulse_times) > (1e9+1.5e4), pulse_times[1:]-diff, pulse_times[1:])
+def correct_pulse_times(pulse_times, cutoff=(1e9 + 1.5e4), diff=12666):
+    return np.where(np.diff(pulse_times) > (1e9 + 1.5e4), pulse_times[1:] - diff, pulse_times[1:])
 
 
-def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
+def correct_pulse_times_iter(pulse_times, cutoff=(1e9 + 1.5e4), diff=12666):
     for pt, pt1 in pairwise(pulse_times):
-        if pt1-pt < cutoff:
-            yield pt1+diff
+        if pt1 - pt < cutoff:
+            yield pt1 + diff
         else:
             yield pt1
 
@@ -139,7 +140,7 @@ def get_times_iter(tdc_time, tdc_type, mode, cutoff):
     else:
         times = itertools.compress(pairwise(tdc_time), is_val(tdc_type, 1))
         times, pair_times = itertools.tee(times)
-        comp = functools.partial(compare_diff, cutoff=cutoff*1000, greater=(mode == 'pulse'))
+        comp = functools.partial(compare_diff, cutoff=cutoff * 1000, greater=(mode == 'pulse'))
         return itertools.compress(index_iter(times, 0), map(comp, pair_times))
 
 
@@ -156,7 +157,7 @@ def get_t_iter(pulse_times, times):
         if i == -1:
             break
         else:
-            yield i, time-t0
+            yield i, time - t0
 
 
 def read_file(filename):
@@ -199,17 +200,17 @@ def get_times(tdc_time, tdc_type, mode, cutoff):
         if not tdc_type[-1] == 1:
             lengths = np.diff(tdc_time)[np.where(tdc_type == 1)]
             if mode == 'pulse':
-                return times[np.where(lengths > 1e3*cutoff)]
+                return times[np.where(lengths > 1e3 * cutoff)]
             elif mode == 'itof':
-                return times[np.where(lengths < 1e3*cutoff)]
+                return times[np.where(lengths < 1e3 * cutoff)]
             else:
                 raise NotImplementedError
         else:
             lengths = np.diff(tdc_time)[np.where(tdc_type == 1)[:-1]]
             if mode == 'pulse':
-                return times[np.where(lengths > 1e3*cutoff)[:-1]]
+                return times[np.where(lengths > 1e3 * cutoff)[:-1]]
             elif mode == 'itof':
-                return times[np.where(lengths < 1e3*cutoff)[:-1]]
+                return times[np.where(lengths < 1e3 * cutoff)[:-1]]
             else:
                 raise NotImplementedError
 
@@ -233,8 +234,8 @@ def get_t(pulse_times, times):
     corr : array[int]
         The index of the corresponding laser pulses
     """
-    corr = np.searchsorted(pulse_times, times)-1
-    t = (times-pulse_times[corr])
+    corr = np.searchsorted(pulse_times, times) - 1
+    t = (times - pulse_times[corr])
     return t, corr
 
 
@@ -321,7 +322,7 @@ def average_over_cluster(cluster_index, data):
 
     """
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
-        count = max(cluster_index)+1
+        count = max(cluster_index) + 1
         weight = data[-1]
         av_i = functools.partial(average_i, cluster_index, data, weight)
         mean_vals = list(map(av_i, range(count)))
@@ -349,7 +350,7 @@ def average_over_cluster_jit(cluster_index, data):
 
     """
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
-        count = max(cluster_index)+1
+        count = max(cluster_index) + 1
         weight = data[-1]
         mean_vals = List()
         for i in range(count):
@@ -375,7 +376,7 @@ def correlate_tof(data, t_tof=None, tof_corr=None):
     if len(tof_sel) != 1:
         return None
     else:
-        return (data[0], tuple(list(data[1][:-1])+[tof_sel[0]]))
+        return (data[0], tuple(list(data[1][:-1]) + [tof_sel[0]]))
 
 
 def correlate_tof_iter(data_iter, tof_data):
@@ -387,7 +388,7 @@ def correlate_tof_iter(data_iter, tof_data):
         elif dc[0] < tc[0]:
             dc = next(data_iter, None)
         else:
-            yield (dc[0], tuple(list(dc[1][:-1])+[tc[1]]))
+            yield (dc[0], tuple(list(dc[1][:-1]) + [tc[1]]))
             tc = next(tof_data, None)
 
 
@@ -411,7 +412,8 @@ def save_iter(name, corr_data, tof_data, groupsize=1000, maxlen=None):
         t_tof_d = f.create_dataset('t_tof', [0.], chunks=groupsize, maxshape=(None,))
         tof_corr_d = f.create_dataset('tof_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
 
-        for split1, split2 in itertools.zip_longest(split_every(groupsize, corr_data), split_every(groupsize, tof_data), fillvalue=None):
+        for split1, split2 in itertools.zip_longest(split_every(groupsize, corr_data), split_every(groupsize, tof_data),
+                                                    fillvalue=None):
             if first:
                 split1 = split1[1:]
                 split2 = split2[1:]
@@ -464,7 +466,7 @@ args = parser.parse_args()
 if __name__ == '__main__':
     p = Pool(os.cpu_count())
     print('Loading Data:', datetime.now().strftime("%H:%M:%S"))
-    output_name = args.output if args.output else args.filename[:-3]+"_c.h5"
+    output_name = args.output if args.output else args.filename[:-3] + "_c.h5"
 
     f_in = h5py.File(args.filename)
 
@@ -480,7 +482,8 @@ if __name__ == '__main__':
     itof_data = get_t_iter(pt3, itof_times)
     formatted_data = format_data(pixel_corr, [x, y, t_pixel, tot])
 
-    clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
+    clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster,
+                                                                                                 formatted_data)
 
     averaged_cluster_data = itertools.starmap(average_over_cluster, clustered_data)
 
