@@ -52,7 +52,8 @@ def pairwise(iterable):
 
 
 def split_every(n, iterable):
-    """Return an iterator that splits the iterable into chunks of size n. Example: split_every(3, 'ABCDEFGH') --> ['A','B','C'] ['D','E','F'] ['G','H']"""
+    """Return an iterator that splits the iterable into chunks of size n. Example: split_every(3, 'ABCDEFGH') --> [
+    'A','B','C'] ['D','E','F'] ['G','H']"""
     i = iter(iterable)
     piece = list(itertools.islice(i, n))
     while piece:
