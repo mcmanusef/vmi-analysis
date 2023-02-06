@@ -135,7 +135,7 @@ for d, e in [('xe002_s.mat', -0.1), ('xe014_e.mat', 0.2), ('xe011_e.mat', 0.3), 
         angulardist, angle_edges = np.histogram(theta.flatten() % np.pi, weights=(mask*sample).flatten(), bins=100)
         mean_angle = angle_edges[np.where(angulardist == max(angulardist))[0][0]]
 
-        mean_angle = angular_average(getmeans(angle_edges), high=np.pi, weights=angulardist**1) % np.pi
+        mean_angle = angular_average(getmeans(angle_edges), high=np.pi, weights=angulardist**4) % np.pi
 
         if angles != [] and abs(angles[-1]-mean_angle) > np.pi/2:
             angles.append(mean_angle+np.pi*(angles[-1]-mean_angle)/abs(angles[-1]-mean_angle))
