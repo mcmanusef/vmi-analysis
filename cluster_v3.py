@@ -336,7 +336,7 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
                 h5append(etof_corr_d, etof_corr)
 
             if split3 is not None:
-                (tof_corr, t_tof) = tuple(zip(*split2))
+                (tof_corr, t_tof) = tuple(zip(*split3))
                 h5append(t_tof_d, t_tof)
                 h5append(tof_corr_d, tof_corr)
 
