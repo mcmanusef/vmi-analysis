@@ -12,6 +12,9 @@ import itertools
 import random
 import matplotlib.pyplot as plt
 from numba import njit, vectorize
+import matplotlib as mpl
+
+mpl.rc('image', cmap='jet')
 
 
 def correlate_tof(data_iter, tof_data):
@@ -74,10 +77,12 @@ def centering(x, center=(128, 128, 528.5)):
 
 
 @njit(cache=True)
-def rotate_coords(coords, theta=-1, phi=0):
+def rotate_coords(coords, theta=1, phi=0):
+    # phi=phi+1
+    
     x, y, z = coords
     xp, yp, zp = x*np.cos(theta)+y*np.sin(theta), y*np.cos(theta)-x*np.sin(theta), z
-    return zp * np.cos(phi)+yp*np.sin(phi), yp*np.cos(phi)-zp*np.sin(phi), xp
+    return xp, yp*np.cos(phi)-zp*np.sin(phi), zp * np.cos(phi)+yp*np.sin(phi)
 
 
 def partition(list_in, n):
@@ -88,29 +93,37 @@ def partition(list_in, n):
             for index_partition in index_partitions]
 
 
-def load_cv3(file, pol=0, width=0.05):
+def load_cv3(file, pol=0, width=0.05, to_load=None):
     data = {}
     with h5py.File(file) as f:
         for k in f.keys():
-            data[k] = list(f[k][()])
+            data[k] = list(f[k][()]) if not to_load else list(f[k][:to_load]) 
 
     __, coords = tuple(zip(*list(correlate_tof(
         zip(data["cluster_corr"], zip(data["x"], data["y"])),
         zip(data["etof_corr"], map(smear, list(np.array(data["t_etof"])/1000)))))))
 
-    px, py, pz = map(np.array, zip(*list(
-        filter(lambda x: abs(x[2]) < width,
+    px, py, pz  = map(np.array, zip(*list(
+        filter(lambda x: abs(x[0]) < width,
                map(functools.partial(rotate_coords, phi=pol),
                    map(momentum_conversion,
                        map(centering,
                            filter(in_good_pixels, coords))))))))
-    return px, py, pz
-# # %%
-#     parts = partition(list(range(len(px))), 10)
-#     plt.figure(1)
-#     hists = []
-#     for i in range(9):
-#         plt.subplot(331+i)
-#         plt.hist2d(px[parts[i]], py[parts[i]], bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
-#     # plt.figure(2)
-#     plt.hist2d(px, py, bins=100, range=[[-1, 1], [-1, 1]], cmap='jet')
+    return py,pz,px
+
+if __name__=='__main__':
+    file = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\clust_v3\xe003_c.cv3"
+    ang=178.95870837170236
+    data = load_cv3(file, pol=0, width= 1,to_load=50000)
+    plt.figure()
+    plt.hist2d(data[0],data[1],range=[[-1,1],[-1,1]], bins=100)
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.figure()
+    plt.hist2d(data[1],data[2],range=[[-1,1],[-1,1]], bins=100)
+    plt.xlabel('y')
+    plt.ylabel('z')
+    plt.figure()
+    plt.hist2d(data[2],data[0],range=[[-1,1],[-1,1]], bins=100)
+    plt.xlabel('z')
+    plt.ylabel('x')
