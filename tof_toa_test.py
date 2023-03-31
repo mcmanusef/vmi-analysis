@@ -23,7 +23,7 @@ def create_numpy_array_from_lists(values, indices):
 
 
 # Open the HDF5 file
-with h5py.File('s.cv3', 'r') as f:
+with h5py.File('xe2.cv3', 'r') as f:
     # Get the data
     x, y = f['x'][()], f['y'][()]
     t = smear(f['t'][()]/1e3, amount=1.6)
@@ -48,7 +48,8 @@ ax[1, 0].axis('off')
 
 rtof = [520, 540]
 rtoa = [300, 330]
-ftof, ftoa, __ = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0] < x[1] < rtoa[1] and not (194 < x[2] < 204), zip(tof, toa, x))))
+ftof, ftoa, __ = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0]
+                     < x[1] < rtoa[1] and not (194 < x[2] < 204), zip(tof, toa, x))))
 ax[0, 1].hist2d(ftof, ftoa, bins=100)
 # ax[0, 0].hist(ftoa, bins=(rtoa[1]-rtoa[0])*60, range=rtoa, orientation='horizontal', histtype='step', color='k')
 # ax[1, 1].hist(ftof, bins=(rtof[1]-rtof[0])*10, range=rtof)
@@ -63,7 +64,8 @@ plt.tight_layout()
 
 for rtof in [(i, i+2) for i in range(520, 540, 2)]:
 
-    ftof, ftoa, __ = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0] < x[1] < rtoa[1] and not (194 < x[2] < 204), zip(tof, toa, x))))
+    ftof, ftoa, __ = zip(*list(filter(lambda x: rtof[0] < x[0] < rtof[1] and rtoa[0]
+                         < x[1] < rtoa[1] and not (194 < x[2] < 204), zip(tof, toa, x))))
 
     ax[0, 0].hist(ftoa, bins=(rtoa[1]-rtoa[0])*60, range=rtoa, orientation='horizontal')
     ax[1, 1].hist(ftof, bins=(rtof[1]-rtof[0])*10, range=rtof)
