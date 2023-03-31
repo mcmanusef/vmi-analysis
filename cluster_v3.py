@@ -16,7 +16,6 @@ import sklearn.cluster as skcluster
 from multiprocessing import Pool
 from threading import Lock
 
-T = TypeVar('T')
 
 # %%% Functions
 
@@ -57,18 +56,18 @@ def split_every(n: int, iterable: Iterable) -> Iterable[list]:
         piece = list(it.islice(i, n))
 
 
-def is_val(iterable: Iterable[T], val: T) -> Iterable[bool]:
+def is_val(iterable: Iterable, val) -> Iterable[bool]:
     """Return an iterator that yields True if the element in the iterable is equal to the given value, otherwise False."""
     for i in iterable:
         yield i == val
 
 
-def index_iter(iter_tuple: Iterable[tuple[T, ...]], index: int) -> Iterable[T]:
+def index_iter(iter_tuple: Iterable[tuple], index: int) -> Iterable:
     """Return an iterator that yields the element at the given index of each tuple in the iterable."""
     return map(lambda x: x[index], iter_tuple)
 
 
-def split_iter(iter_tuple: Iterable[tuple[T, ...]], n: int) -> tuple[Iterable[T], ...]:
+def split_iter(iter_tuple: Iterable[tuple], n: int) -> tuple[Iterable, ...]:
     """Return a tuple of n iterators, each of which yields the nth element of each tuple in the input iterable."""
     enum = enumerate(safetee(iter_tuple, n))
     return tuple(map(lambda x: index_iter(x[1], x[0]), enum))
@@ -362,7 +361,8 @@ if __name__ == '__main__':
                         default='', help="The output HDF5 file")
 
     parser.add_argument('--maxlen', dest='maxlen', type=float,
-                        default=None, help="The maximum number of data points to record. Use to partially cluster a dataset.")
+                        default=None,
+                        help="The maximum number of data points to record. Use to partially cluster a dataset.")
 
     parser.add_argument('filename')
     args = parser.parse_args()
