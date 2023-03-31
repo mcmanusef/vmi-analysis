@@ -7,18 +7,21 @@ import h5py
 import numpy as np
 import argparse
 from datetime import datetime
-from numba.typed import List
-import functools
-import itertools
+from numba.typed import List as nList
+import functools as ft
+import itertools as it
 import os
+from typing import *
 import sklearn.cluster as skcluster
 from multiprocessing import Pool
 from threading import Lock
 
+T = TypeVar('T')
 
 # %%% Functions
 
 # %%%% Iterator Tools
+
 
 class safeteeobject(object):
     """tee object wrapped to make it thread-safe"""
@@ -38,41 +41,34 @@ class safeteeobject(object):
         return safeteeobject(self.teeobj.__copy__(), self.lock)
 
 
-def safetee(iterable, n=2):
+def safetee(iterable: Iterable, n: int = 2) -> tuple[safeteeobject, ...]:
     """tuple of n independent thread-safe iterators"""
     lock = Lock()
-    return tuple(safeteeobject(teeobj, lock) for teeobj in itertools.tee(iterable, n))
+    return tuple(safeteeobject(teeobj, lock) for teeobj in it.tee(iterable, n))
 
 
-def pairwise(iterable):
-    """Return an iterator that aggregates elements in pairs. Example: pairwise('ABCDEFG') --> AB BC CD DE EF FG"""
-    a, b = itertools.tee(iterable)
-    next(b, None)
-    return zip(a, b)
-
-
-def split_every(n, iterable):
+def split_every(n: int, iterable: Iterable) -> Iterable[list]:
     """Return an iterator that splits the iterable into chunks of size n. Example: split_every(3, 'ABCDEFGH') --> [
     'A','B','C'] ['D','E','F'] ['G','H']"""
     i = iter(iterable)
-    piece = list(itertools.islice(i, n))
+    piece = list(it.islice(i, n))
     while piece:
         yield piece
-        piece = list(itertools.islice(i, n))
+        piece = list(it.islice(i, n))
 
 
-def is_val(iterable, val):
+def is_val(iterable: Iterable[T], val: T) -> Iterable[bool]:
     """Return an iterator that yields True if the element in the iterable is equal to the given value, otherwise False."""
     for i in iterable:
         yield i == val
 
 
-def index_iter(iter_tuple, index):
+def index_iter(iter_tuple: Iterable[tuple[T, ...]], index: int) -> Iterable[T]:
     """Return an iterator that yields the element at the given index of each tuple in the iterable."""
     return map(lambda x: x[index], iter_tuple)
 
 
-def split_iter(iter_tuple, n):
+def split_iter(iter_tuple: Iterable[tuple[T, ...]], n: int) -> tuple[Iterable[T], ...]:
     """Return a tuple of n iterators, each of which yields the nth element of each tuple in the input iterable."""
     enum = enumerate(safetee(iter_tuple, n))
     return tuple(map(lambda x: index_iter(x[1], x[0]), enum))
@@ -125,7 +121,7 @@ def iter_file(file):
     Returns:
         tuple: tuple of iterators for each dataset in the file.
     """
-    iter_fn = functools.partial(iter_dataset, file)
+    iter_fn = ft.partial(iter_dataset, file)
     datasets = ['tdc_time', 'tdc_type', 'x', 'y', 'tot', 'toa']
     return tuple(map(iter_fn, datasets))
 
@@ -148,13 +144,13 @@ def get_times_iter(tdc_time, tdc_type, mode, cutoff):
        iterator: iterator for filtered times.
    """
     if mode == 'etof':
-        return itertools.compress(tdc_time, is_val(tdc_type, 3))
+        return it.compress(tdc_time, is_val(tdc_type, 3))
 
     else:
-        times = itertools.compress(pairwise(tdc_time), is_val(tdc_type, 1))
-        times, pair_times = itertools.tee(times)
-        comp = functools.partial(compare_diff, cutoff=cutoff*1000, greater=(mode == 'pulse'))
-        return itertools.compress(index_iter(times, 0), map(comp, pair_times))
+        times = it.compress(it.pairwise(tdc_time), is_val(tdc_type, 1))
+        times, pair_times = it.tee(times)
+        comp = ft.partial(compare_diff, cutoff=cutoff*1000, greater=(mode == 'pulse'))
+        return it.compress(index_iter(times, 0), map(comp, pair_times))
 
 
 def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
@@ -169,7 +165,7 @@ def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
     Returns:
         iterator: iterator for corrected pulse times.
     """
-    for pt, pt1 in pairwise(pulse_times):
+    for pt, pt1 in it.pairwise(pulse_times):
         if pt1-pt < cutoff:
             yield pt1+diff
         else:
@@ -219,14 +215,14 @@ def format_data(corr, iters):
     next(corr)
     pn = next(corr)
 
-    for i in itertools.count():
+    for i in it.count():
         n = 0
         while pn == i:
             n += 1
             pn = next(corr, None)
         if pn is None:
             break
-        yield [np.asarray(list(itertools.islice(x, n))) for x in iters]
+        yield [np.asarray(list(it.islice(x, n))) for x in iters]
 
 
 def cluster(data):
@@ -271,7 +267,7 @@ def average_over_cluster(cluster_index, data):
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
         count = max(cluster_index)+1
         weight = data[-1]
-        mean_vals = List()
+        mean_vals = nList()
         for i in range(count):
             elements = (np.average(data[0][cluster_index == i], weights=weight[cluster_index == i]),
                         np.average(data[1][cluster_index == i], weights=weight[cluster_index == i]),
@@ -279,7 +275,7 @@ def average_over_cluster(cluster_index, data):
             mean_vals.append(elements)
         return mean_vals
     else:
-        mean_vals = List([(0., 0., 0.)])
+        mean_vals = nList([(0., 0., 0.)])
         mean_vals.pop()
         return mean_vals
 
@@ -312,9 +308,9 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
         t_tof_d = f.create_dataset('t_tof', [0.], chunks=groupsize, maxshape=(None,))
         tof_corr_d = f.create_dataset('tof_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
 
-        for split1, split2, split3 in itertools.zip_longest(split_every(groupsize, clust_data),
-                                                            split_every(groupsize, etof_data),
-                                                            split_every(groupsize, tof_data), fillvalue=None):
+        for split1, split2, split3 in it.zip_longest(split_every(groupsize, clust_data),
+                                                     split_every(groupsize, etof_data),
+                                                     split_every(groupsize, tof_data), fillvalue=None):
 
             if first:
                 split1 = split1[1:]
@@ -346,32 +342,32 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
                     break
 
 
-# %%% Argument Parsing
-parser = argparse.ArgumentParser(prog='cluster',
-                                 description="Clusters data into .cv3 file. Does not load full dataset into memory")
-
-parser.add_argument('--g', dest='groupsize',
-                    type=int, default=10000,
-                    help="Clusters this many pulses at a time")
-
-parser.add_argument('--cutoff', dest='cutoff',
-                    type=float, default=500,
-                    help="Time cutoff between itof and laser pulses in ns")
-
-parser.add_argument('--single', action='store_true',
-                    help="Do not use multithreading to preserve RAM")
-
-parser.add_argument('--out', dest='output',
-                    default='', help="The output HDF5 file")
-
-parser.add_argument('--maxlen', dest='maxlen', type=float,
-                    default=None, help="The maximum number of data points to record. Use to partially cluster a dataset.")
-
-parser.add_argument('filename')
-args = parser.parse_args()
-
-# %% Running
 if __name__ == '__main__':
+    # %%% Argument Parsing
+    parser = argparse.ArgumentParser(prog='cluster',
+                                     description="Clusters data into .cv3 file. Does not load full dataset into memory")
+
+    parser.add_argument('--g', dest='groupsize',
+                        type=int, default=10000,
+                        help="Clusters this many pulses at a time")
+
+    parser.add_argument('--cutoff', dest='cutoff',
+                        type=float, default=500,
+                        help="Time cutoff between itof and laser pulses in ns")
+
+    parser.add_argument('--single', action='store_true',
+                        help="Do not use multithreading to preserve RAM")
+
+    parser.add_argument('--out', dest='output',
+                        default='', help="The output HDF5 file")
+
+    parser.add_argument('--maxlen', dest='maxlen', type=float,
+                        default=None, help="The maximum number of data points to record. Use to partially cluster a dataset.")
+
+    parser.add_argument('filename')
+    args = parser.parse_args()
+
+    # %% Running
     p = Pool(os.cpu_count())
     print('Beginning Cluster Analysis:', datetime.now().strftime("%H:%M:%S"))
     output_name = args.output if args.output else args.filename[:-3]+".cv3"
@@ -392,9 +388,9 @@ if __name__ == '__main__':
 
     clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
 
-    averaged_cluster_data = itertools.starmap(average_over_cluster, clustered_data)
+    averaged_cluster_data = it.starmap(average_over_cluster, clustered_data)
 
-    enumerated_data = itertools.chain.from_iterable(map(list_enum, enumerate(averaged_cluster_data)))
+    enumerated_data = it.chain.from_iterable(map(list_enum, enumerate(averaged_cluster_data)))
 
     save_iter(output_name, enumerated_data, etof_data, itof_data, groupsize=args.groupsize, maxlen=args.maxlen)
     print('Finished:', datetime.now().strftime("%H:%M:%S"))
