@@ -170,10 +170,10 @@ if __name__ == '__main__':
     # %% Saving Data to H5 File
     print('Saving:', datetime.now().strftime("%H:%M:%S"))
     with h5py.File(out_name, 'w') as f:
-        f.create_dataset('x', data=x)
-        f.create_dataset('y', data=y)
-        f.create_dataset('toa', data=toa)
-        f.create_dataset('tot', data=tot)
-        f.create_dataset('tdc_time', data=tdc_time)
-        f.create_dataset('tdc_type', data=tdc_type)
+        f.create_dataset('x', data=x, chunks=(1024,), maxshape=(None,))
+        f.create_dataset('y', data=y, chunks=(1024,), maxshape=(None,))
+        f.create_dataset('toa', data=toa, chunks=(1024,), maxshape=(None,))
+        f.create_dataset('tot', data=tot, chunks=(1024,), maxshape=(None,))
+        f.create_dataset('tdc_time', data=tdc_time, chunks=(1024,), maxshape=(None,))
+        f.create_dataset('tdc_type', data=tdc_type, chunks=(1024,), maxshape=(None,))
     print('Finished:', datetime.now().strftime("%H:%M:%S"))
