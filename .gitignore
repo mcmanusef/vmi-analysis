@@ -1,6 +1,7 @@
 .spyproject
 .vs
-Old Data
+.idea
+Data
 *.tpx3
 *.h5
 *.pdf
