@@ -20,21 +20,22 @@ def getmeans(edges):
     return np.asarray([(a+b)/2 for a, b in pairwise(edges)])
 
 
-file = "cartesian-ellip04-pz0-tot-momspe-2d-sw.dat"
-data = [[float(x) for x in l.split()] for l in open(file, 'r') if l.strip()]
-px, py, sig = map(list, zip(*data))
+for i in [4, 5, 6]:
+    file = f"cartesian-ellip0{i}-pz0-tot-momspe-2d-sw.dat"
+    data = [[float(x) for x in l.split()] for l in open(file, 'r') if l.strip()]
+    px, py, sig, *_ = map(list, zip(*data))
 
-size = len(set(px))
+    size = len(set(px))
 
-# plt.hist2d(px,py,bins=size,weights=sig, cmap='jet')
+    # plt.hist2d(px,py,bins=size,weights=sig, cmap='jet')
 
-out_dict = {}
+    out_dict = {}
 
-hist, xe, ye = np.histogram2d(py, px, bins=size, weights=sig)
+    hist, xe, ye = np.histogram2d(py, px, bins=size, weights=sig)
 
-out_dict["hist"] = np.sqrt(np.reshape(hist, (size, 1, size)))
-out_dict["xv"] = getmeans(xe)
-out_dict["yv"] = getmeans(ye)
-out_dict["zv"] = np.array(0)
+    out_dict["hist"] = np.reshape(hist, (size, 1, size))**1
+    out_dict["xv"] = getmeans(xe)
+    out_dict["yv"] = getmeans(ye)
+    out_dict["zv"] = np.array(0)
 
-savemat("theory_04.mat", out_dict)
+    savemat(f"theory_0{i}.mat", out_dict)
