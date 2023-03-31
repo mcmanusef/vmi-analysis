@@ -70,7 +70,7 @@ mlab.close(all=True)
 
 source = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\clustered_new"
 name = os.path.join(source, "xe021_e.mat")
-# d = name+".mat"
+# input_file = name+".mat"
 filename = d = name
 
 print(name)
