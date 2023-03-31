@@ -14,14 +14,19 @@ import scipy.io
 
 
 def P_xy(x):
-    return (np.sqrt(5.8029e-4)*(x))*np.sqrt(2*0.03675)
+    return (np.sqrt(0.000503545)*(x))*np.sqrt(2*0.03675)
+#     return (np.sqrt(5.8029e-4)*(x))*np.sqrt(2*0.03675) # Old Calibration
 
 
+# @vectorize
 def P_z(t):
-    Ez = ((6.7984E-05*t**4+5.42E-04*t**3+1.09E-01*t**2)*(t < 0) +
-          (-5.64489E-05*t**4+3.37E-03*t**3-6.94E-02*t**2)*(t > 0))
-    # Ez = 0.074850168*t**2*(t < 0)-0.034706593*t**2*(t > 0)+3.4926E-05*t**4*(t > 0)  # old
-    return np.sqrt(np.abs(Ez))*((Ez > 0)+0-(Ez < 0))*np.sqrt(2*0.03675)
+    pos = np.poly1d([4.51E+04, 1.63E+06, -5.49E+04, 0, 0])
+    neg = np.poly1d([0, 0, 8.65E+04, 0, 0])
+    Ez = pos(t/1000)*(t > 0)+neg(t/1000)*(t < 0)
+#     Ez = ((6.7984E-05*t**4+5.42E-04*t**3+1.09E-01*t**2)*(t < 0) +
+#           (-5.64489E-05*t**4+3.37E-03*t**3-6.94E-02*t**2)*(t > 0)) # Old Calibration
+#     # Ez = 0.074850168*t**2*(t < 0)-0.034706593*t**2*(t > 0)+3.4926E-05*t**4*(t > 0)  # old
+    return np.sqrt(np.abs(Ez))*(0+(Ez > 0)-(Ez < 0))*np.sqrt(2*0.03675)
 
 
 def smear(array, amount=0.26):
@@ -74,7 +79,7 @@ args = parser.parse_args()
 
 x0, y0, t0 = 128, 128, 528.5
 p_range = [-1, 1]
-size = 256
+size = 2048
 polarization = args.pol
 out_name = args.filename[:-5]+".mat"
 
