@@ -6,8 +6,7 @@ Created on Mon Mar 20 10:21:40 2023
 """
 import h5py
 from matplotlib.colors import ListedColormap
-
-Afrom plotting import error_bars_plot as ebp
+from plotting import error_bars_plot as ebp
 import cv3_analysis as cv3
 import numpy as np
 import matplotlib.pyplot as plt
