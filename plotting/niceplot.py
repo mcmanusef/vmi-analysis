@@ -7,7 +7,7 @@ Created on Mon Mar 20 10:21:40 2023
 import h5py
 from matplotlib.colors import ListedColormap
 
-import error_bars_plot as ebp
+Afrom plotting import error_bars_plot as ebp
 import cv3_analysis as cv3
 import numpy as np
 import matplotlib.pyplot as plt
@@ -38,7 +38,7 @@ def main(inputs = [('xe011_e', 0.3),('xe013_e', 0.6)],
         if calibrated:
             ell=abs(pol)
             angle=0
-            with h5py.File(name) as f:
+            with h5py.File(os.path.join(wdir,name)) as f:
                 py, px, pz = (f["y"][()],f["x"][()],f["z"][()])
         else:
             angle = wrap_between(ebp.get_pol_angle(os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat"),
@@ -51,8 +51,11 @@ def main(inputs = [('xe011_e', 0.3),('xe013_e', 0.6)],
         print(pol, ell)
         fig, ax = plt.subplots(num=f"e={pol}_{calibrated}")
 
+
         ax.hist2d(px, py, bins=512, range=[[-1, 1], [-1, 1]], cmap=trans_jet())
         ax.set_aspect('equal', 'box')
+        ax.grid()
+        ax.set_axisbelow(True)
 
         rect = patches.Rectangle((0.8, 0), 0.2, 0.2, linewidth=1, edgecolor='black', facecolor='white', transform=ax.transAxes)
         ax.add_patch(rect)
@@ -83,5 +86,6 @@ def main(inputs = [('xe011_e', 0.3),('xe013_e', 0.6)],
         fig.savefig(f"{name}_nice.png")
 
 if __name__=="__main__":
-    # main([("theory_03.h5", 0.3),("theory_06.h5",0.6)], wdir="", calibrated=True)
-    main(to_load=None, wdir="")
+    #main([("theory_03.h5", 0.3),("theory_06.h5",0.6)], wdir=r"C:\Users\mcman\Code\VMI\Data", calibrated=True)
+    main(to_load=100000, wdir=r"C:\Users\mcman\Code\VMI\Data")
+#%%
