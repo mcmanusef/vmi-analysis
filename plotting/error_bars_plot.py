@@ -168,7 +168,7 @@ def get_peak_profile(hist, rs, r, t,mode="mean"):
                 raise NameError
 
 
-def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.8,mode='mean'):
+def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.8,mode='mean',label=""):
     print(f"{i}/{n}")
     px, py, pz = map(lambda x: x[i::n], data)
 
@@ -185,7 +185,7 @@ def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.8,mode='
     r_peak, theta_peak, width = zip(*get_peak_angles(rt_hist, edges_to_centers(r_edges),
                                     edges_to_centers(t_edges), blurring=blurring, max_p=max_p, mode=mode))
 
-    rs = np.linspace(r_peak[0] - width[0] / 2, r_peak[0] + width[0] / 2, num=20)
+    rs = np.linspace(r_peak[0] - width[0] / 2, r_peak[0] + width[0] / 2, num=21)
 
     try:
         r_p, ang_p = zip(*get_peak_profile(rt_hist, rs, edges_to_centers(r_edges), edges_to_centers(t_edges)))
@@ -194,13 +194,13 @@ def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.8,mode='
         return (r_peak, theta_peak), (None, None)
 
     if plotting and i == 0:
-        plot_diagnostics(px, py, r, rt_hist, r_p, ang_p, r_peak, theta_peak, pol, i, blurring, max_p=max_p)
+        plot_diagnostics(px, py, r, rt_hist, r_p, ang_p, r_peak, theta_peak, pol, i, blurring, max_p=max_p,label=label)
 
     return (r_peak, theta_peak), (r_p, ang_p)
 
 
-def plot_diagnostics(px, py, r, rt_hist, r_p, ang_p, r_peak, theta_peak, pol, i, blurring, max_p=1):
-    plt.figure(f"{pol}: {i}")
+def plot_diagnostics(px, py, r, rt_hist, r_p, ang_p, r_peak, theta_peak, pol, i, blurring, max_p=1, label=""):
+    plt.figure(f"{pol} {label}")
     plt.subplot(221)
     plt.hist2d(px, py, bins=256, range=[[-max_p, max_p], [-max_p, max_p]], cmap=trans_jet())
     plt.subplot(212)
@@ -240,7 +240,9 @@ def main(files=None,
          to_load=None,
          fig=None,
          mode='mean',
-         blurring=(.005, 0.05)):
+         blurring=(.005, 0.05),
+         electrons='all',
+         label="", symmetrize=True):
 
     if files is None:
         files = [('xe002_s', -0.1),
@@ -255,10 +257,11 @@ def main(files=None,
 
     for name, pol in files:
         print(name)
-        labels.append(pol)
-        data = load_data(name, wdir, to_load, calibrated)
+        labels.append(abs(pol))
+        data = load_data(name, wdir, to_load, calibrated, electrons=electrons, symmetrize=symmetrize)
 
-        def get_profiles_index(i): return get_profiles(data, i, n, pol=pol, plotting=True, blurring=blurring, mode=mode)
+        def get_profiles_index(i):
+            return get_profiles(data, i, n, pol=pol, plotting=True, blurring=blurring, mode=mode, label=label)
 
         profiles = list(map(get_profiles_index, range(n)))
         inter, intra = organize(profiles)
@@ -276,21 +279,29 @@ def main(files=None,
     else:
         f,ax=fig
     lines_colour_cycle = [p['color'] for p in plt.rcParams['axes.prop_cycle']]
+    marker, linestyle = ("","-") if calibrated else ("+",":")
     plt.sca(ax[0])
     # plt.figure()
     plt.title("inter_ring")
     for (r, dr, t, dt), l, c in zip(inter_lines, labels, lines_colour_cycle):
+        print(marker, linestyle)
         t_adjust = (np.unwrap(t, period=np.pi) - 2 * np.pi) * -1 * np.sign(l) + np.pi * int(l < 0)
         plt.errorbar(r, np.degrees(t_adjust)%180, xerr=dr * 2, yerr=dt * 360 / np.pi,
-                     label=l, linestyle='--', marker="o", markersize=3)
+                     label=f"{l}: {label}",
+                     linestyle=linestyle, marker=marker, markersize=10, color=c)
+
         # plt.plot(r, np.poly1d(np.polyfit(r,t_adjust,1,w=1/dt))(r), linestyle='', linewidth=1, color=c)
     plt.legend()
     plt.sca(ax[1])
     # plt.figure()
     plt.title("intra_ring")
-    for (r, dr, t, dt), l in zip(intra_lines, labels):
-        t_adjust = np.unwrap((t % np.pi - t[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
-        plt.errorbar(r, np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 360 / np.pi, label=l)
+    for (r, dr, t, dt), l, (r_inter, _, t_inter, _), c in zip(intra_lines, labels, inter_lines,lines_colour_cycle):
+
+        t_adjust = np.unwrap((t % np.pi - t[10] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+
+        plt.errorbar(r-r_inter[0], np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 360 / np.pi,
+                     label=f"{l}: {label}",
+                     color=c, linestyle=linestyle, marker=marker)
     # plt.legend()
     plt.tight_layout()
 
@@ -298,19 +309,25 @@ def main(files=None,
     for (r, dr, t, dt), l, c in zip(inter_lines, labels, lines_colour_cycle):
         t_adjust = (np.unwrap(t, period=np.pi) - 2 * np.pi) * -1 * np.sign(l) + np.pi * int(l < 0)
         plt.errorbar(range(len(r)), np.degrees(t_adjust)%180, xerr=dr * 2, yerr=dt * 360 / np.pi,
-                     label=l, linestyle='--', marker="o", markersize=3)
+                     label=f"{l}: {label}",
+                     linestyle=linestyle, marker=marker, markersize=3)
     return f, ax
 
 
-def load_data(name, wdir, to_load, calibrated):
+def load_data(name, wdir, to_load, calibrated, electrons="all", symmetrize=True):
     if not calibrated:
         angle = get_pol_angle(os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat"),
                               os.path.join(wdir, r"Ellipticity measurements\angle.mat")) + 4
         print(angle)
-        return load_cv3(os.path.join(wdir, fr"clust_v3\{name}.cv3"),
-                        pol=np.radians(angle), width=.05, to_load=to_load)
+        if not symmetrize:
+            return load_cv3(os.path.join(wdir, fr"clust_v3\{name}.cv3"),
+                            pol=np.radians(angle), width=.05, to_load=to_load, electrons=electrons)
+        else:
+            px,py,pz=load_cv3(os.path.join(wdir, fr"clust_v3\{name}.cv3"),
+                                pol=np.radians(angle), width=.05, to_load=to_load, electrons=electrons)
+            return tuple(map(np.array, ([*px,*(-px)],[*py,*(-py)],[*pz,*(-pz)])))
     else:
-        with h5py.File(name) as f:
+        with h5py.File(os.path.join(wdir, name)) as f:
             if to_load is None:
                 return (f["y"][()], f["x"][()], f["z"][()])
             else:
@@ -320,8 +337,35 @@ def load_data(name, wdir, to_load, calibrated):
 
 if __name__ == '__main__':
     plt.close("all")
-    out = main(files=[('theory_03.h5', 0.3), ('theory_06.h5', 0.6)], wdir=r'C:\Users\mcman\Code\VMI', calibrated=True, n=5,mode='fourier')
-    main([('xe011_e', 0.301), ('xe013_e', 0.601)], to_load=10000000, fig=out, wdir=r'C:\Users\mcman\Code\VMI', n=5,mode='fourier')
+    # out = main(files=[('theory_03.h5', 0.3), ('theory_06.h5', 0.6)],
+    #            wdir=r'C:\Users\mcman\Code\VMI\Data',
+    #            calibrated=True,
+    #            n=3,
+    #            mode='fourier',
+    #            label='theory'
+    #            )
+
+    # out= main([('xe011_e', 0.3), ('xe013_e', 0.6)],
+    #      to_load=10000000,
+    #      # fig=out,
+    #      wdir=r'C:\Users\mcman\Code\VMI\Data',
+    #      n=3,
+    #      mode='fourier',
+    #      electrons='up',
+    #      label="Up"
+    #      )
+
+    main([('xe011_e', 0.3), ('xe013_e', 0.6)],
+         to_load=100000000,
+         blurring=0,
+         # fig=out,
+         wdir=r'C:\Users\mcman\Code\VMI\Data',
+         n=3,
+         mode='fourier',
+         electrons='down',
+         label="Experiment (Down)"
+         )
+
     print("DONE")
 
 
