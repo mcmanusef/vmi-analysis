@@ -29,7 +29,7 @@ def main(input_file="theory_03_0.mat", source="", output_file="out.h5", sample_f
         ys.extend(random.uniform(y-dy/2,y+dy/2) for _ in range(round(sample_factor*cut[y_index,x_index])))
     plt.hist2d(xs,ys,bins=2048,range=[[min(xv),max(xv)],[min(xv),max(xv)]],cmap='jet')
     plt.show()
-    with h5py.File(output_file, 'w') as f:
+    with h5py.File(os.path.join(source,output_file), 'w') as f:
         print(f"Saving {len(xs)} points")
         f.create_dataset('x', data=xs)
         f.create_dataset('y', data=ys)
@@ -39,8 +39,6 @@ def main(input_file="theory_03_0.mat", source="", output_file="out.h5", sample_f
 if __name__=="__main__":
     start=datetime.datetime.now()
     print(start)
-    main(input_file="theory_06_3.mat", output_file="theory_06.h5")
+    main(input_file="theory_01_3.mat", output_file=r"Data\theory_01.h5", source=r"C:\Users\mcman\Code\VMI")
     end=datetime.datetime.now()
     print((end-start))
-
-#%%

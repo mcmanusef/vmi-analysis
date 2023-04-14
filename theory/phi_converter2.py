@@ -3,6 +3,8 @@
 Converts a file from phi's cartesian format to a mat file
 @author: mcman
 """
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -14,12 +16,14 @@ def getmeans(edges):
     return np.asarray([(a+b)/2 for a, b in itertools.pairwise(edges)])
 
 
-files = ["cartesian-ellip03-pz0-volume-momspe-2d-sw.dat","cartesian-ellip06-pz0-volume-momspe-2d-sw.dat"]
+wdir=r"C:\Users\mcman\Code\VMI"
+files = [None]
 
-els = [3,6]
+els = [1]
 for file, el in zip(files, els):
     print(el)
-    px, py, *sigs = map(list, zip(*[[float(x) for x in l.split()] for l in open(file, 'r') if l.strip()]))
+    px, py, *sigs = map(list,
+                        zip(*[[float(x) for x in l.split()] for l in open(os.path.join(wdir,file), 'r') if l.strip()]))
 
     size = 2048  # len(set(x**2+y**2 for x, y in zip(px, py)))
     xv = np.linspace(min(px), max(px), size)
@@ -34,7 +38,7 @@ for file, el in zip(files, els):
             tuple(map(np.ravel, np.meshgrid(xv, yv))),
             fill_value=0).reshape(size, size)
 
-        savemat(f"theory_0{el}_{i}.mat", {
+        savemat(os.path.join(wdir, rf"theory_0{el}_{i}.mat"), {
             "hist": np.reshape(data, (size, 1, size))**1,
             "xv": xv,
             "yv": yv,
