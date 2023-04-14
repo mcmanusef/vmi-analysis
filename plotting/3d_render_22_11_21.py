@@ -8,12 +8,8 @@ Created on Mon Nov 21 15:56:54 2022
 """
 
 import scipy.io
-import logging
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-import scipy.interpolate as spi
-from functools import partial
 import os
 import mayavi.mlab as mlab
 import ffmpeg
@@ -68,7 +64,7 @@ pi = np.pi
 plt.close('all')
 mlab.close(all=True)
 
-source = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\clustered_new"
+source = r"r'C:\Users\mcman\Code\VMI\Data'"
 name = os.path.join(source, "xe021_e.mat")
 # input_file = name+".mat"
 filename = d = name
