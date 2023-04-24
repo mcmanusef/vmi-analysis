@@ -47,12 +47,13 @@ def main(inputs=None,
             with h5py.File(os.path.join(wdir, name)) as f:
                 py, px, pz = (f["y"][()], f["x"][()], f["z"][()])
         else:
-            angle = wrap_between(ebp.get_pol_angle(os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat"),
-                                                   os.path.join(wdir, r"Ellipticity measurements\angle.mat")) + 4, -90,
-                                 90)
 
-            ell = ebp.get_ell(os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat"),
-                              os.path.join(wdir, r"Ellipticity measurements\angle.mat"))
+            power_file = os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat")
+            angle_file = os.path.join(wdir, r"Ellipticity measurements\angle.mat")
+
+            angle = wrap_between(ebp.get_pol_angle(power_file, angle_file) + 4, -90, 90)
+
+            ell = ebp.get_ell(power_file,angle_file)
             # noinspection PyTypeChecker
             py, px, pz = cv3.load_cv3(os.path.join(wdir, fr"clust_v3\{name}.cv3"), pol=np.radians(angle), width=.05,
                                       to_load=to_load)
@@ -65,54 +66,7 @@ def main(inputs=None,
         ax.grid()
         ax.set_axisbelow(True)
 
-        ellipse_bg = patches.Rectangle(
-            (0.8, 0),
-            0.2,
-            0.2,
-            linewidth=1,
-            edgecolor='black',
-            facecolor='white',
-            transform=ax.transAxes
-        )
-        ax.add_patch(ellipse_bg)
-
-        # Add and ellipse
-        ellipse = patches.Ellipse(
-            (0.9, 0.1),
-            0.15,
-            0.1,
-            linewidth=2,
-            edgecolor='red',
-            facecolor='none',
-            transform=ax.transAxes
-        )
-        ax.add_patch(ellipse)
-
-        # Add two triangles
-
-        left_triangle = patches.Polygon(
-            [[0.9 - 0.01 * np.sign(pol), 0.15],
-             [0.9 + 0.01 * np.sign(pol), 0.16],
-             [0.9 + 0.01 * np.sign(pol), 0.14]],
-            linewidth=1,
-            edgecolor='red',
-            facecolor='red',
-            transform=ax.transAxes,
-        )
-        ax.add_patch(left_triangle)
-
-        right_triangle = patches.Polygon(
-            [[0.90 + 0.01 * np.sign(pol), 0.05],
-             [0.9 - 0.01 * np.sign(pol), 0.06],
-             [0.9 - 0.01 * np.sign(pol), 0.04]],
-            linewidth=1,
-            edgecolor='red',
-            facecolor='red',
-            transform=ax.transAxes,
-        )
-        ax.add_patch(right_triangle)
-
-        ax.text(.9, .1, f"{ell:.3f}", ha='center', va='center', transform=ax.transAxes)
+        add_ellipse(ax, ell, pol)
 
         text_bg = patches.Rectangle(
             (0.6, 0.8),
@@ -121,7 +75,8 @@ def main(inputs=None,
             linewidth=1,
             edgecolor='black',
             facecolor='white',
-            transform=ax.transAxes,)
+            transform=ax.transAxes,
+        )
         ax.add_patch(text_bg)
 
         ax.text(.8, .95, f"Rotation: {angle:.2f}°", ha='center', va='center', transform=ax.transAxes)
@@ -129,6 +84,50 @@ def main(inputs=None,
 
         # plt.tight_layout()
         fig.savefig(f"{name}_nice.png")
+
+
+def add_ellipse(ax, ell, pol):
+    ellipse_bg = patches.Rectangle(
+        (0.8, 0),
+        0.2,
+        0.2,
+        linewidth=1,
+        edgecolor='black',
+        facecolor='white',
+        transform=ax.transAxes
+    )
+    ax.add_patch(ellipse_bg)
+    ellipse = patches.Ellipse(
+        (0.9, 0.1),
+        0.15,
+        0.1,
+        linewidth=2,
+        edgecolor='red',
+        facecolor='none',
+        transform=ax.transAxes
+    )
+    ax.add_patch(ellipse)
+    left_triangle = patches.Polygon(
+        [[0.9 - 0.01 * np.sign(pol), 0.15],
+         [0.9 + 0.01 * np.sign(pol), 0.16],
+         [0.9 + 0.01 * np.sign(pol), 0.14]],
+        linewidth=1,
+        edgecolor='red',
+        facecolor='red',
+        transform=ax.transAxes,
+    )
+    ax.add_patch(left_triangle)
+    right_triangle = patches.Polygon(
+        [[0.90 + 0.01 * np.sign(pol), 0.05],
+         [0.9 - 0.01 * np.sign(pol), 0.06],
+         [0.9 - 0.01 * np.sign(pol), 0.04]],
+        linewidth=1,
+        edgecolor='red',
+        facecolor='red',
+        transform=ax.transAxes,
+    )
+    ax.add_patch(right_triangle)
+    ax.text(.9, .1, f"{ell:.3f}", ha='center', va='center', transform=ax.transAxes)
 
 
 if __name__ == "__main__":
