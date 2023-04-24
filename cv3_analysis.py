@@ -42,7 +42,7 @@ def dist(x, y, x0, y0):
 
 
 @njit(cache=True)
-def in_good_pixels(coords: Coords) -> npt.NDArray:
+def in_good_pixels(coords: Coords) -> bool:
     x, y, t = coords
     conditions = np.array([dist(x, y, 195, 234) < 1.5,
                            dist(x, y, 203, 185) < 1.5,
@@ -67,6 +67,7 @@ def P_z(t):
     pos = np.poly1d([4.51E+04, 1.63E+06, -5.49E+04, 0, 0])
     neg = np.poly1d([0, 0, 8.65E+04, 0, 0])
     Ez = pos(t / 1000) * (t > 0) + neg(t / 1000) * (t < 0)
+
     #     Ez = ((6.7984E-05*t**4+5.42E-04*t**3+1.09E-01*t**2)*(t < 0) +
     #           (-5.64489E-05*t**4+3.37E-03*t**3-6.94E-02*t**2)*(t > 0)) # Old Calibration
     #     # Ez = 0.074850168*t**2*(t < 0)-0.034706593*t**2*(t > 0)+3.4926E-05*t**4*(t > 0)  # old
