@@ -6,7 +6,7 @@ Created on Mon Feb 20 11:05:19 2023
 """
 import os
 import numpy as np
-from error_bars_plot import get_pol_angle
+from plotting.error_bars_plot import get_pol_angle
 
 wdir = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\Ellipticity measurements"
 ang_file = os.path.join(wdir, "angle.mat")

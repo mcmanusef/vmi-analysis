@@ -5,18 +5,19 @@ Plots a reconstruction for Mike
 """
 
 
-import scipy.io
 import logging
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import scipy.interpolate as spi
-from functools import partial
 import os
-import mayavi.mlab as mlab
+from functools import partial
+
 import ffmpeg
-from scipy import signal
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import mayavi.mlab as mlab
+import numpy as np
+import scipy.interpolate as spi
+import scipy.io
 from matplotlib.cm import ScalarMappable as SM
+from scipy import signal
 from skimage import measure
 
 
