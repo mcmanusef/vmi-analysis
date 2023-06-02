@@ -155,7 +155,7 @@ if __name__ == '__main__':
     t0 = 0
     for [i, filename] in enumerate(sorted(os.listdir(args.path))):
         print("File:"+str(i+1)+"/"+str(len(os.listdir(args.path))))
-        in_name = args.path+"/"+filename
+        in_name = os.path.join(args.path,filename)
         print(in_name)
 
         # %% Running C++ Conversion Code
