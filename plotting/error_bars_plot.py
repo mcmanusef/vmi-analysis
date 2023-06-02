@@ -2,6 +2,7 @@
 
 import itertools
 import os
+import pickle
 
 import h5py
 import matplotlib as mpl
@@ -22,6 +23,45 @@ mpl.use('Qt5Agg')
 
 
 # %% Functions
+def cache_results(func):
+    def wrapper(*args, **kwargs):
+        try:
+            to_use=kwargs['use_cache']
+            del kwargs['use_cache']
+        except KeyError:
+            to_use=True
+
+        if not to_use:
+            return func(*args, **kwargs)
+
+        if not os.path.isdir('func_cache'):
+            os.mkdir('func_cache')
+        if func.__name__ in os.listdir("func_cache"):
+            with open(os.path.join("func_cache", func.__name__, "dir.txt")) as f:
+                for dir_string in [x for x in f.readlines() if str([args, kwargs]) in x]:
+                    print("Loading from Cache")
+                    file = dir_string.split("-->")[0]
+                    with open(os.path.join("func_cache", func.__name__, file), 'rb') as f2:
+                        return pickle.load(f2)
+                print("Could not find saved results")
+        else:
+            os.mkdir(os.path.join("func_cache", func.__name__))
+            with open(os.path.join("func_cache", func.__name__, "dir.txt"), 'w') as f:
+                pass
+
+        out = func(*args, **kwargs)
+
+        filename = f"{hash(str([args, kwargs]))}.pickle"
+        print(f"Saving to {filename}")
+        with open(os.path.join("func_cache", func.__name__, "dir.txt"), 'a') as f:
+            print(f"{filename}-->{str([args, kwargs])}", file=f)
+        with open(os.path.join("func_cache", func.__name__, filename), 'wb') as f:
+            pickle.dump(out, f)
+        return out
+
+    return wrapper
+
+
 def trans_jet(opaque_point=0.1):
     # Create a colormap that looks like jet
     cmap = plt.cm.jet
@@ -172,7 +212,7 @@ def get_peak_profile(hist, rs, r, t, mode="mean"):
                 raise NameError
 
 
-def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.8, mode='mean', label=""):
+def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.6, mode='mean', label="", num=11):
     print(f"{i}/{n}")
     px, py, pz = map(lambda x: x[i::n], data)
 
@@ -190,7 +230,7 @@ def get_profiles(data, i, n, pol=0., plotting=True, blurring=0, max_p=0.8, mode=
                                                      edges_to_centers(t_edges), blurring=blurring, max_p=max_p,
                                                      mode=mode))
 
-    rs = np.linspace(r_peak[0] - width[0] / 2, r_peak[0] + width[0] / 2, num=11)
+    rs = np.linspace(r_peak[0] - width[0] / 2, r_peak[0] + width[0] / 2, num=num)
 
     try:
         r_p, ang_p = zip(*get_peak_profile(rt_hist, rs, edges_to_centers(r_edges), edges_to_centers(t_edges)))
@@ -208,20 +248,21 @@ def plot_diagnostics(px, py, r, rt_hist, r_p, ang_p, r_peak, theta_peak, pol, bl
     plt.figure(f"{pol} {label}")
     plt.subplot(221)
     plt.hist2d(px, py, bins=256, range=[[-max_p, max_p], [-max_p, max_p]], cmap=trans_jet())
+
+    x_peak, y_peak = r_peak * np.cos(np.array(theta_peak) % np.pi), r_peak * np.sin(np.asarray(theta_peak) % np.pi)
+    plt.scatter(x_peak, y_peak, color='r')
+
     plt.subplot(212)
     plt.plot(r, blurnd(np.sum(rt_hist, 1) / max(np.sum(rt_hist, 1)), blurring, 100, dn=r[1] - r[0]))
     for rp in r_peak:
         plt.axvline(rp, color='r')
     plt.subplot(222)
-    # plt.figure(f"{pol}")
     plt.imshow(rt_hist[:, ::int(-np.sign(pol))],
                extent=[-180, 180, 0, max_p],
                origin='lower',
                aspect='auto',
                cmap=trans_jet())
     plt.plot(unwrap(-np.sign(pol) * np.degrees(np.array(theta_peak)), start_between=(-45, 135)), r_peak, color='m')
-    # plt.plot(-np.sign(pol) * np.degrees(np.array(theta_peak)) - 180, r_peak, color='m')
-    # plt.plot(-np.sign(pol) * np.degrees(np.array(ang_p)) - 180, r_p, color='r')
     plt.plot(unwrap(-np.sign(pol) * np.degrees(np.array(ang_p)), start_between=(-45, 135)), r_p, color='k')
 
 
@@ -244,7 +285,7 @@ def get_angular_error(angles: list[list[float]]) -> tuple[float, float]:
         return np.arctan2(cy, cx), 0
 
 
-def main(files=None,
+def main(files,
          n=3,
          wdir=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613",
          calibrated=False,
@@ -253,25 +294,24 @@ def main(files=None,
          mode='mean',
          blurring=(.005, 0.05),
          electrons='all',
-         label="", symmetrize=True):
-    if files is None:
-        files = [('xe002_s', -0.1),
-                 ('xe014_e', 0.2),
-                 ('xe011_e', 0.3),
-                 ('xe012_e', 0.5),
-                 ('xe013_e', 0.6),
-                 ('xe003_c', 0.9)]
+         label="", symmetrize=True,
+         max_error=None,
+         send_data=False,
+         **kwargs):
     inter_lines = []
     intra_lines = []
     labels = []
+    data_list = []
 
     for name, pol in files:
         print(name)
         labels.append(abs(pol))
-        data = load_data(name, wdir, to_load, calibrated, electrons=electrons, symmetrize=symmetrize)
+        data = load_data(name, wdir, to_load, calibrated, electrons=electrons, symmetrize=symmetrize, use_cache=(not calibrated))
+        if send_data:
+            data_list.append(data)
 
         def get_profiles_index(i):
-            return get_profiles(data, i, n, pol=pol, plotting=True, blurring=blurring, mode=mode, label=label)
+            return get_profiles(data, i, n, pol=pol, plotting=True, blurring=blurring, mode=mode, label=label, num=16)
 
         profiles = list(map(get_profiles_index, range(n)))
         inter, intra = organize(profiles)
@@ -283,9 +323,12 @@ def main(files=None,
         t_intra, dt_intra = zip(*(get_angular_error(i) for i in intra[1]))
         intra_lines.append(tuple(map(np.array, (r_intra, dr_intra, t_intra, dt_intra))))
 
+    if send_data:
+        return data_list, inter_lines, intra_lines
+
     # %% Plotting
     if not fig:
-        f, ax = plt.subplots(2, 1, num='plots')
+        f, ax = plt.subplots(2, 1, num='plots', figsize=(6, 10))
     else:
         f, ax = fig
     lines_colour_cycle = [p['color'] for p in plt.rcParams['axes.prop_cycle']]
@@ -295,35 +338,98 @@ def main(files=None,
     plt.title("inter_ring")
     for (r, dr, t, dt), l, c in zip(inter_lines, labels, lines_colour_cycle):
         print(marker, linestyle)
-        t_adjust = (np.unwrap(t, period=np.pi) - 2 * np.pi) * -1 * np.sign(l) + np.pi * int(l < 0)
-        plt.errorbar(r, np.degrees(t_adjust) % 180, xerr=dr * 2, yerr=dt * 360 / np.pi,
+        t_adjust = unwrap(-np.degrees(t), start_between=(0, 180))
+        plt.errorbar(r, t_adjust, xerr=dr * 2, yerr=dt * 360 / np.pi,
                      label=f"{l}: {label}",
                      linestyle=linestyle, marker=marker, markersize=10, color=c)
 
-        # plt.plot(r, np.poly1d(np.polyfit(r,t_adjust,1,w=1/dt))(r), linestyle='', linewidth=1, color=c)
+    ax[0].set_xlabel(r"$p_r$")
+    ax[0].set_ylabel(r"$\theta$")
+
+    # plt.plot(r, np.poly1d(np.polyfit(r,t_adjust,1,w=1/dt))(r), linestyle='', linewidth=1, color=c)
     plt.legend()
     plt.sca(ax[1])
     # plt.figure()
     plt.title("intra_ring")
     for (r, dr, t, dt), l, (r_inter, _, t_inter, _), c in zip(intra_lines, labels, inter_lines, lines_colour_cycle):
-        t_adjust = np.unwrap((t % np.pi - t[10] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+        if max_error is not None:
+            r, dr, t, dt = tuple(
+                map(np.asarray, zip(*(filter(lambda x: x[3] < np.radians(max_error), zip(r, dr, t, dt))))))
 
-        plt.errorbar(r - r_inter[0], np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 360 / np.pi,
+        t_adjust = np.unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+
+        plt.errorbar(r - r_inter[0], np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 180 / np.pi,
                      label=f"{l}: {label}",
                      color=c, linestyle=linestyle, marker=marker)
+    ax[1].set_xlabel(r"$\Delta p_r$")
+    ax[1].set_ylabel(r"$\Delta \theta$")
     # plt.legend()
     plt.tight_layout()
 
     plt.figure("ati_order")
     for (r, dr, t, dt), l, c in zip(inter_lines, labels, lines_colour_cycle):
         t_adjust = (np.unwrap(t, period=np.pi) - 2 * np.pi) * -1 * np.sign(l) + np.pi * int(l < 0)
-        plt.errorbar(range(len(r)), np.degrees(t_adjust) % 180, xerr=dr * 2, yerr=dt * 360 / np.pi,
+        plt.errorbar(range(1,len(r)+1), np.degrees(t_adjust) % 180, xerr=dr, yerr=dt * 180 / np.pi,
                      label=f"{l}: {label}",
                      linestyle=linestyle, marker=marker, markersize=3)
+    plt.gca().set_xlabel(r"ATI order")
+    plt.gca().set_ylabel(r"$\theta$")
+    # plt.legend()
+    plt.tight_layout()
+
+    plt.figure("Slopes")
+    for (r, dr, t, dt), l, (r_inter, _, t_inter, _), c in zip(intra_lines, labels, inter_lines, lines_colour_cycle):
+        if max_error is not None:
+            r, dr, t, dt = tuple(
+                map(np.asarray, zip(*(filter(lambda x: x[3] < np.radians(max_error), zip(r, dr, t, dt))))))
+
+        t_adjust = np.unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+
+        plt.plot(r[:-1], np.diff(np.degrees(t_adjust))/np.diff(r),
+                     label=f"{l}: {label}",
+                     color=c, linestyle=linestyle, marker=marker)
+    plt.legend()
+    plt.gca().set_xlabel(r"$\Delta p_r$")
+    plt.gca().set_ylabel(r"$d\theta/dr$")
+    plt.tight_layout()
+
+    plt.figure("Absolute r")
+    for (r, dr, t, dt), l, (r_inter, _, t_inter, _), c in zip(intra_lines, labels, inter_lines, lines_colour_cycle):
+        if max_error is not None:
+            r, dr, t, dt = tuple(
+                map(np.asarray, zip(*(filter(lambda x: x[3] < np.radians(max_error), zip(r, dr, t, dt))))))
+
+        t_adjust = np.unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+
+        plt.errorbar(r, np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 180 / np.pi,
+                     label=f"{l}: {label}",
+                     color=c, linestyle=linestyle, marker=marker)
+    plt.gca().set_xlabel(r"$p_r$")
+    plt.gca().set_ylabel(r"$\Delta \theta$")
+    plt.legend()
+    plt.tight_layout()
+
+    plt.figure("Dispersion")
+    for (r, dr, t, dt), l, (r_inter, _, t_inter, _), c in zip(intra_lines, labels, inter_lines, lines_colour_cycle):
+        if max_error is not None:
+            r, dr, t, dt = tuple(
+                map(np.asarray, zip(*(filter(lambda x: x[3] < np.radians(max_error), zip(r, dr, t, dt))))))
+
+        t_adjust = np.unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+
+        plt.errorbar(np.degrees(t_adjust), r**2/2,  xerr=dt * 180 / np.pi, yerr=dr * 2 * r ,
+                     label=f"{l}: {label}",
+                     color=c, linestyle=linestyle, marker=marker)
+    plt.gca().set_ylabel(r"$E$")
+    plt.gca().set_xlabel(r"$\Delta \theta$")
+    plt.legend()
+    plt.tight_layout()
     return f, ax
 
 
-def load_data(name, wdir, to_load, calibrated, electrons="all", symmetrize=True):
+@cache_results
+def load_data(name, wdir, to_load, calibrated, electrons="all", symmetrize=True, **kwargs):
+    print("Unused:", kwargs)
     if not calibrated:
         angle = get_pol_angle(os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat"),
                               os.path.join(wdir, r"Ellipticity measurements\angle.mat")) + 4
@@ -352,29 +458,56 @@ if __name__ == '__main__':
     #            mode='fourier',
     #            label='theory'
     #            )
-
-    # out= main([('xe011_e', 0.3), ('xe013_e', 0.6)],
-    #      to_load=10000000,
+    #
+    # out = main([('xe011_e', 0.3), ('xe013_e', 0.6)],
+    #            to_load=10000000,
+    #            fig=out,
+    #            wdir=r'C:\Users\mcman\Code\VMI\Data',
+    #            n=3,
+    #            mode='fourier',
+    #            electrons='down',
+    #            label="experiment"
+    #            )
+    #
+    # files = [
+    #     # ('xe002_s', -0.1),
+    #     ('xe014_e', 0.2),
+    #     ('xe011_e', 0.3),
+    #     ('xe012_e', 0.5),
+    #     ('xe013_e', 0.6),
+    #     # ('xe003_c', 0.9),
+    # ]
+    # main(files,
+    #      to_load=None,
+    #      blurring=(.005, 0.05),
     #      # fig=out,
     #      wdir=r'C:\Users\mcman\Code\VMI\Data',
     #      n=3,
     #      mode='fourier',
-    #      electrons='up',
-    #      label="Up"
+    #      electrons='down',
+    #      symmetrize=True,
+    #      label="Experiment (Down)",
+    #      max_error=5
     #      )
 
-    main([('xe011_e', 0.3), ('xe013_e', 0.6)],
-         to_load=100000000,
-         blurring=(.0005, 0.005),
-         # fig=out,
-         wdir=r'C:\Users\mcman\Code\VMI\Data',
-         n=10,
-         mode='fourier',
-         electrons='all',
-         symmetrize=False,
-         label="Experiment (Down)",
-         )
+    files = [
+        ('theory_03_0.h5', 2.2),
+        # ('theory_H_0.h5', 2)
+        ('theory_03_1.h5', 2.3),
+        ('theory_03_2.h5', 2.4),
+        ('theory_03_3.h5', 2.5),
+        ('theory_03_4.h5', 2.6),
+        ('theory_03_5.h5', 2.7),
+
+    ]
+
+    main(files,
+          wdir=r'C:\Users\mcman\Code\VMI\Data',
+          calibrated=True,
+          n=3,
+          mode='fourier',
+          label='theory',
+          )
+
 
     print("DONE")
-
-# %%
