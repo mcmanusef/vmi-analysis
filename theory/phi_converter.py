@@ -9,15 +9,9 @@ import itertools
 from scipy.io import savemat
 
 
-def pairwise(iterable):
-    # pairwise('ABCDEFG') --> AB BC CD DE EF FG
-    a, b = itertools.tee(iterable)
-    next(b, None)
-    return zip(a, b)
-
 
 def getmeans(edges):
-    return np.asarray([(a+b)/2 for a, b in pairwise(edges)])
+    return np.asarray([(a+b)/2 for a, b in itertools.pairwise(edges)])
 
 
 for i in [4, 5, 6]:
