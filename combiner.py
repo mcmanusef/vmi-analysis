@@ -137,6 +137,9 @@ if __name__ == '__main__':
     parser.add_argument('--noread', action='store_true',
                         help="Read directly from intermediate file")
 
+    parser.add_argument('--buffer', dest='buffer',default=20000, type= int,
+                        help="Events to discard at start and end of file")
+
     parser.add_argument('path')
 
     args = parser.parse_args()
@@ -184,7 +187,7 @@ if __name__ == '__main__':
 
         first = False
         print(len(data))
-        data = data[20000:-20000]
+        data = data[args.buffer:-args.buffer]
         for d in data:
             # Sorts data
             if int(d[0]) == 0:
