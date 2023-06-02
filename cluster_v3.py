@@ -312,9 +312,12 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
                                                      split_every(groupsize, tof_data), fillvalue=None):
 
             if first:
-                split1 = split1[1:]
-                split2 = split2[1:]
-                split3 = split3[1:]
+                if split1 is not None:
+                    split1 = split1[1:]
+                if split2 is not None:
+                    split2 = split2[1:]
+                if split3 is not None:
+                    split3 = split3[1:]
                 first = False
 
             if split1 is not None:
