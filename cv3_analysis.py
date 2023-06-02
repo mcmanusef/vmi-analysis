@@ -49,6 +49,9 @@ def in_good_pixels(coords: Coords) -> bool:
                            dist(x, y, 253, 110) < 1.5,
                            dist(x, y, 23, 255) < 1.5,
                            dist(x, y, 204, 187) < 1.5,
+                           dist(x, y, 36, 243) < 1.5,
+                           dist(x, y, 204, 194) < 1.5,
+                           dist(x, y, 172, 200) < 1.5,
                            dist(x, y, 98, 163) < 1.5])
     return not np.any(conditions)
 
@@ -115,9 +118,7 @@ def data_conversion(coords,
                     electrons: str = "all") -> Coords:
     if raw:
         xf, yf, tf = map(np.array, zip(*list(
-            map(rotate_coords,
-                map(ft.partial(centering, center=center),
-                    filter(in_good_pixels, coords))))))
+                    filter(in_good_pixels, coords))))
         return xf, yf, tf
     else:
         match electrons:
@@ -160,10 +161,10 @@ def load_cv3(file: str,
              to_load: Optional[int] = None,
              center: Coord = (124.5, 128.5, 528.536596),
              raw: bool = False,
-             electrons: str = "all") -> Coords:
+             electrons: str = "all",
+             ) -> Coords:
     coords = load_and_correlate(file, to_load=to_load)
     return data_conversion(coords, pol=pol, width=width, center=center, raw=raw, electrons=electrons)
-
 
 if __name__ == '__main__':
     file = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\clust_v3\xe003_c.cv3"
