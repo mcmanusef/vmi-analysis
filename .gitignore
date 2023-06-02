@@ -10,3 +10,8 @@ Data
 *.cv3
 converted.txt
 *.dat
+*.pickle
+*/func_cache/*
+*scratch*
+
+/plotting/func_cache/get_exp_data/dir.txt
