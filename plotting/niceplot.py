@@ -9,10 +9,13 @@ from matplotlib.colors import ListedColormap
 from plotting import error_bars_plot as ebp
 import cv3_analysis as cv3
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
 
+mpl.rc('image', cmap='jet')
+mpl.use('Qt5Agg')
 
 def trans_jet(opaque_point=0.1):
     # Create a colormap that looks like jet
@@ -29,81 +32,92 @@ def wrap_between(data, low=0, high=180):
     return (data - low) % (high - low) + low
 
 
-def main(inputs=None,
+def main(inputs,
          calibrated=False,
          wdir=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613",
          to_load=100000,
-         width=0.6):
-    if inputs is None:
-        inputs = [('xe011_e', 0.3), ('xe013_e', 0.6)]
+         width=0.6,
+         bins=512):
 
     for name, pol in inputs:
-        #     if f"{name}_nice.png" in os.listdir():
-        #         continue
 
-        if calibrated:
-            ell = abs(pol)
-            angle = 0
-            with h5py.File(os.path.join(wdir, name)) as f:
-                py, px, pz = (f["y"][()], f["x"][()], f["z"][()])
-        else:
-
-            power_file = os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat")
-            angle_file = os.path.join(wdir, r"Ellipticity measurements\angle.mat")
-
-            angle = wrap_between(ebp.get_pol_angle(power_file, angle_file) + 4, -90, 90)
-
-            ell = ebp.get_ell(power_file,angle_file)
-            # noinspection PyTypeChecker
-            py, px, pz = cv3.load_cv3(os.path.join(wdir, fr"clust_v3\{name}.cv3"), pol=np.radians(angle), width=.05,
-                                      to_load=to_load)
+        angle, ell, px, py, pz = load_data(name, pol, wdir=wdir, to_load=to_load, calibrated=calibrated)
 
         print(pol, ell)
-        fig, ax = plt.subplots(num=f"e={pol}_{calibrated}")
 
-        ax.hist2d(px, py, bins=512, range=[[-width, width], [-width, width]], cmap=trans_jet())
-        ax.set_aspect('equal', 'box')
-        ax.grid()
-        ax.set_axisbelow(True)
+        fig_name= f"e={pol}_{calibrated}"
+        fig, ax = plt.subplots(num=fig_name)
+        make_fig(ax, px, py, ellipse=True, bins=bins, pol=pol, ell=ell, text=True, angle=angle, width=width)
 
-        add_ellipse(ax, ell, pol)
-
-        text_bg = patches.Rectangle(
-            (0.6, 0.8),
-            0.4,
-            0.2,
-            linewidth=1,
-            edgecolor='black',
-            facecolor='white',
-            transform=ax.transAxes,
-        )
-        ax.add_patch(text_bg)
-
-        ax.text(.8, .95, f"Rotation: {angle:.2f}°", ha='center', va='center', transform=ax.transAxes)
-        ax.text(.8, .85, f"Into Page", ha='center', va='center', transform=ax.transAxes)
-
-        # plt.tight_layout()
         fig.savefig(f"{name}_nice.png")
 
 
-def add_ellipse(ax, ell, pol):
-    ellipse_bg = patches.Rectangle(
-        (0.8, 0),
-        0.2,
+def make_fig(ax, px, py, ellipse=True, bins=256, pol=0.001, ell=0, text=True, angle=0., width=0.8):
+    ax.hist2d(px, py, bins=bins, range=[[-width, width], [-width, width]], cmap=trans_jet())
+    ax.set_aspect('equal', 'box')
+    ax.grid()
+    ax.set_axisbelow(True)
+    if ellipse:
+        add_ellipse(ax, ell, pol)
+    if text:
+        add_text(ax, angle)
+
+
+def load_data(name, pol, wdir, to_load, calibrated):
+    if calibrated:
+        ell = abs(pol)
+        angle = 0
+        with h5py.File(os.path.join(wdir, name)) as f:
+            py, px, pz = (f["y"][()], f["x"][()], f["z"][()])
+    else:
+        power_file = os.path.join(wdir, fr"Ellipticity measurements\{name}_power.mat")
+        angle_file = os.path.join(wdir, r"Ellipticity measurements\angle.mat")
+        data_file = os.path.join(wdir, fr"clust_v3\{name}.cv3")
+
+        angle = np.radians(wrap_between(ebp.get_pol_angle(power_file, angle_file) + 4, -90, 90))
+        ell = ebp.get_ell(power_file, angle_file)
+
+        py, px, pz = cv3.load_cv3(data_file,
+                                  pol=float(angle),
+                                  width=.05,
+                                  to_load=to_load)
+    return angle, ell, px, py, pz
+
+
+def add_text(ax, angle):
+    text_bg = patches.Rectangle(
+        (0.6, 0.8),
+        0.4,
         0.2,
         linewidth=1,
         edgecolor='black',
         facecolor='white',
-        transform=ax.transAxes
+        transform=ax.transAxes,
     )
-    ax.add_patch(ellipse_bg)
+    ax.add_patch(text_bg)
+    ax.text(.8, .95, f"Rotation: {angle:.2f}°", ha='center', va='center', transform=ax.transAxes)
+    ax.text(.8, .85, f"Into Page", ha='center', va='center', transform=ax.transAxes)
+
+
+def add_ellipse(ax, ell, pol, rect=False):
+    if rect:
+        ellipse_bg = patches.Rectangle(
+            (0.8, 0),
+            0.2,
+            0.2,
+            linewidth=1,
+            edgecolor='black',
+            facecolor='white',
+            transform=ax.transAxes
+        )
+        ax.add_patch(ellipse_bg)
     ellipse = patches.Ellipse(
         (0.9, 0.1),
         0.15,
         0.1,
         linewidth=2,
         edgecolor='red',
-        facecolor='none',
+        facecolor='white',
         transform=ax.transAxes
     )
     ax.add_patch(ellipse)
@@ -132,4 +146,10 @@ def add_ellipse(ax, ell, pol):
 
 if __name__ == "__main__":
     # main([("theory_03.h5", 0.3),("theory_06.h5",0.6)], wdir=r"C:\Users\mcman\Code\VMI\Data", calibrated=True)
-    main([("xe011_e", 0.3)], to_load=1000000, wdir=r"C:\Users\mcman\Code\VMI\Data")
+    main(
+        [("xe011_e", 0.6)],
+        to_load=1000000,
+        wdir=r"C:\Users\mcman\Code\VMI\Data",
+        bins=256,
+        width=0.8
+    )
