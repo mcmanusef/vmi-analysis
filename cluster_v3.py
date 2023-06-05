@@ -189,6 +189,8 @@ def get_t_iter(pulse_times, times):
         while time > t1:
             i, t0 = i1, t1
             i1, t1 = next(pte, (-1, -1))
+            if i % 60000 == 0:
+                print(f"Pulse: {i}")
             if i1 == -1:
                 break
         if i == -1:
