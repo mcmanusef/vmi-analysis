@@ -2,6 +2,8 @@
 """
 Clusters an unclustered h5 file to a v3 clustered file, with seperate pixel, itof, and etof info.
 """
+import sys
+
 # %% Initializing
 import h5py
 import numpy as np
@@ -189,8 +191,6 @@ def get_t_iter(pulse_times, times, print_label=""):
         while time > t1:
             i, t0 = i1, t1
             i1, t1 = next(pte, (-1, -1))
-            if i % 60000 == 0:
-                print(f"{print_label} pulse: {i}")
             if i1 == -1:
                 break
         if i == -1:
@@ -309,10 +309,14 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
         t_tof_d = f.create_dataset('t_tof', [0.], chunks=groupsize, maxshape=(None,))
         tof_corr_d = f.create_dataset('tof_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
 
-        for split1, split2, split3 in it.zip_longest(split_every(groupsize, clust_data),
-                                                     split_every(groupsize, etof_data),
-                                                     split_every(groupsize, tof_data), fillvalue=None):
+        lasts=[0,0,0]
 
+        split1 = next(split_every(groupsize, clust_data),None)
+        split2 = next(split_every(groupsize, etof_data), None)
+        split3 = next(split_every(groupsize, tof_data), None)
+
+        while not any((split1 is None, split2 is None, split3 is None)):
+            print(lasts)
             if first:
                 if split1 is not None:
                     split1 = split1[1:]
@@ -322,23 +326,37 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
                     split3 = split3[1:]
                 first = False
 
-            if split1 is not None:
-                (corr, coords) = tuple(zip(*split1))
-                (x, y, t) = tuple(zip(*coords))
-                h5append(xd, x)
-                h5append(yd, y)
-                h5append(td, t)
-                h5append(corrd, corr)
-
-            if split2 is not None:
-                (etof_corr, t_etof) = tuple(zip(*split2))
-                h5append(t_etof_d, t_etof)
-                h5append(etof_corr_d, etof_corr)
-
-            if split3 is not None:
-                (tof_corr, t_tof) = tuple(zip(*split3))
-                h5append(t_tof_d, t_tof)
-                h5append(tof_corr_d, tof_corr)
+            match np.argmin(lasts):
+                case 0:
+                    if split1 is not None:
+                        (corr, coords) = tuple(zip(*split1))
+                        (x, y, t) = tuple(zip(*coords))
+                        h5append(xd, x)
+                        h5append(yd, y)
+                        h5append(td, t)
+                        h5append(corrd, corr)
+                        lasts[0] = corr[-1]
+                        split1 = next(split_every(groupsize, clust_data),None)
+                    else:
+                        lasts [0] = sys.maxsize
+                case 1:
+                    if split2 is not None:
+                        (etof_corr, t_etof) = tuple(zip(*split2))
+                        h5append(t_etof_d, t_etof)
+                        h5append(etof_corr_d, etof_corr)
+                        lasts[1] = etof_corr[-1]
+                        split2 = next(split_every(groupsize, etof_data), None)
+                    else:
+                        lasts[1] = sys.maxsize
+                case 2:
+                    if split3 is not None:
+                        (tof_corr, t_tof) = tuple(zip(*split3))
+                        h5append(t_tof_d, t_tof)
+                        h5append(tof_corr_d, tof_corr)
+                        lasts[2] = tof_corr[-1]
+                        split3 = next(split_every(groupsize, tof_data), None)
+                    else:
+                        lasts[2] = sys.maxsize
 
             if maxlen is not None:
                 print(xd.shape)
