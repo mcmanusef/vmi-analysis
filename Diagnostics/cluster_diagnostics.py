@@ -283,7 +283,7 @@ def average_over_cluster(cluster_index, data):
         return mean_vals
 
 
-def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None):
+def save_iter(name, clust_data, etof_data, tof_data, group_size=1000, max_len=None):
     """
     Save data to h5 file
 
@@ -292,28 +292,28 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
         clust_data (iterable): iterable containing data for clusters.
         etof_data (iterable): iterable containing data for etof.
         tof_data (iterable): iterable containing data for tof.
-        groupsize (int): number of data points to be written at a time.
-        maxlen (int): maximum number of data points to be written to the file.
+        group_size (int): number of data points to be written at a time.
+        max_len (int): maximum number of data points to be written to the file.
 
     Returns:
         None
     """
     with h5py.File(name, 'w') as f:
         first = True
-        xd = f.create_dataset('x', [0.], chunks=groupsize, maxshape=(None,))
-        yd = f.create_dataset('y', [0.], chunks=groupsize, maxshape=(None,))
-        td = f.create_dataset('t', [0.], chunks=groupsize, maxshape=(None,))
-        corrd = f.create_dataset('cluster_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
+        xd = f.create_dataset('x', [0.], chunks=group_size, maxshape=(None,))
+        yd = f.create_dataset('y', [0.], chunks=group_size, maxshape=(None,))
+        td = f.create_dataset('t', [0.], chunks=group_size, maxshape=(None,))
+        corrd = f.create_dataset('cluster_corr', [0], dtype=int, chunks=group_size, maxshape=(None,))
 
-        t_etof_d = f.create_dataset('t_etof', [0.], chunks=groupsize, maxshape=(None,))
-        etof_corr_d = f.create_dataset('etof_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
+        t_etof_d = f.create_dataset('t_etof', [0.], chunks=group_size, maxshape=(None,))
+        etof_corr_d = f.create_dataset('etof_corr', [0], dtype=int, chunks=group_size, maxshape=(None,))
 
-        t_tof_d = f.create_dataset('t_tof', [0.], chunks=groupsize, maxshape=(None,))
-        tof_corr_d = f.create_dataset('tof_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
+        t_tof_d = f.create_dataset('t_tof', [0.], chunks=group_size, maxshape=(None,))
+        tof_corr_d = f.create_dataset('tof_corr', [0], dtype=int, chunks=group_size, maxshape=(None,))
 
-        for split1, split2, split3 in it.zip_longest(split_every(groupsize, clust_data),
-                                                     split_every(groupsize, etof_data),
-                                                     split_every(groupsize, tof_data), fillvalue=None):
+        for split1, split2, split3 in it.zip_longest(split_every(group_size, clust_data),
+                                                     split_every(group_size, etof_data),
+                                                     split_every(group_size, tof_data), fillvalue=None):
 
             if first:
                 split1 = split1[1:]
@@ -339,9 +339,9 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
                 h5append(t_tof_d, t_tof)
                 h5append(tof_corr_d, tof_corr)
 
-            if maxlen is not None:
+            if max_len is not None:
                 print(xd.shape)
-                if xd.shape[0] > maxlen:
+                if xd.shape[0] > max_len:
                     break
 
     # %%% Argument Parsing
@@ -349,7 +349,7 @@ def main(args):
     parser = argparse.ArgumentParser(prog='cluster',
                                      description="Clusters data into .cv3 file. Does not load full dataset into memory")
 
-    parser.add_argument('--g', dest='groupsize',
+    parser.add_argument('--g', dest='group_size',
                         type=int, default=10000,
                         help="Clusters this many pulses at a time")
 
@@ -363,7 +363,7 @@ def main(args):
     parser.add_argument('--out', dest='output',
                         default='', help="The output HDF5 file")
 
-    parser.add_argument('--maxlen', dest='maxlen', type=float,
+    parser.add_argument('--max_len', dest='max_len', type=float,
                         default=None,
                         help="The maximum number of data points to record. Use to partially cluster a dataset.")
 
@@ -396,12 +396,10 @@ def main(args):
     enumerated_data = it.chain.from_iterable(map(list_enum, enumerate(averaged_cluster_data)))
 
     return enumerated_data, etof_data,itof_data
-    # save_iter(output_name, enumerated_data, etof_data, itof_data, groupsize=args.groupsize, maxlen=args.maxlen)
-    print('Finished:', datetime.now().strftime("%H:%M:%S"))
 
 if __name__=="__main__":
     c,e,i=main([r"C:\Users\mcman\Code\VMI\Data\kr002_s.h5",
-                          "--maxlen", "100000",
+                          "--max_len", "100000",
                           "--cutoff", "1000",
                           "--single"
                           ])
