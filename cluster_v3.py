@@ -171,7 +171,7 @@ def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
             yield pt1
 
 
-def get_t_iter(pulse_times, times):
+def get_t_iter(pulse_times, times, print_label=""):
     """
     Get an iterator for the time difference between events and pulse times.
 
@@ -190,7 +190,7 @@ def get_t_iter(pulse_times, times):
             i, t0 = i1, t1
             i1, t1 = next(pte, (-1, -1))
             if i % 60000 == 0:
-                print(f"Pulse: {i}")
+                print(f"{print_label} pulse: {i}")
             if i1 == -1:
                 break
         if i == -1:
@@ -386,9 +386,9 @@ if __name__ == '__main__':
     itof_times = get_times_iter(iter_dataset(f_in, 'tdc_time'), iter_dataset(f_in, 'tdc_type'), 'itof', args.cutoff)
 
     pt1, pt2, pt3 = safetee(pulse_times, 3)
-    pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa), 2)
-    etof_data = get_t_iter(pt2, etof_times)
-    itof_data = get_t_iter(pt3, itof_times)
+    pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa, print_label="pixel"), 2)
+    etof_data = get_t_iter(pt2, etof_times, print_label="etof")
+    itof_data = get_t_iter(pt3, itof_times, print_label="itof")
     formatted_data = format_data(pixel_corr, [x, y, t_pixel, tot])
 
     clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
