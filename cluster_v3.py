@@ -193,9 +193,13 @@ def get_t_iter(pulse_times, times, print_label=""):
             i1, t1 = next(pte, (-1, -1))
             if i1 == -1:
                 break
+            if t1-t0>1e12:
+                print(f"Skipping pulse {i}")
+                i, t0 = i1, t1
+                i1, t1 = next(pte, (-1, -1))
         if i == -1:
             break
-        else:
+        elif time > t0:
             yield i, time-t0
 
 
