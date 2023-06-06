@@ -12,43 +12,44 @@ matplotlib.rc('image', cmap='jet')
 matplotlib.use('Qt5Agg')
 plt.close("all")
 
-wdir=r"C:\Users\mcman\Code\VMI\Data"
+wdir=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20230601"
+wdir=r'C:\Users\mcman\Code\VMI\Data'
 name="kr002_s"
-file=os.path.join(wdir,fr"{name}.h5")
-
-
-data = {}
-with h5py.File(file) as f:
-    for k in f.keys():
-        data[k] = f[k][()]
-
-plt.figure("TDC Times")
-plt.plot(data['tdc_time'])
-
-plt.figure("ToA Times")
-plt.plot(data['toa'][::1000])
-
-plt.figure("TDC1 Pulse Lengths")
-if not data['tdc_type'][-1]==1:
-    lens=np.diff(data['tdc_time'])[np.argwhere(data['tdc_type']==1)]
-else:
-    lens=np.diff(data['tdc_time'])[np.argwhere(data['tdc_type']==1)[:-1]]
-plt.hist(lens,bins=500)
-
-plt.figure("TDC2 Pulse Lengths")
-plt.hist(np.diff(data['tdc_time'])[np.argwhere(data['tdc_type']==3)],bins=1000)
-
-plt.figure("Pulse Time Differences")
-pulse_times = (data['tdc_time'][np.argwhere(data['tdc_type'] == 1)][np.argwhere(lens > 1e6)[:, 0]]/1000).flatten()
-diffs=np.diff(pulse_times)
-plt.hist(np.diff(pulse_times), bins=300, range=(1e6,1e6+1e2))
-plt.yscale('log')
-
-
-plt.figure('Raw x-y')
-plt.hist2d(data['x'],data['y'],weights=data['tot'],bins=256, range=((0,256),(0,256)))
+# file=os.path.join(wdir,fr"{name}.h5")
+#
+#
+# data = {}
+# with h5py.File(file) as f:
+#     for k in f.keys():
+#         data[k] = f[k][()]
+#
+# plt.figure("TDC Times")
+# plt.plot(data['tdc_time'])
+#
+# plt.figure("ToA Times")
+# plt.plot(data['toa'][::1000])
+#
+# plt.figure("TDC1 Pulse Lengths")
+# if not data['tdc_type'][-1]==1:
+#     lens=np.diff(data['tdc_time'])[np.argwhere(data['tdc_type']==1)]
+# else:
+#     lens=np.diff(data['tdc_time'])[np.argwhere(data['tdc_type']==1)[:-1]]
+# plt.hist(lens,bins=500)
+#
+# plt.figure("TDC2 Pulse Lengths")
+# plt.hist(np.diff(data['tdc_time'])[np.argwhere(data['tdc_type']==3)],bins=1000)
+#
+# plt.figure("Pulse Time Differences")
+# pulse_times = (data['tdc_time'][np.argwhere(data['tdc_type'] == 1)][np.argwhere(lens > 1e6)[:, 0]]/1000).flatten()
+# diffs=np.diff(pulse_times)
+# plt.hist(np.diff(pulse_times), bins=300, range=(1e6,1e6+1e2))
+# plt.yscale('log')
+#
+#
+# plt.figure('Raw x-y')
+# plt.hist2d(data['x'],data['y'],weights=data['tot'],bins=256, range=((0,256),(0,256)))
 #%%
-rx=ry=(0,256)
+rx=ry=(1,256)
 rt=(0,1e6)
 
 
@@ -69,7 +70,7 @@ plt.hist2d(data2['x'],data2['y'],bins=256, range=((0,256),(0,256)))
 #
 xf, yf, tf = load_cv3(os.path.join(wdir, fr"{name}.cv3"),raw=True,center=(0,0,0))
 #%%
-rt=(748_450,748_470)
+rt=(748_430,748_470)
 x,y,t= map(np.asarray,zip(*[(a,b,c) for a,b,c in zip(xf,yf,tf) if rx[0]<a<rx[1] and ry[0]<b<ry[1] and rt[0]<c<rt[1]]))
 
 plt.figure("e-tof")
@@ -77,11 +78,11 @@ plt.hist(data2['t_etof']/1000, bins=1000,range=rt)
 
 
 plt.figure("x-y")
-plt.hist2d(x,y,bins=128, range=(rx,ry),norm='log')
+plt.hist2d(x,y,bins=512, range=(rx,ry),norm='log')
 plt.figure("x-t")
-plt.hist2d(x,t,bins=128, range=(rx,rt))
+plt.hist2d(x,t,bins=512, range=(rx,rt))
 plt.figure("y-t")
-plt.hist2d(y,t,bins=128,range=(ry,rt))
+plt.hist2d(y,t,bins=512,range=(ry,rt))
 
 #%%
 with h5py.File(os.path.join(wdir, fr"{name}.cv3")) as f:
@@ -93,4 +94,7 @@ plt.hist((itof),bins=500,range=(750e3, 780e3),weights=np.ones_like(itof)*5/pulse
 plt.xlabel("m/q")
 plt.ylabel("Counts (per shot per unit m/q)")
 
+#%%
+plt.figure()
+plt.hist(data2['y'], bins=4096)
 #%%
