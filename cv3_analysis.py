@@ -50,7 +50,7 @@ def in_good_pixels(coords: Coords) -> bool:
                            dist(x, y, 23, 255) < 1.5,
                            dist(x, y, 204, 187) < 1.5,
                            dist(x, y, 36, 243) < 1.5,
-                           dist(x, y, 204, 194) < 1.5,
+                           dist(x, y, 204, 194) < 2.5,
                            dist(x, y, 172, 200) < 1.5,
                            dist(x, y, 98, 163) < 1.5])
     return not np.any(conditions)
