@@ -4,6 +4,7 @@ Clusters an unclustered h5 file to a v3 clustered file, with seperate pixel, ito
 """
 # %% Initializing
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 from datetime import datetime
@@ -15,7 +16,11 @@ from typing import *
 import sklearn.cluster as skcluster
 from multiprocessing import Pool
 from threading import Lock
+import matplotlib
 
+matplotlib.rc('image', cmap='jet')
+matplotlib.use('Qt5Agg')
+plt.close("all")
 
 # %%% Functions
 
@@ -186,18 +191,20 @@ def get_t_iter(pulse_times, times):
     i, t0 = next(pte, (-1, -1))
     i1, t1 = next(pte, (-1, -1))
     for time in times:
+
+
         # print(t0,t1,f"Diff: {(t0-t1)/1e9}")
         while time > t1:
             i, t0 = i1, t1
             i1, t1 = next(pte, (-1, -1))
             if i1 == -1:
                 break
-            # print(t0,t1,f"Diff: {(t0-t1)/1e9}")
+            if t1-t0>1e12:
+                i, t0 = i1, t1
+                i1, t1 = next(pte, (-1, -1))
         if i == -1:
             break
-        else:
-            # print(f"{(t1-t0)/1e9} ms")
-            # print(f"{t0/1e9}<{time/1e9}<{t1/1e9}")
+        elif time>t0:
             yield i, time-t0
 
 
@@ -228,7 +235,7 @@ def format_data(corr, iters):
         yield [np.asarray(list(it.islice(x, n))) for x in iters]
 
 
-def cluster(data):
+def cluster(data, cluster_size=5):
     """
     Find clusters of pixel events in data
 
@@ -248,7 +255,7 @@ def cluster(data):
     if len(data[0]) == 0:
         return np.array([]), data
 
-    dbscan = skcluster.DBSCAN(eps=1, min_samples=4)
+    dbscan = skcluster.DBSCAN(eps=2, min_samples=cluster_size)
     x = data[0]
     y = data[1]
     db = dbscan.fit(np.column_stack((x, y)))
@@ -388,19 +395,29 @@ def main(args):
     etof_data = get_t_iter(pt2, etof_times)
     itof_data = get_t_iter(pt3, itof_times)
     formatted_data = format_data(pixel_corr, [x, y, t_pixel, tot])
+    formatted_data, a= it.tee(formatted_data)
 
     clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
 
     averaged_cluster_data = it.starmap(average_over_cluster, clustered_data)
+    return a, averaged_cluster_data
 
     enumerated_data = it.chain.from_iterable(map(list_enum, enumerate(averaged_cluster_data)))
 
     return enumerated_data, etof_data,itof_data
 
 if __name__=="__main__":
-    c,e,i=main([r"C:\Users\mcman\Code\VMI\Data\kr002_s.h5",
+    raw,clust=main([r"J:\ctgroup\DATA\UCONN\VMI\VMI\20230601\kr001_p.h5",
                           "--max_len", "100000",
                           "--cutoff", "1000",
                           "--single"
                           ])
-    full=enumerate(c)
+
+    def plot(raw_pulse, clust):
+        if len(clust)==0:
+            return
+        plt.figure()
+        plt.hist2d(raw_pulse[0],raw_pulse[1],bins=256,range=((0,256),(0,256)))
+        for c in clust:
+            plt.scatter(c[0],c[1])
+
