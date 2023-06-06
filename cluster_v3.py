@@ -230,17 +230,20 @@ def format_data(corr, iters):
     pn = next(corr)
 
     for i in it.count():
+        if pn < i and pn>0:
+            raise Exception
         n = 0
-        while pn == i:
+        while pn == i or pn == -1:
             n += 1
             pn = next(corr, None)
+            while pn == -1:
+                pn = next(corr, None)
+                _=[next(x) for x in iters]
         if pn is None:
             break
         yield [np.asarray(list(it.islice(x, n))) for x in iters]
 
-        while pn == -1:
-            pn = next(corr, None)
-            _=[next(x) for x in iters]
+
 
 
 
@@ -408,7 +411,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # %% Running
-    p = Pool(os.cpu_count())
+    if not args.single:
+        p = Pool(os.cpu_count())
     print('Beginning Cluster Analysis:', datetime.now().strftime("%H:%M:%S"))
     output_name = args.output if args.output else args.filename[:-3] + ".cv3"
 
