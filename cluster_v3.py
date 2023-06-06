@@ -208,6 +208,8 @@ def get_t_iter(pulse_times, times):
             break
         elif time > t0:
             yield i, time - t0
+        else:
+            yield -1, time-t0
 
 
 def format_data(corr, iters):
@@ -235,6 +237,11 @@ def format_data(corr, iters):
         if pn is None:
             break
         yield [np.asarray(list(it.islice(x, n))) for x in iters]
+
+        while pn == -1:
+            pn = next(corr, None)
+            _=[next(x) for x in iters]
+
 
 
 def cluster(data):
