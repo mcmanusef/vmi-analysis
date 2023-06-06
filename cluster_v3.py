@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Clusters an unclustered h5 file to a v3 clustered file, with seperate pixel, itof, and etof info.
+Clusters an unclustered h5 file to a v3 clustered file, with separate pixel, itof, and etof info.
 """
 import sys
 
@@ -13,7 +13,6 @@ from numba.typed import List as nList
 import functools as ft
 import itertools as it
 import os
-from typing import *
 import sklearn.cluster as skcluster
 from multiprocessing import Pool
 from threading import Lock
@@ -22,6 +21,11 @@ from threading import Lock
 # %%% Functions
 
 # %%%% Iterator Tools
+
+def pairwise(iterable):
+    a, b = it.tee(iterable)
+    next(b, None)
+    return zip(a, b)
 
 
 class safeteeobject(object):
@@ -42,13 +46,13 @@ class safeteeobject(object):
         return safeteeobject(self.teeobj.__copy__(), self.lock)
 
 
-def safetee(iterable: Iterable, n: int = 2) -> tuple[safeteeobject, ...]:
+def safetee(iterable, n):
     """tuple of n independent thread-safe iterators"""
     lock = Lock()
     return tuple(safeteeobject(teeobj, lock) for teeobj in it.tee(iterable, n))
 
 
-def split_every(n: int, iterable: Iterable) -> Iterable[list]:
+def split_every(n, iterable):
     """Return an iterator that splits the iterable into chunks of size n. Example: split_every(3, 'ABCDEFGH') --> [
     'A','B','C'] ['D','E','F'] ['G','H']"""
     i = iter(iterable)
@@ -58,21 +62,22 @@ def split_every(n: int, iterable: Iterable) -> Iterable[list]:
         piece = list(it.islice(i, n))
 
 
-def is_val(iterable: Iterable, val) -> Iterable[bool]:
+def is_val(iterable, val):
     """Return an iterator that yields True if the element in the iterable is equal to the given value, otherwise False."""
     for i in iterable:
         yield i == val
 
 
-def index_iter(iter_tuple: Iterable[tuple], index: int) -> Iterable:
+def index_iter(iter_tuple, index: int):
     """Return an iterator that yields the element at the given index of each tuple in the iterable."""
     return map(lambda x: x[index], iter_tuple)
 
 
-def split_iter(iter_tuple: Iterable[tuple], n: int) -> tuple[Iterable, ...]:
+def split_iter(iter_tuple, n):
     """Return a tuple of n iterators, each of which yields the nth element of each tuple in the input iterable."""
     enum = enumerate(safetee(iter_tuple, n))
     return tuple(map(lambda x: index_iter(x[1], x[0]), enum))
+
 
 # %%%% Other Tools
 
@@ -86,9 +91,9 @@ def h5append(dataset, newdata):
 def compare_diff(time, cutoff=1, greater=True):
     """Return True where the difference between pairs is greater/less than cutoff depending on greater value"""
     if greater:
-        return (time[1]-time[0] > cutoff)
+        return (time[1] - time[0] > cutoff)
     else:
-        return (time[1]-time[0] < cutoff)
+        return (time[1] - time[0] < cutoff)
 
 
 def iter_dataset(file, dataset):
@@ -109,6 +114,7 @@ def list_enum(enum):
     i, lst = enum[0], enum[1]
     return [(i, x) for x in lst]
 
+
 # %%%% Run Specific
 
 
@@ -125,6 +131,7 @@ def iter_file(file):
     iter_fn = ft.partial(iter_dataset, file)
     datasets = ['tdc_time', 'tdc_type', 'x', 'y', 'tot', 'toa']
     return tuple(map(iter_fn, datasets))
+
 
 # Unused
 # def toa_correct(toa_uncorr):
@@ -148,13 +155,13 @@ def get_times_iter(tdc_time, tdc_type, mode, cutoff):
         return it.compress(tdc_time, is_val(tdc_type, 3))
 
     else:
-        times = it.compress(it.pairwise(tdc_time), is_val(tdc_type, 1))
+        times = it.compress(pairwise(tdc_time), is_val(tdc_type, 1))
         times, pair_times = it.tee(times)
-        comp = ft.partial(compare_diff, cutoff=cutoff*1000, greater=(mode == 'pulse'))
+        comp = ft.partial(compare_diff, cutoff=cutoff * 1000, greater=(mode == 'pulse'))
         return it.compress(index_iter(times, 0), map(comp, pair_times))
 
 
-def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
+def correct_pulse_times_iter(pulse_times, cutoff=(1e9 + 1.5e4), diff=12666):
     """
     Correct the pulse times so any pulses which are less than [cutoff] away from the prior pulse are delayed by [diff].
 
@@ -166,14 +173,14 @@ def correct_pulse_times_iter(pulse_times, cutoff=(1e9+1.5e4), diff=12666):
     Returns:
         iterator: iterator for corrected pulse times.
     """
-    for pt, pt1 in it.pairwise(pulse_times):
-        if pt1-pt < cutoff:
-            yield pt1+diff
+    for pt, pt1 in pairwise(pulse_times):
+        if pt1 - pt < cutoff:
+            yield pt1 + diff
         else:
             yield pt1
 
 
-def get_t_iter(pulse_times, times, print_label=""):
+def get_t_iter(pulse_times, times):
     """
     Get an iterator for the time difference between events and pulse times.
 
@@ -193,14 +200,14 @@ def get_t_iter(pulse_times, times, print_label=""):
             i1, t1 = next(pte, (-1, -1))
             if i1 == -1:
                 break
-            if t1-t0>1e12:
+            if t1 - t0 > 1e12:
                 print(f"Skipping pulse {i}")
                 i, t0 = i1, t1
                 i1, t1 = next(pte, (-1, -1))
         if i == -1:
             break
         elif time > t0:
-            yield i, time-t0
+            yield i, time - t0
 
 
 def format_data(corr, iters):
@@ -250,7 +257,7 @@ def cluster(data):
     if len(data[0]) == 0:
         return np.array([]), data
 
-    dbscan = skcluster.DBSCAN(eps=1, min_samples=4)
+    dbscan = skcluster.DBSCAN(eps=2, min_samples=5)
     x = data[0]
     y = data[1]
     db = dbscan.fit(np.column_stack((x, y)))
@@ -270,7 +277,7 @@ def average_over_cluster(cluster_index, data):
        list: list of tuple, where each tuple contains the weighted average values of x and y and the minimum value of t, calculated for each cluster index.
    """
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
-        count = max(cluster_index)+1
+        count = max(cluster_index) + 1
         weight = data[-1]
         mean_vals = nList()
         for i in range(count):
@@ -313,14 +320,14 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
         t_tof_d = f.create_dataset('t_tof', [0.], chunks=groupsize, maxshape=(None,))
         tof_corr_d = f.create_dataset('tof_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
 
-        lasts=[0,0,0]
+        lasts = [0, 0, 0]
 
-        split1 = next(split_every(groupsize, clust_data),None)
+        split1 = next(split_every(groupsize, clust_data), None)
         split2 = next(split_every(groupsize, etof_data), None)
         split3 = next(split_every(groupsize, tof_data), None)
 
         while not any((split1 is None, split2 is None, split3 is None)):
-            print(lasts)
+            # print(lasts)
             if first:
                 if split1 is not None:
                     split1 = split1[1:]
@@ -330,37 +337,36 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
                     split3 = split3[1:]
                 first = False
 
-            match np.argmin(lasts):
-                case 0:
-                    if split1 is not None:
-                        (corr, coords) = tuple(zip(*split1))
-                        (x, y, t) = tuple(zip(*coords))
-                        h5append(xd, x)
-                        h5append(yd, y)
-                        h5append(td, t)
-                        h5append(corrd, corr)
-                        lasts[0] = corr[-1]
-                        split1 = next(split_every(groupsize, clust_data),None)
-                    else:
-                        lasts [0] = sys.maxsize
-                case 1:
-                    if split2 is not None:
-                        (etof_corr, t_etof) = tuple(zip(*split2))
-                        h5append(t_etof_d, t_etof)
-                        h5append(etof_corr_d, etof_corr)
-                        lasts[1] = etof_corr[-1]
-                        split2 = next(split_every(groupsize, etof_data), None)
-                    else:
-                        lasts[1] = sys.maxsize
-                case 2:
-                    if split3 is not None:
-                        (tof_corr, t_tof) = tuple(zip(*split3))
-                        h5append(t_tof_d, t_tof)
-                        h5append(tof_corr_d, tof_corr)
-                        lasts[2] = tof_corr[-1]
-                        split3 = next(split_every(groupsize, tof_data), None)
-                    else:
-                        lasts[2] = sys.maxsize
+            if np.argmin(lasts) == 0:
+                if split1 is not None:
+                    (corr, coords) = tuple(zip(*split1))
+                    (x, y, t) = tuple(zip(*coords))
+                    h5append(xd, x)
+                    h5append(yd, y)
+                    h5append(td, t)
+                    h5append(corrd, corr)
+                    lasts[0] = corr[-1]
+                    split1 = next(split_every(groupsize, clust_data), None)
+                else:
+                    lasts[0] = sys.maxsize
+            elif np.argmin(lasts) == 1:
+                if split2 is not None:
+                    (etof_corr, t_etof) = tuple(zip(*split2))
+                    h5append(t_etof_d, t_etof)
+                    h5append(etof_corr_d, etof_corr)
+                    lasts[1] = etof_corr[-1]
+                    split2 = next(split_every(groupsize, etof_data), None)
+                else:
+                    lasts[1] = sys.maxsize
+            elif np.argmin(lasts) == 2:
+                if split3 is not None:
+                    (tof_corr, t_tof) = tuple(zip(*split3))
+                    h5append(t_tof_d, t_tof)
+                    h5append(tof_corr_d, tof_corr)
+                    lasts[2] = tof_corr[-1]
+                    split3 = next(split_every(groupsize, tof_data), None)
+                else:
+                    lasts[2] = sys.maxsize
 
             if maxlen is not None:
                 print(xd.shape)
@@ -397,7 +403,7 @@ if __name__ == '__main__':
     # %% Running
     p = Pool(os.cpu_count())
     print('Beginning Cluster Analysis:', datetime.now().strftime("%H:%M:%S"))
-    output_name = args.output if args.output else args.filename[:-3]+".cv3"
+    output_name = args.output if args.output else args.filename[:-3] + ".cv3"
 
     f_in = h5py.File(args.filename)
 
@@ -408,12 +414,13 @@ if __name__ == '__main__':
     itof_times = get_times_iter(iter_dataset(f_in, 'tdc_time'), iter_dataset(f_in, 'tdc_type'), 'itof', args.cutoff)
 
     pt1, pt2, pt3 = safetee(pulse_times, 3)
-    pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa, print_label="pixel"), 2)
-    etof_data = get_t_iter(pt2, etof_times, print_label="etof")
-    itof_data = get_t_iter(pt3, itof_times, print_label="itof")
+    pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa), 2)
+    etof_data = get_t_iter(pt2, etof_times)
+    itof_data = get_t_iter(pt3, itof_times)
     formatted_data = format_data(pixel_corr, [x, y, t_pixel, tot])
 
-    clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
+    clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster,
+                                                                                                 formatted_data)
 
     averaged_cluster_data = it.starmap(average_over_cluster, clustered_data)
 
