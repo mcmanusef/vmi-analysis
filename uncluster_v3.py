@@ -185,6 +185,7 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
         xd = f.create_dataset('x', [0.], chunks=groupsize, maxshape=(None,))
         yd = f.create_dataset('y', [0.], chunks=groupsize, maxshape=(None,))
         td = f.create_dataset('t', [0.], chunks=groupsize, maxshape=(None,))
+        totd = f.create_dataset('tot', [0], chunks=groupsize, maxshape=(None,))
         corrd = f.create_dataset('cluster_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
 
         t_etof_d = f.create_dataset('t_etof', [0.], chunks=groupsize, maxshape=(None,))
@@ -208,10 +209,11 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
 
             if split1 is not None:
                 (corr, coords) = tuple(zip(*split1))
-                (x, y, t) = tuple(zip(*coords))
+                (x, y, t, tot) = tuple(zip(*coords))
                 h5append(xd, x)
                 h5append(yd, y)
                 h5append(td, t)
+                h5append(totd, tot)
                 h5append(corrd, corr)
 
             if split2 is not None:
@@ -232,7 +234,7 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
 
 if __name__ == '__main__':
     # %%% Argument Parsing
-    parser = argparse.ArgumentParser(prog='cluster',
+    parser = argparse.ArgumentParser(prog='uncluster',
                                      description="Clusters data into .cv3 file. Does not load full dataset into memory")
 
     parser.add_argument('--g', dest='groupsize',
@@ -273,7 +275,7 @@ if __name__ == '__main__':
     pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa), 2)
     etof_data = get_t_iter(pt2, etof_times)
     itof_data = get_t_iter(pt3, itof_times)
-    pixel_data = ((corr, (xi, yi, ti)) for corr, xi, yi, ti in zip(pixel_corr,x,y,t_pixel))
+    pixel_data = ((corr, (xi, yi, ti, tot)) for corr, xi, yi, ti, tot in zip(pixel_corr,x,y,t_pixel, tot))
 
     save_iter(output_name, pixel_data, etof_data, itof_data, groupsize=args.groupsize, maxlen=args.maxlen)
     print('Finished:', datetime.now().strftime("%H:%M:%S"))
