@@ -5,6 +5,7 @@ Created on Mon Mar 20 10:21:40 2023
 @author: mcman
 """
 import h5py
+import seaborn as sns
 from matplotlib.colors import ListedColormap
 from plotting import error_bars_plot as ebp
 import cv3_analysis as cv3
@@ -12,12 +13,13 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from scipy.ndimage import gaussian_filter
 import os
 
 mpl.rc('image', cmap='jet')
 mpl.use('Qt5Agg')
 
-def trans_jet(opaque_point=0.1):
+def trans_jet(opaque_point=0.15):
     # Create a colormap that looks like jet
     cmap = plt.cm.jet
 
@@ -52,8 +54,12 @@ def main(inputs,
         fig.savefig(f"{name}_nice.png")
 
 
-def make_fig(ax, px, py, ellipse=True, bins=256, pol=0.001, ell=0, text=True, angle=0., width=0.8):
-    ax.hist2d(px, py, bins=bins, range=[[-width, width], [-width, width]], cmap=trans_jet())
+def make_fig(ax, px, py, ellipse=True, bins=256, pol=0.001, ell=0, text=True, angle=0., width=0.8,blurring=0):
+    hist,xe,ye=np.histogram2d(px, py, bins=bins, range=[[-width, width], [-width, width]], density=True)
+
+    hist=gaussian_filter(hist, sigma=blurring)
+    ax.pcolormesh(xe,ye,hist.T, cmap=trans_jet())
+    # ax.hist2d(px, py, bins=bins, range=[[-width, width], [-width, width]], cmap=trans_jet())
     ax.set_aspect('equal', 'box')
     ax.grid()
     ax.set_axisbelow(True)
@@ -141,7 +147,7 @@ def add_ellipse(ax, ell, pol, rect=False):
         transform=ax.transAxes,
     )
     ax.add_patch(right_triangle)
-    ax.text(.9, .1, f"{ell:.3f}", ha='center', va='center', transform=ax.transAxes)
+    ax.text(.9, .1, f"{ell:.1f}", ha='center', va='center', transform=ax.transAxes)
 
 
 if __name__ == "__main__":
