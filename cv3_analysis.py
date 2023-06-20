@@ -117,9 +117,17 @@ def data_conversion(coords,
                     raw: bool = False,
                     electrons: str = "all") -> Coords:
     if raw:
-        xf, yf, tf = map(np.array, zip(*list(
-                    filter(in_good_pixels, coords))))
+        if center==(0,0,0):
+            xf, yf, tf = map(np.array, zip(*list(
+                        filter(in_good_pixels, coords))))
+        else:
+            xf, yf, tf = map(np.array, zip(*list(
+                   map(ft.partial(rotate_coords, phi=pol),
+                       map(ft.partial(centering, center=center),
+                           filter(in_good_pixels, coords))))))
+
         return xf, yf, tf
+
     else:
         match electrons:
             case 'all':
