@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 
 import plotting.niceplot as niceplot
 import plotting.error_bars_plot as ebp
 
+plt.rcParams["font.weight"] = "bold"
+plt.rcParams["axes.labelweight"] = "bold"
 
 def main():
     wdir = r'C:\Users\mcman\Code\VMI\Data'
@@ -21,15 +24,20 @@ def main():
     
     print("Plotting")
     fig=plt.figure("Cut Figure",figsize=(15,5))
+
     ax0=plt.subplot(131)
-    ax0.set_xlabel("Minor Axis (a.u.)")
-    ax0.set_ylabel("Major Axis (a.u.)")
+    plt.text(-0.5,0.45, "$a$",size=24,ma='center')
+    ax0.set_ylabel("Minor Axis (a.u.)")
+    ax0.set_xlabel("Major Axis (a.u.)")
 
     ax1=plt.subplot(132)
-    ax1.set_xlabel("Minor Axis (a.u.)")
+    plt.text(-0.5,0.45, "$b$",size=24, ma='center')
+
+    ax1.set_xlabel("Major Axis (a.u.)")
     ax1.set(yticklabels=[])
 
     ax2=plt.subplot(133)
+    plt.text(-150,0.525, "$c$",size=24,ma='center')
     ax2.set_xlabel("Angle (Degrees)")
     ax2.set_ylabel("$p_r$ (a.u.)")
     ax2.yaxis.set_label_position("right")
@@ -38,28 +46,63 @@ def main():
     gen_cartesian_plot(theory_data, ax0, ellipticity)
     gen_cartesian_plot(experimental_data, ax1, ellipticity)
     gen_polar_plot(experimental_data,ax2)
+
+    fig2=plt.figure("Cut Figure Option 2",figsize=(15,5))
+
+    ax0=plt.subplot(141)
+    plt.text(-0.5,0.45, "$a$",size=24,ma='center')
+    ax0.set_ylabel("Minor Axis (a.u.)")
+    ax0.set_xlabel("Major Axis (a.u.)")
+
+    ax1=plt.subplot(142)
+    plt.text(-0.5,0.45, "$b$",size=24, ma='center')
+
+    ax1.set_xlabel("Major Axis (a.u.)")
+    ax1.set(yticklabels=[])
+
+    ax2=plt.subplot(143)
+    plt.text(-0.5,0.45, "$c$",size=24, ma='center')
+    ax2.set_xlabel("Major Axis (a.u.)")
+    ax2.set(yticklabels=[])
+
+    ax3=plt.subplot(144)
+    plt.text(-0.5,0.45, "$d$",size=24, ma='center')
+    ax3.set_xlabel("Major Axis (a.u.)")
+    ax3.set(yticklabels=[])
+    plt.tight_layout()
+
+
+    gen_cartesian_plot(theory_data, ax0, ellipticity)
+    gen_cartesian_plot(experimental_data, ax1, ellipticity)
+
+    gen_cartesian_plot(get_theory_data(0.3, "theory_03_3.h5", wdir), ax2, 0.3)
+    gen_cartesian_plot(get_exp_data(0.3, "xe011_e", wdir), ax3, 0.3)
     print("Done")
 
 
 def gen_polar_plot(data, axis):
     inter_r, inter_theta, intra_r, intra_theta, px, py = unpack(data)
     pr,theta=np.sqrt(px**2+py**2),np.degrees(np.arctan2(py,px))
-    axis.hist2d(theta, pr, bins=256, range=[[-180, 180], [0, 0.6]], cmap=niceplot.trans_jet())
+    hist,xe,ye=np.histogram2d(theta, pr, bins=256, range=[[-180, 180], [0, 0.6]], density=True)
+
+    hist=scipy.ndimage.gaussian_filter(hist, sigma=1)
+    axis.pcolormesh(xe,ye,hist.T, cmap=niceplot.trans_jet())
+
     axis.set_aspect(360/0.6, 'box')
-    plt.plot(np.degrees(inter_theta),inter_r, color='m')
-    plt.plot(np.degrees(ebp.unwrap(intra_theta, start_between=(-np.pi, 0), period=np.pi)),intra_r, color='k')
-    axis.grid()
+    plt.plot(np.degrees(inter_theta),inter_r, color='k', linewidth=3)
+    plt.plot(np.degrees(ebp.unwrap(intra_theta, start_between=(-np.pi, 0), period=np.pi)),intra_r, color='k', linewidth=3)
+    axis.grid(visible=True)
     axis.set_axisbelow(True)
 
 
 def gen_cartesian_plot(data, axis, ellipticity):
     inter_r, inter_theta, intra_r, intra_theta, px, py = unpack(data)
-    niceplot.make_fig(axis, py, px, ellipse=True, bins=256, text=False, ell=ellipticity, width=0.6)
+    niceplot.make_fig(axis, py, px, ellipse=True, bins=256, text=False, ell=ellipticity, width=0.6,blurring=1)
 
-    axis.plot(inter_r * np.sin(inter_theta), inter_r * np.cos(inter_theta),color='m')
+    axis.plot(inter_r * np.sin(inter_theta), inter_r * np.cos(inter_theta),color='k', linewidth=3)
     inter_theta_unwrapped = ebp.unwrap(intra_theta, start_between=(np.pi, 2 * np.pi), period=np.pi)
-    axis.plot(intra_r * np.sin(inter_theta_unwrapped), intra_r * np.cos(inter_theta_unwrapped), color='k')
-    axis.grid()
+    axis.plot(intra_r * np.sin(inter_theta_unwrapped), intra_r * np.cos(inter_theta_unwrapped), color='k', linewidth=3)
+    axis.grid(visible=True)
     axis.set_axisbelow(True)
 
 
