@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 
 async def tcp_echo_client(message):
@@ -11,11 +12,9 @@ async def tcp_echo_client(message):
     writer.close()
     await writer.wait_closed()
 
-async def main():
-    with open(r"C:\Users\mcman\Code\VMI\Data\kr001_p\kr001_p000000.tpx3", mode='rb') as f:
+async def main(file,port):
+    with open(file, mode='rb') as f:
         reader, writer = await asyncio.open_connection('127.0.0.1', 1234)
-        # reader, writer = await asyncio.open_connection('192.168.93.6', 1234)
-        await writer.drain()
         for i in range(100000000000000):
             x=f.read(8)
             # print(len(x))
@@ -28,12 +27,17 @@ async def main():
     writer.close()
     await writer.wait_closed()
 
-    # await asyncio.sleep(10)
-    # await tcp_echo_client('DUMP')
+if __name__ == '__main__':
 
-while True:
-    try:
-        asyncio.run(main())
-    except ConnectionError:
-        pass
+    parser = argparse.ArgumentParser(
+        prog='send', description="sends data from a tpx3 file to a local analysis server")
+
+    parser.add_argument('--port', dest='port',default=1234, type=int,
+                        help="port of the analysis server")
+
+    parser.add_argument('path')
+
+    args = parser.parse_args()
+
+    asyncio.run(main(args.path, port=args.port))
 #%%

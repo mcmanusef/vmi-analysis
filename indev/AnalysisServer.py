@@ -401,43 +401,24 @@ class AnalysisServer:
     def make_connection_handler(self):
         async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
             print(writer.get_extra_info('peername'))
+            chunk_num=0
             while not reader.at_eof():
-                raw_mess = await reader.read(8)
-                mess = raw_mess.decode()
-                if raw_mess == bytes():
-                    continue
+                try:
+                    chunk_packet = await reader.read(8)
+                    _, _, _, _, chip_number, mode, *num_bytes = tuple(chunk_packet)
+                    chunk_num+=1
+                    num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
+                    # print(f"TPX3: chip {chip_number}, mode {mode}, {num_bytes} bytes")
+                    to_read = num_bytes // 8
+                    unsorted = [None] * to_read
+                    for i in range(to_read):
+                        packet = await reader.readexactly(8)
+                        unsorted[i] = int.from_bytes(packet, byteorder="little") - 0x4000_0000_0000_0000
 
-                print(mess)
-                match mess:
-                    case "DUMP":
-                        for queue in (self.raw_cluster_queue, self.pulse_queue, self.raw_itof_queue, self.etof_queue):
-                            print(f"Dumping Queue, length {queue.qsize()}")
-                            while not queue.empty():
-                                for a in queue.get():
-                                    print(a)
-
-                    case "DATA":
-                        chunk_num=0
-                        while not reader.at_eof():
-                            try:
-                                chunk_packet = await reader.read(8)
-                                _, _, _, _, chip_number, mode, *num_bytes = tuple(chunk_packet)
-                                chunk_num+=1
-                                num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
-                                # print(f"TPX3: chip {chip_number}, mode {mode}, {num_bytes} bytes")
-                                to_read = num_bytes // 8
-                                unsorted = [None] * to_read
-                                for i in range(to_read):
-                                    packet = await reader.readexactly(8)
-                                    unsorted[i] = int.from_bytes(packet, byteorder="little") - 0x4000_0000_0000_0000
-
-                                self.chunk_queue.put((chunk_num,unsorted))
-                            except asyncio.IncompleteReadError:
-                                # self.event_queue.put(unsorted)
-                                print("INCOMPLETE CHUNK")
-
-                    case _:
-                        self.event_queue.put(data)
+                    self.chunk_queue.put((chunk_num,unsorted))
+                except asyncio.IncompleteReadError:
+                    # self.event_queue.put(unsorted)
+                    print("INCOMPLETE CHUNK")
             print("Disconnected")
 
         return handle_connection
