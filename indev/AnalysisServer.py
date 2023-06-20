@@ -1,6 +1,4 @@
 import asyncio
-import collections
-import concurrent
 import datetime
 import functools
 import itertools
@@ -8,6 +6,7 @@ import time
 from multiprocessing.managers import SyncManager
 from time import sleep
 
+import h5py
 import numba
 import warnings
 
@@ -172,7 +171,7 @@ MyManager.register("PriorityQueue", queue.PriorityQueue)  # Register a shared Pr
 
 
 class AnalysisServer:
-    def __init__(self, max_size=0, cluster_loops=1, processing_loops=1):
+    def __init__(self, max_size=0, cluster_loops=1, processing_loops=1, filename="test.cv3"):
         self.max_size = max_size
         manager = multiprocessing
         self.chunk_queue = manager.Queue(max_size)
@@ -193,12 +192,15 @@ class AnalysisServer:
         self.itof_queue = manager.Queue(max_size)
         self.etof_queue = manager.Queue(max_size)
         self.cluster_queue = manager.Queue(max_size)
+        self.final_pulse_queue=manager.Queue(max_size)
 
         self.next = manager.Array('d', (0, 0, 0, 0))
         self.max_seen = manager.Array('d', (0, 0, 0, 0))
         self.current = manager.Array('d', (0, 0, 0, 0))
         self.overflow_loops = manager.Value('i', 0)
         self.cutoff = 1000
+
+        self.filename=filename
 
     def get_loops(self):
         processing_loops=[
@@ -354,7 +356,7 @@ class AnalysisServer:
         in_queues = [self.pulse_queue, self.raw_itof_queue, self.raw_etof_queue, self.raw_cluster_queue]
         out_queues = [None, self.itof_queue, self.etof_queue, self.cluster_queue]
         pulse_number=0
-        for loop_number in itertools.cycle(range(1000)):
+        for loop_number in itertools.cycle(range(100)):
             while last_pulse == 0:
                 last_pulse, next_times[0] = next_times[0], self.pulse_queue.get()
 
@@ -396,7 +398,6 @@ class AnalysisServer:
                 if to_pick == 3:
                     next_clust = next_times[3]
                     next_times[3] = next_clust[0]
-            i += 1
 
     def make_connection_handler(self):
         async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -404,7 +405,7 @@ class AnalysisServer:
             chunk_num=0
             while not reader.at_eof():
                 try:
-                    chunk_packet = await reader.read(8)
+                    chunk_packet = await reader.readexactly(8)
                     _, _, _, _, chip_number, mode, *num_bytes = tuple(chunk_packet)
                     chunk_num+=1
                     num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
@@ -437,7 +438,7 @@ class AnalysisServer:
 
 
 if __name__ == "__main__":
-    aserv = AnalysisServer(max_size=10000,cluster_loops=8,processing_loops=4)
+    aserv = AnalysisServer(max_size=100000,cluster_loops=6,processing_loops=3)
     asyncio.run(aserv.start())
 
 # %%
