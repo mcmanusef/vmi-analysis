@@ -20,6 +20,8 @@ from cv3_analysis import load_cv3
 
 mpl.rc('image', cmap='jet')
 mpl.use('Qt5Agg')
+plt.rcParams["font.weight"] = "bold"
+plt.rcParams["axes.labelweight"] = "bold"
 
 
 # %% Functions
@@ -305,7 +307,7 @@ def main(files,
 
     for name, pol in files:
         print(name)
-        labels.append(abs(pol))
+        labels.append(pol)
         data = load_data(name, wdir, to_load, calibrated, electrons=electrons, symmetrize=symmetrize, use_cache=(not calibrated))
         if send_data:
             data_list.append(data)
@@ -356,7 +358,7 @@ def main(files,
             r, dr, t, dt = tuple(
                 map(np.asarray, zip(*(filter(lambda x: x[3] < np.radians(max_error), zip(r, dr, t, dt))))))
 
-        t_adjust = np.unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
+        t_adjust = unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, start_between=[0, np.pi])
 
         plt.errorbar(r - r_inter[0], np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 180 / np.pi,
                      label=f"{l}: {label}",
@@ -366,15 +368,40 @@ def main(files,
     # plt.legend()
     plt.tight_layout()
 
-    plt.figure("ati_order")
+    f,(ax,ax2)=plt.subplots(2,1, sharex=True, num="ati_order",  height_ratios=[2,1])
+
+    ax.spines['bottom'].set_visible(False)
+    ax2.spines['top'].set_visible(False)
+    ax2.set_ylim(-10, 10)  # outliers only
+    ax.set_ylim(70, 110)
+    ax.axhline(90, linestyle=":", color='silver')
+    ax2.axhline(0, linestyle=":", color='silver')
+    ax.xaxis.tick_top()
+    ax.tick_params(labeltop=False)  # don't put tick labels at the top
+    ax2.xaxis.tick_bottom()
+    d = .015  # how big to make the diagonal lines in axes coordinates
+    # arguments to pass to plot, just so we don't keep repeating them
+    kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
+    ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+    ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+
+    kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+    ax2.plot((-d, +d), (1 - 2*d, 1 + 2*d), **kwargs)  # bottom-left diagonal
+    ax2.plot((1 - d, 1 + d), (1 - 2*d, 1 + 2*d), **kwargs)
+
     for (r, dr, t, dt), l, c in zip(inter_lines, labels, lines_colour_cycle):
-        t_adjust = (np.unwrap(t, period=np.pi) - 2 * np.pi) * -1 * np.sign(l) + np.pi * int(l < 0)
-        plt.errorbar(range(1,len(r)+1), np.degrees(t_adjust) % 180, xerr=dr, yerr=dt * 180 / np.pi,
-                     label=f"{l}: {label}",
+        t_adjust = unwrap(t * -1 * np.sign(l), period=np.pi, start_between=[0,np.pi])
+        ax.errorbar(range(1,len(r)+1), np.degrees(t_adjust), xerr=dr, yerr=dt * 180 / np.pi,
+                     label=f"ε={np.abs(l)}",
+                     linestyle=linestyle, marker=marker, markersize=3)
+        ax2.errorbar(range(1,len(r)+1), np.degrees(t_adjust), xerr=dr, yerr=dt * 180 / np.pi,
+                     label=f"ε={np.abs(l)}",
                      linestyle=linestyle, marker=marker, markersize=3)
     plt.gca().set_xlabel(r"ATI order")
-    plt.gca().set_ylabel(r"$\theta$")
-    # plt.legend()
+    ax.set_ylabel(r"$\theta$",y=80)
+    plt.xticks([1,2,3])
+    plt.sca(ax)
+    plt.legend()
     plt.tight_layout()
 
     plt.figure("Slopes")
@@ -402,7 +429,7 @@ def main(files,
         t_adjust = np.unwrap((t % np.pi - t_inter[0] % np.pi) * -1 * np.sign(l), period=np.pi, discont=np.pi / 2)
 
         plt.errorbar(r, np.degrees(t_adjust), xerr=dr * 2, yerr=dt * 180 / np.pi,
-                     label=f"{l}: {label}",
+                     label=f"{l} {label}",
                      color=c, linestyle=linestyle, marker=marker)
     plt.gca().set_xlabel(r"$p_r$")
     plt.gca().set_ylabel(r"$\Delta \theta$")
@@ -460,7 +487,7 @@ if __name__ == '__main__':
     #            )
     #
     # out = main([('xe011_e', 0.3), ('xe013_e', 0.6)],
-    #            to_load=10000000,
+    #            to_load=None,
     #            fig=out,
     #            wdir=r'C:\Users\mcman\Code\VMI\Data',
     #            n=3,
@@ -468,7 +495,7 @@ if __name__ == '__main__':
     #            electrons='down',
     #            label="experiment"
     #            )
-    #
+    # #
     # files = [
     #     # ('xe002_s', -0.1),
     #     ('xe014_e', 0.2),
@@ -483,21 +510,24 @@ if __name__ == '__main__':
     #      # fig=out,
     #      wdir=r'C:\Users\mcman\Code\VMI\Data',
     #      n=3,
-    #      mode='fourier',
+    #      mode='mean',
     #      electrons='down',
     #      symmetrize=True,
-    #      label="Experiment (Down)",
+    #      label="",
     #      max_error=5
     #      )
+    # f=plt.figure("ATI order")
+    # plt.axhline(90,linestyle=':', c='k')
 
+    #
     files = [
-        ('theory_03_0.h5', 2.2),
+        ('theory_03_0.h5', 22),
         # ('theory_H_0.h5', 2)
-        ('theory_03_1.h5', 2.3),
-        ('theory_03_2.h5', 2.4),
-        ('theory_03_3.h5', 2.5),
-        ('theory_03_4.h5', 2.6),
-        ('theory_03_5.h5', 2.7),
+        ('theory_03_1.h5', 23),
+        ('theory_03_2.h5', 24),
+        ('theory_03_3.h5', 25),
+        ('theory_03_4.h5', 26),
+        ('theory_03_5.h5', 27),
 
     ]
 
@@ -506,8 +536,10 @@ if __name__ == '__main__':
           calibrated=True,
           n=3,
           mode='fourier',
-          label='theory',
+          label='TW/cm$^2$',
           )
 
 
     print("DONE")
+
+#%%
