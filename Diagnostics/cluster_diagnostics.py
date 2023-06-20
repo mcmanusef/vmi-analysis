@@ -420,4 +420,3 @@ if __name__=="__main__":
         plt.hist2d(raw_pulse[0],raw_pulse[1],bins=256,range=((0,256),(0,256)))
         for c in clust:
             plt.scatter(c[0],c[1])
-
