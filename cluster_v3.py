@@ -336,7 +336,7 @@ def save_iter(name, clust_data, etof_data, tof_data, groupsize=1000, maxlen=None
         split2 = next(split_every(groupsize, etof_data), None)
         split3 = next(split_every(groupsize, tof_data), None)
 
-        while not any((split1 is None, split2 is None, split3 is None)):
+        while not all((split1 is None, split2 is None, split3 is None)):
             print(lasts)
             if first:
                 if split1 is not None:
