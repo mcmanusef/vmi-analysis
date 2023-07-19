@@ -37,7 +37,6 @@ data_range = [0, 1e3]
 
 with h5py.File(filename, mode='r') as f_in:
     (tdc_time, tdc_type, x, y, tot, toa) = cv3.iter_file(f_in)
-    del x, y
 
     pulse_times = cv3.correct_pulse_times_iter(cv3.get_times_iter(tdc_time, tdc_type, 'pulse', cutoff))
     pixel_corr, t_pixel = cv3.split_iter(cv3.get_t_iter(pulse_times, toa), 2)

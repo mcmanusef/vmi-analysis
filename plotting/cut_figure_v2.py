@@ -13,81 +13,88 @@ def main():
     ellipticity = 0.6
     theory_file = 'theory_06.h5'
     experimental_file = 'xe013_e'
+    option_1=False
+    option_2=False
+    option_3=True
 
     print("Loading Theory")
-    theory_data = get_theory_data(ellipticity, theory_file, wdir)
-
     print("Loading Experimental Data")
-    experimental_data = get_exp_data(ellipticity, experimental_file, wdir)
-
     print("Unpacking")
     
     print("Plotting")
-    fig=plt.figure("Cut Figure",figsize=(15,5))
+    if option_1:
+        fig=plt.figure("Cut Figure",figsize=(15,5))
 
-    ax0=plt.subplot(131)
-    plt.text(-0.5,0.45, "$a$",size=24,ma='center')
-    ax0.set_ylabel("Minor Axis (a.u.)")
-    ax0.set_xlabel("Major Axis (a.u.)")
+        ax0=plt.subplot(131)
+        plt.text(-0.5,0.45, "$a$",size=24,ma='center')
+        ax0.set_ylabel("Minor Axis (a.u.)")
+        ax0.set_xlabel("Major Axis (a.u.)")
 
-    ax1=plt.subplot(132)
-    plt.text(-0.5,0.45, "$b$",size=24, ma='center')
+        ax1=plt.subplot(132)
+        plt.text(-0.5,0.45, "$b$",size=24, ma='center')
 
-    ax1.set_xlabel("Major Axis (a.u.)")
-    ax1.set(yticklabels=[])
+        ax1.set_xlabel("Major Axis (a.u.)")
+        ax1.set(yticklabels=[])
 
-    ax2=plt.subplot(133)
-    plt.text(-150,0.525, "$c$",size=24,ma='center')
-    ax2.set_xlabel("Angle (Degrees)")
-    ax2.set_ylabel("$p_r$ (a.u.)")
-    ax2.yaxis.set_label_position("right")
-    ax2.yaxis.tick_right()
+        ax2=plt.subplot(133)
+        plt.text(-150,0.525, "$c$",size=24,ma='center')
+        ax2.set_xlabel("Angle (Degrees)")
+        ax2.set_ylabel("$p_r$ (a.u.)")
+        ax2.yaxis.set_label_position("right")
+        ax2.yaxis.tick_right()
 
-    gen_cartesian_plot(theory_data, ax0, ellipticity)
-    gen_cartesian_plot(experimental_data, ax1, ellipticity)
-    gen_polar_plot(experimental_data,ax2)
+        gen_cartesian_plot(get_theory_data(ellipticity, theory_file, wdir), ax0, ellipticity)
+        gen_cartesian_plot(get_exp_data(ellipticity, experimental_file, wdir), ax1, ellipticity)
+        gen_polar_plot(get_exp_data(ellipticity, experimental_file, wdir), ax2)
 
-    fig2=plt.figure("Cut Figure Option 2",figsize=(15,5))
+    if option_2:
+        fig2=plt.figure("Cut Figure Option 2",figsize=(15,5))
 
-    ax0=plt.subplot(141)
-    plt.text(-0.5,0.45, "$a$",size=24,ma='center')
-    ax0.set_ylabel("Minor Axis (a.u.)")
-    ax0.set_xlabel("Major Axis (a.u.)")
+        ax0=plt.subplot(141)
+        plt.text(-0.5,0.45, "$a$",size=24,ma='center')
+        ax0.set_ylabel("Minor Axis (a.u.)")
+        ax0.set_xlabel("Major Axis (a.u.)")
 
-    ax1=plt.subplot(142)
-    plt.text(-0.5,0.45, "$b$",size=24, ma='center')
+        ax1=plt.subplot(142)
+        plt.text(-0.5,0.45, "$b$",size=24, ma='center')
 
-    ax1.set_xlabel("Major Axis (a.u.)")
-    ax1.set(yticklabels=[])
+        ax1.set_xlabel("Major Axis (a.u.)")
+        ax1.set(yticklabels=[])
 
-    ax2=plt.subplot(143)
-    plt.text(-0.5,0.45, "$c$",size=24, ma='center')
-    ax2.set_xlabel("Major Axis (a.u.)")
-    ax2.set(yticklabels=[])
+        ax2=plt.subplot(143)
+        plt.text(-0.5,0.45, "$c$",size=24, ma='center')
+        ax2.set_xlabel("Major Axis (a.u.)")
+        ax2.set(yticklabels=[])
 
-    ax3=plt.subplot(144)
-    plt.text(-0.5,0.45, "$d$",size=24, ma='center')
-    ax3.set_xlabel("Major Axis (a.u.)")
-    ax3.set(yticklabels=[])
-    plt.tight_layout()
+        ax3=plt.subplot(144)
+        plt.text(-0.5,0.45, "$d$",size=24, ma='center')
+        ax3.set_xlabel("Major Axis (a.u.)")
+        ax3.set(yticklabels=[])
+        plt.tight_layout()
 
+        gen_cartesian_plot(get_theory_data(ellipticity, theory_file, wdir), ax0, ellipticity)
+        gen_cartesian_plot(get_exp_data(ellipticity, experimental_file, wdir), ax1, ellipticity)
 
-    gen_cartesian_plot(theory_data, ax0, ellipticity)
-    gen_cartesian_plot(experimental_data, ax1, ellipticity)
+        gen_cartesian_plot(get_theory_data(0.3, "theory_03_3.h5", wdir), ax2, 0.3)
+        gen_cartesian_plot(get_exp_data(0.3, "xe011_e", wdir), ax3, 0.3)
 
-    gen_cartesian_plot(get_theory_data(0.3, "theory_03_3.h5", wdir), ax2, 0.3)
-    gen_cartesian_plot(get_exp_data(0.3, "xe011_e", wdir), ax3, 0.3)
+    if option_3:
+        plt.figure("Row Normalized")
+        ax=plt.subplot(111)
+        ax.set_xlabel("Angle (Degrees)")
+        ax.set_ylabel("$p_r$ (a.u.)")
+        ax.yaxis.set_label_position("right")
+        ax.yaxis.tick_right()
+        gen_row_norm_plot(get_theory_data(ellipticity, theory_file, wdir), ax)
     print("Done")
 
 
-def gen_polar_plot(data, axis):
+def gen_polar_plot(data, axis, row_norm=False):
     inter_r, inter_theta, intra_r, intra_theta, px, py = unpack(data)
     pr,theta=np.sqrt(px**2+py**2),np.degrees(np.arctan2(py,px))
     hist,xe,ye=np.histogram2d(theta, pr, bins=256, range=[[-180, 180], [0, 0.6]], density=True)
-
-    hist=scipy.ndimage.gaussian_filter(hist, sigma=1)
+    hist=scipy.ndimage.gaussian_filter(hist, sigma=3)
     axis.pcolormesh(xe,ye,hist.T, cmap=niceplot.trans_jet())
-
     axis.set_aspect(360/0.6, 'box')
     plt.plot(np.degrees(inter_theta),inter_r, color='k', linewidth=3)
     plt.plot(np.degrees(ebp.unwrap(intra_theta, start_between=(-np.pi, 0), period=np.pi)),intra_r, color='k', linewidth=3)
@@ -117,6 +124,21 @@ def unpack(data):
 def to_flat_arrays(iter):
     out = tuple(map(lambda x: x.flatten(), map(np.asarray, iter)))
     return out
+
+def gen_row_norm_plot(data, axis):
+    inter_r, inter_theta, intra_r, intra_theta, px, py = unpack(data)
+    pr,theta=np.sqrt(px**2+py**2),np.degrees(np.arctan2(py,px))%180
+    hist,xe,ye=np.histogram2d(theta, pr, bins=256, range=[[0, 180], [0, 1]], density=True)
+    hist=scipy.ndimage.gaussian_filter(hist, sigma=1)
+    plt.axvline(90, color='grey')
+    # plt.plot(45*np.sum(hist, axis=0)/np.nanmax(np.sum(hist, axis=0)),ye[:-1], color='k')
+    hist2 = np.sqrt(hist/np.max(hist, axis=0, keepdims=True))
+
+    axis.pcolormesh(xe,ye,hist2.T, alpha=(hist.T/np.max(hist))**0.5,cmap='jet')
+
+    axis.set_aspect(180, 'box')
+    axis.grid(visible=True)
+    axis.set_axisbelow(True)
 
 
 @ebp.cache_results

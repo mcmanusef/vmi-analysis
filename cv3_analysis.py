@@ -4,6 +4,7 @@ Created on Fri Jan 13 22:08:56 2023
 
 @author: mcman
 """
+import functools
 
 import h5py
 import numpy as np
@@ -52,6 +53,7 @@ def in_good_pixels(coords: Coords) -> bool:
                            dist(x, y, 36, 243) < 1.5,
                            dist(x, y, 204, 194) < 2.5,
                            dist(x, y, 172, 200) < 1.5,
+                           dist(x,y, 198, 194)< 2.5,
                            dist(x, y, 98, 163) < 1.5])
     return not np.any(conditions)
 
@@ -150,7 +152,7 @@ def data_conversion(coords,
 
 
 def load_and_correlate(file: str,
-                       to_load: Optional[int] = None,
+                       to_load: Optional[int] = None, smearing=0.26
                        ):
     data = {}
     with h5py.File(file) as f:
@@ -159,7 +161,7 @@ def load_and_correlate(file: str,
 
     __, coords = tuple(zip(*list(correlate_tof(
         zip(data["cluster_corr"], zip(data["x"], data["y"])),
-        zip(data["etof_corr"], map(smear, list(np.array(data["t_etof"]) / 1000)))))))
+        zip(data["etof_corr"], map(functools.partial(smear, amount=smearing), list(np.array(data["t_etof"]) / 1000)))))))
     return coords
 
 
@@ -170,8 +172,9 @@ def load_cv3(file: str,
              center: Coord = (124.5, 128.5, 528.536596),
              raw: bool = False,
              electrons: str = "all",
+             smearing= 0.26
              ) -> Coords:
-    coords = load_and_correlate(file, to_load=to_load)
+    coords = load_and_correlate(file, to_load=to_load,smearing=smearing)
     return data_conversion(coords, pol=pol, width=width, center=center, raw=raw, electrons=electrons)
 
 if __name__ == '__main__':

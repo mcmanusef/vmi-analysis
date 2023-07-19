@@ -15,7 +15,7 @@ async def tcp_echo_client(message):
 async def main(file,port):
     with open(file, mode='rb') as f:
         reader, writer = await asyncio.open_connection('127.0.0.1', 1234)
-        for i in range(100000000000000):
+        while True:
             x=f.read(8)
             # print(len(x))
             if len(x)<8:

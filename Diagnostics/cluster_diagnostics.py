@@ -407,7 +407,7 @@ def main(args):
     return enumerated_data, etof_data,itof_data
 
 if __name__=="__main__":
-    raw,clust=main([r"J:\ctgroup\DATA\UCONN\VMI\VMI\20230601\kr001_p.h5",
+    raw,clust=main([r"J:\ctgroup\DATA\UCONN\VMI\VMI\20230705\test8.h5",
                           "--max_len", "100000",
                           "--cutoff", "1000",
                           "--single"
