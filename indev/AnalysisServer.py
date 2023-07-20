@@ -741,7 +741,7 @@ class AnalysisServer:
 
 
 if __name__ == "__main__":
-    with AnalysisServer(max_size=100000, cluster_loops=6, processing_loops=3, max_clusters=2, pulse_time_adjust=-500) as aserv:
+    with AnalysisServer(max_size=100000, cluster_loops=8, processing_loops=8, max_clusters=2, pulse_time_adjust=-500) as aserv:
         asyncio.run(aserv.start())
 
 # %%
