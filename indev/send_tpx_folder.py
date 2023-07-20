@@ -17,7 +17,7 @@ async def tcp_echo_client(message):
 async def main(folder, port):
     reader, writer = await asyncio.open_connection('127.0.0.1', port)
     for file in os.listdir(folder):
-        with open(file, mode='rb') as f:
+        with open(os.path.join(folder,file), mode='rb') as f:
             while True:
                 x=f.read(8)
                 if len(x)<8:
