@@ -575,14 +575,13 @@ class AnalysisServer:
             last_pulses[index] = self.split_cluster_queues[index].get()
             last_times[index] = last_pulses[index][0]
 
-    def correlating_loop(self, max_back=1e6):
+    def correlating_loop(self, max_back=1e9):
         last_pulse = 0
         next_clust = (0, 0, 0)
         next_times = [0, 0, 0, 0]
         in_queues = [self.raw_pulse_queue, self.raw_itof_queue, self.raw_etof_queue, self.raw_cluster_queue]
         out_queues = [self.pulse_queue, self.itof_queue, self.etof_queue, self.cluster_queue]
         pulse_number = 0
-
 
         for loop_number in itertools.cycle(range(100)):
             while last_pulse == 0:

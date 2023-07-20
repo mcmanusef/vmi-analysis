@@ -13,9 +13,9 @@ async def tcp_echo_client(message):
 
 async def main():
     reader, writer = await asyncio.open_connection('127.0.0.1', 1234)
-    for fname in (f"n2_{i:06d}.tpx3" for i in range(18)):
+    for fname in (f"n2_{i:06d}.tpx3" for i in range(6)):
         print(fname)
-        with open(fr"J:\ctgroup\DATA\UCONN\VMI\VMI\20230717\n2_s_photodiode\{fname}", mode='rb') as f:
+        with open(fr"J:\ctgroup\DATA\UCONN\VMI\VMI\20230717\n2_e_6\{fname}", mode='rb') as f:
             # reader, writer = await asyncio.open_connection('192.168.93.6', 1234)
             await writer.drain()
             while True:
