@@ -1,22 +1,10 @@
 import argparse
 import asyncio
 import os
-
-
-async def tcp_echo_client(message):
-    reader, writer = await asyncio.open_connection(
-        '127.0.0.1', 1234)
-
-    print(f'Send: {message!r}')
-    writer.write(message.encode())
-    await writer.drain()
-    print('Close the connection')
-    writer.close()
-    await writer.wait_closed()
-
 async def main(folder, port):
     reader, writer = await asyncio.open_connection('127.0.0.1', port)
-    for file in os.listdir(folder):
+    for file in sorted(os.listdir(folder)):
+        print(file)
         with open(os.path.join(folder,file), mode='rb') as f:
             while True:
                 x=f.read(8)
