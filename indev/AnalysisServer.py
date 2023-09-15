@@ -197,6 +197,7 @@ def cluster_pixels(pixels, dbscan):
     if not pixels:
         return []
     x, y, toa, tot = map(np.asarray, zip(*pixels))
+    toa = np.where(np.logical_and(x >= 194, x < 204), toa - 16, toa)
     toa = fix_toa(toa)
     cluster_index = dbscan.fit(np.column_stack((x, y))).labels_
     return cluster_index, x, y, toa, tot
@@ -283,11 +284,15 @@ class AnalysisServer:
             pulse_time_adjust=0,
             expected_pulse_diff=1e6+15,
             pulse_diff_correction=12.666,
+            min_samples=6,
+            diagnostic_mode=False
                  ):
 
         self.max_size = max_size
         self.buffer_size = buffer_size
         self.chunk_queue = multiprocessing.Queue(max_size)
+        self.min_samples=min_samples
+        self.diagnostic_mode=diagnostic_mode
 
         self.split_pulse_queues = [multiprocessing.Queue(max_size) for _ in range(processing_loops)]
         self.split_etof_queues = [multiprocessing.Queue(max_size) for _ in range(processing_loops)]
@@ -318,6 +323,7 @@ class AnalysisServer:
         self.finished = multiprocessing.Value('i', 0)
         self.max_clusters=max_clusters
         self.cluster_plot=False
+        self.desync=multiprocessing.Value('i',0)
 
         self.filename = filename
 
@@ -347,18 +353,25 @@ class AnalysisServer:
         sorting_loops = [
             functools.partial(self.sorting_loop, in_queues=iq, out_queue=oq) for iq, oq in sorting_pairs
         ]
-        loops = [
-            *processing_loops,
-            *sorting_loops,
-            self.monitoring_loop,
-            *clustering_loops,
-            self.cluster_sorting_loop,
-            # self.diagnostic_saving_loop,
-            self.correlating_loop,
-            self.saving_loop,
-            # self.plot_monitoring_loop,
-            # self.dumping_loop,
-        ]
+        if not self.diagnostic_mode:
+            loops = [
+                *processing_loops,
+                *sorting_loops,
+                self.monitoring_loop,
+                *clustering_loops,
+                self.cluster_sorting_loop,
+                self.correlating_loop,
+                self.saving_loop,
+            ]
+        else:
+            loops = [
+                *processing_loops,
+                *sorting_loops,
+                self.monitoring_loop,
+                *clustering_loops,
+                self.cluster_sorting_loop,
+                self.diagnostic_saving_loop,
+            ]
         return loops
 
     def processing_loop(self, index=0):
@@ -386,12 +399,12 @@ class AnalysisServer:
             hist,*_=np.histogram2d(x,y,bins=256,range=((0,256),(0,256)))
             plot.set_data(hist)
 
-    @staticmethod
-    def sorting_loop(in_queues, out_queue):
+    def sorting_loop(self, in_queues, out_queue):
         first = [q.get() for q in in_queues]
         last_index = [f[0] for f in first]
         last_data = [f[1] for f in first]
         while True:
+            # if self.desync.value == 0:
             idx = last_index.index(min(last_index))
             index, data = in_queues[idx].get()
             out_queue.put(last_data[idx])
@@ -413,7 +426,7 @@ class AnalysisServer:
                 "toa",
             ]
             for q, name in zip(queues, names):
-                f.create_dataset(name, data=[0.] * 1000, chunks=(1000,), maxshape=(None,))
+                f.create_dataset(name, data=[0.], dtype=np.double, chunks=1000, maxshape=(None,))
             f.swmr_mode = True
 
             while True:
@@ -437,7 +450,7 @@ class AnalysisServer:
                     if self.finished.value >= 5:
                         print("FINISHED")
                         break
-
+  
     def monitoring_loop(self, split_queue_monitoring=False, rate_monitoring=True):
         started = False
         total_pulse_time = 0
@@ -449,8 +462,8 @@ class AnalysisServer:
                       self.pixel_queue,
                       self.raw_pulse_queue,
                       self.raw_cluster_queue,
-                      self.raw_itof_queue,
                       self.raw_etof_queue,
+                      self.raw_itof_queue,
                       self.pulse_queue,
                       self.cluster_queue,
                       self.etof_queue,
@@ -540,11 +553,15 @@ class AnalysisServer:
                     q.get()
 
     def clustering_loop(self, index=0):
-        dbscan = skcluster.DBSCAN(eps=1.5, min_samples=8)
+        dbscan = skcluster.DBSCAN(eps=1.5, min_samples=self.min_samples)
         i=-1
+        last=(0,0,0),0
+        last_max=0
         while True:
             i+=1
             pixels = self.pixel_queue.get()
+            times=[pix[2] for pix in pixels]
+            last_max=max(times)
             if not pixels:
                 continue
             clust_data = cluster_pixels(pixels, dbscan)
@@ -568,9 +585,11 @@ class AnalysisServer:
         last_pulses = [q.get() for q in self.split_cluster_queues]
         last_times = [p[0] for p in last_pulses]
         while True:
-            deltas = [(lt - last_sent_time) % loop for lt in last_times]
+            deltas = [(lt - last_sent_time+1e6) % loop for lt in last_times]
             index = deltas.index(min(deltas))
             last_sent_time = last_times[index]
+            if min([(lt - last_sent_time) for lt in last_times])<0:
+                print(last_sent_time, last_times, deltas)
             self.raw_cluster_queue.put(last_pulses[index])
             last_pulses[index] = self.split_cluster_queues[index].get()
             last_times[index] = last_pulses[index][0]
@@ -587,12 +606,32 @@ class AnalysisServer:
             while last_pulse == 0:
                 last_pulse, next_times[0] = next_times[0], self.raw_pulse_queue.get()
 
-            to_pick = np.argmin([(t - last_pulse + max_back)%PERIOD-max_back for t in next_times])
+            to_pick = np.argmin([(t - last_pulse + max_back) % PERIOD-max_back for t in next_times])
             if loop_number == 0:
                 for i, t in enumerate(next_times):
-                    self.next[i] = t - last_pulse
+                    self.next[i] = (t - last_pulse + max_back) % PERIOD-max_back
                     self.max_seen[i] = max(t, self.max_seen[i])
                     self.current[i] = t
+                #
+                # max_diff = max(map(lambda x: abs(x[0].qsize() - x[1].qsize()), itertools.combinations(in_queues, 2)))
+                # if max_diff>self.max_size/2:
+                #     print("-----------------------DESYNC DETECTED-----------------------------")
+                #     print(max_diff)
+                #     self.desync.value=1
+                #     while max(q.qsize() for q in in_queues)>0:
+                #         for queue in in_queues:
+                #             while not queue.empty():
+                #                 queue.get()
+                #         time.sleep(1)
+                #     self.desync.value=0
+                #
+                #     print("Desync Resolved")
+                #
+                #     last_pulse = 0
+                #     next_clust = (0, 0, 0)
+                #     next_times = [0, 0, 0, 0]
+                #     continue
+
 
             if to_pick == 0:
                 out_queues[0].put((pulse_number, next_times[0]))
@@ -613,13 +652,6 @@ class AnalysisServer:
                             if i == 3:
                                 next_clust = next_times[3]
                                 next_times[3] = next_clust[0]
-
-                # if (next_times[0]-(last_pulse+self.expected_pulse_diff)) > self.pulse_diff_correction/2:
-                #     next_times[0]=next_times[0]-self.pulse_diff_correction
-                #
-                # elif (next_times[0]-(last_pulse+self.expected_pulse_diff)) < self.pulse_diff_correction/2:
-                #     next_times[0]=next_times[0]+self.pulse_diff_correction
-
             else:
                 if next_times[to_pick] > last_pulse:
                     if to_pick < 3:
@@ -741,7 +773,14 @@ class AnalysisServer:
 
 
 if __name__ == "__main__":
-    with AnalysisServer(max_size=100000, cluster_loops=8, processing_loops=8, max_clusters=2, pulse_time_adjust=-500) as aserv:
+    with AnalysisServer(
+            max_size=100000,
+            cluster_loops=6,
+            processing_loops=6,
+            max_clusters=1,
+            pulse_time_adjust=-500,
+            diagnostic_mode=False,
+    ) as aserv:
         asyncio.run(aserv.start())
 
 # %%
