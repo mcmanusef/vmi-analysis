@@ -299,6 +299,7 @@ def main(files,
          label="", symmetrize=True,
          max_error=None,
          send_data=False,
+         use_relative_r=False,
          **kwargs):
     inter_lines = []
     intra_lines = []
@@ -313,7 +314,7 @@ def main(files,
             data_list.append(data)
 
         def get_profiles_index(i):
-            return get_profiles(data, i, n, pol=pol, plotting=True, blurring=blurring, mode=mode, label=label, num=16)
+            return get_profiles(data, i, n, pol=pol, plotting=True, blurring=blurring, mode=mode, label=label, num=10)
 
         profiles = list(map(get_profiles_index, range(n)))
         inter, intra = organize(profiles)
@@ -322,8 +323,12 @@ def main(files,
         inter_lines.append(tuple(map(np.array, (r_inter, dr_inter, t_inter, dt_inter))))
 
         r_intra, dr_intra = zip(*((np.mean(i), np.std(i) / np.sqrt(len(i))) for i in intra[0]))
+        if use_relative_r: r_intra=[np.asarray(r)-r_inter[0] for r in r_intra]
+        print(r_intra, dr_intra)
         t_intra, dt_intra = zip(*(get_angular_error(i) for i in intra[1]))
         intra_lines.append(tuple(map(np.array, (r_intra, dr_intra, t_intra, dt_intra))))
+
+
 
     if send_data:
         return data_list, inter_lines, intra_lines
@@ -368,22 +373,22 @@ def main(files,
     # plt.legend()
     plt.tight_layout()
 
-    f,(ax,ax2)=plt.subplots(2,1, sharex=True, num="ati_order",  height_ratios=[2,1])
+    f,(ax1,ax2)=plt.subplots(2,1, sharex=True, num="ati_order",  height_ratios=[2,1])
 
-    ax.spines['bottom'].set_visible(False)
+    ax1.spines['bottom'].set_visible(False)
     ax2.spines['top'].set_visible(False)
     ax2.set_ylim(-10, 10)  # outliers only
-    ax.set_ylim(70, 110)
-    ax.axhline(90, linestyle=":", color='silver')
+    ax1.set_ylim(70, 110)
+    ax1.axhline(90, linestyle=":", color='silver')
     ax2.axhline(0, linestyle=":", color='silver')
-    ax.xaxis.tick_top()
-    ax.tick_params(labeltop=False)  # don't put tick labels at the top
+    ax1.xaxis.tick_top()
+    ax1.tick_params(labeltop=False)  # don't put tick labels at the top
     ax2.xaxis.tick_bottom()
     d = .015  # how big to make the diagonal lines in axes coordinates
     # arguments to pass to plot, just so we don't keep repeating them
-    kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
-    ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
-    ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+    kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
+    ax1.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+    ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
 
     kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
     ax2.plot((-d, +d), (1 - 2*d, 1 + 2*d), **kwargs)  # bottom-left diagonal
@@ -391,16 +396,16 @@ def main(files,
 
     for (r, dr, t, dt), l, c in zip(inter_lines, labels, lines_colour_cycle):
         t_adjust = unwrap(t * -1 * np.sign(l), period=np.pi, start_between=[0,np.pi])
-        ax.errorbar(range(1,len(r)+1), np.degrees(t_adjust), xerr=dr, yerr=dt * 180 / np.pi,
+        ax1.errorbar(range(1,len(r)+1), np.degrees(t_adjust), xerr=dr, yerr=dt * 180 / np.pi,
                      label=f"ε={np.abs(l)}",
                      linestyle=linestyle, marker=marker, markersize=3)
         ax2.errorbar(range(1,len(r)+1), np.degrees(t_adjust), xerr=dr, yerr=dt * 180 / np.pi,
                      label=f"ε={np.abs(l)}",
                      linestyle=linestyle, marker=marker, markersize=3)
     plt.gca().set_xlabel(r"ATI order")
-    ax.set_ylabel(r"$\theta$",y=80)
+    ax1.set_ylabel(r"$\theta$",y=80)
     plt.xticks([1,2,3])
-    plt.sca(ax)
+    plt.sca(ax1)
     plt.legend()
     plt.tight_layout()
 
@@ -436,6 +441,8 @@ def main(files,
     plt.legend()
     plt.tight_layout()
 
+    if use_relative_r:
+        return f, ax
     plt.figure("Dispersion")
     for (r, dr, t, dt), l, (r_inter, _, t_inter, _), c in zip(intra_lines, labels, inter_lines, lines_colour_cycle):
         if max_error is not None:
@@ -483,7 +490,8 @@ if __name__ == '__main__':
     #            calibrated=True,
     #            n=3,
     #            mode='fourier',
-    #            label='theory'
+    #            label='theory',
+    #            use_relative_r=True
     #            )
     #
     # out = main([('xe011_e', 0.3), ('xe013_e', 0.6)],
@@ -493,11 +501,12 @@ if __name__ == '__main__':
     #            n=3,
     #            mode='fourier',
     #            electrons='down',
-    #            label="experiment"
+    #            label="experiment",
+    #            use_relative_r=True
     #            )
     # #
     # files = [
-    #     # ('xe002_s', -0.1),
+    #     ('xe002_s', -0.1),
     #     ('xe014_e', 0.2),
     #     ('xe011_e', 0.3),
     #     ('xe012_e', 0.5),
@@ -518,8 +527,8 @@ if __name__ == '__main__':
     #      )
     # f=plt.figure("ATI order")
     # plt.axhline(90,linestyle=':', c='k')
-
     #
+    # #
     files = [
         ('theory_03_0.h5', 22),
         # ('theory_H_0.h5', 2)
@@ -538,7 +547,7 @@ if __name__ == '__main__':
           mode='fourier',
           label='TW/cm$^2$',
           )
-
+    #
 
     print("DONE")
 
