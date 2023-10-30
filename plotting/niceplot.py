@@ -153,9 +153,9 @@ def add_ellipse(ax, ell, pol, rect=False):
 if __name__ == "__main__":
     # main([("theory_03.h5", 0.3),("theory_06.h5",0.6)], wdir=r"C:\Users\mcman\Code\VMI\Data", calibrated=True)
     main(
-        [("xe011_e", 0.6)],
+        [("xe018_e", 0.6)],
         to_load=1000000,
-        wdir=r"C:\Users\mcman\Code\VMI\Data",
+        # wdir=r"C:\Users\mcman\Code\VMI\Data",
         bins=256,
         width=0.8
     )

@@ -28,7 +28,7 @@ def load_file(filename):
         print(f"Loading {filename}:"
               f" {len(f['cluster_corr'])} clusters,"
               f" {len(f['etof_corr'])} etofs,"
-              f" {len(f['etof_corr'])} itofs")
+              f" {len(f['tof_corr'])} itofs")
         clusters = zip(f['cluster_corr'][()], zip(f['x'][()],f['y'][()],f['t'][()]))
         etof = zip(f['etof_corr'][()], f['t_etof'][()])
         itof = zip(f['tof_corr'][()],f['t_tof'][()])
@@ -41,7 +41,7 @@ def load_file_nc(filename):
         print(f"Loading {filename}:"
               f" {len(f['cluster_corr'])} clusters,"
               f" {len(f['etof_corr'])} etofs,"
-              f" {len(f['etof_corr'])} itofs")
+              f" {len(f['tof_corr'])} itofs")
         clusters = zip(f['cluster_corr'][()], zip(f['x'][()],f['y'][()],f['t'][()]))
         etof = zip(f['etof_corr'][()], f['t_etof'][()])
         itof = zip(f['tof_corr'][()],f['t_tof'][()])

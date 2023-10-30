@@ -3,20 +3,21 @@ import datetime
 import functools
 import itertools
 import multiprocessing
-import random
+import threading
 import time
 import warnings
-from collections.abc import Sequence
-from contextlib import contextmanager, ExitStack
 from time import sleep
 
 import h5py
 import matplotlib.pyplot as plt
-import matplotlib
-import numba
 import numpy as np
 import sklearn.cluster as skcluster
-from numba import njit, NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+from numba import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+
+import indev.AnalysisServerUsage.aserv_monitor
+from indev.AnalysisServerUsage.aserv_utilities import BufferedQueue, h5append, cluster_pixels, average_over_clusters, \
+    sort_tdcs, sort_clusters
+from indev.AnalysisServerUsage.conversion_utils import process_chunk
 
 # matplotlib.use("Qt5Agg")
 # plt.switch_backend("Qt5Agg")
@@ -26,250 +27,7 @@ warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 PERIOD = 25 * 2 ** 30
 
 
-class CircularBuffer(Sequence):
-    def __init__(self, max_size, dtypes):
-        self.max_size = max_size
-        self.dtypes = dtypes
-        self.arrays = tuple(multiprocessing.Array(d, max_size) for d in unstructure(dtypes))
-        self.index = multiprocessing.Value('L', 0)
-        self.size = multiprocessing.Value('L', 0)
-
-    @contextmanager
-    def get_lock(self):
-        with ExitStack() as stack:
-            stack.enter_context(self.index.get_lock())
-            stack.enter_context(self.size.get_lock())
-            for a in self.arrays:
-                stack.enter_context(a.get_lock())
-            yield stack
-
-    def put(self, values):
-        with self.get_lock():
-            for array, value in zip(self.arrays, unstructure(values)):
-                array[self.index.value] = value
-            self.index.value = (self.index.value + 1) % self.max_size
-            if self.size.value < self.max_size:
-                self.size.value += 1
-
-    def __getitem__(self, item):
-        if item >= self.size.value:
-            raise IndexError
-        with self.get_lock():
-            return structure(
-                self.dtypes,
-                [a[(self.index.value - self.size.value + item) % self.max_size] for a in self.arrays]
-            )
-
-    def __len__(self):
-        return self.size.value
-
-    def get_all(self):
-        return [self[i] for i in range(len(self))]
-
-
-class BufferedQueue:
-    def __init__(self, *args, buffer_size=1, dtypes=('i',), **kwargs):
-        self.buffer = CircularBuffer(buffer_size, dtypes)
-        self.queue = multiprocessing.Queue(*args, **kwargs)
-
-    def get(self, block=True, timeout=None):
-        out = self.queue.get(block=block, timeout=timeout)
-        self.buffer.put(out)
-        return out
-
-    def put(self, *args, **kwargs): self.queue.put(*args, **kwargs)
-
-    def qsize(self) -> int: return self.queue.qsize()
-
-    def empty(self) -> bool: return self.queue.empty()
-
-    def full(self) -> bool: return self.queue.full()
-
-    def put_nowait(self, item) -> None: self.queue.put_nowait(item)
-
-    def get_nowait(self): return self.get(False)
-
-    def close(self) -> None: self.queue.close()
-
-    def join_thread(self) -> None: self.queue.join_thread()
-
-    def cancel_join_thread(self) -> None: self.queue.cancel_join_thread()
-
-
-def structure_map(func, t):
-    if isinstance(t, tuple):
-        return tuple(structure_map(func, sub_t) for sub_t in t)
-    else:
-        return func(t)
-
-
-def structure(template, data):
-    d_iter = iter(data)
-    return structure_map(lambda _: next(d_iter), template)
-
-
-def unstructure(t):
-    if isinstance(t, tuple):
-        for sub_t in t:
-            yield from (unstructure(sub_t))
-    else:
-        yield t
-
-
-def h5append(dataset, newdata):
-    """Append newdata to the end of dataset"""
-    dataset.resize((dataset.shape[0] + len(newdata)), axis=0)
-    dataset[-len(newdata):] = newdata
-    dataset.flush()
-
-
-@njit
-def pw_jit(lst):
-    out = []
-    for i in range(len(lst) - 1):
-        out.append((lst[i], lst[i + 1]))
-    return out
-
-
-@njit
-def split_int(num: int, ranges: list[tuple[int, int]]):
-    out = []
-    for r in ranges:
-        out.append((num & (1 << r[1]) - 1) >> r[0])
-    return out
-
-
-@njit
-def addr_to_coords(pix_addr):
-    dcol = (pix_addr & 0xFE00) >> 8
-    spix = (pix_addr & 0x01F8) >> 1
-    pix = (pix_addr & 0x0007)
-    x = (dcol + pix // 4)
-    y = (spix + (pix & 0x3))
-    return x, y
-
-
-@njit
-def process_packet(packet: int):
-    header = packet >> 60
-    reduced = packet & 0x0fff_ffff_ffff_ffff
-    if header == 7:
-        return process_pixel(reduced)
-
-    elif header == 2:
-        return process_tdc(reduced)
-
-    else:
-        return -1, (0, 0, 0, 0)
-
-
-@njit
-def process_tdc_old(packet):
-    split_points = (5, 9, 44, 56, 60)
-    f_time, c_time, _, tdc_type = split_int(packet, pw_jit(split_points))
-    c_time = c_time & 0x1ffffffff  # Remove 2 most significant bit to loop at same point as pixels
-    return 0, (tdc_type, c_time, f_time, 0)
-    # c_time in units of 3.125 f_time in units of 260 ps,
-    # tdc_type: 10->TDC1R, 15->TDC1F, 14->TDC2R, 11->TDC2F
-
-@njit
-def process_tdc(packet):
-    split_points = (5, 9, 44, 56, 60)
-    f_time,  c_time, _, tdc_type = split_int(packet, pw_jit(split_points))
-    c_time = c_time & 0x1ffffffff  # Remove 2 most significant bit to loop at same point as pixels
-
-    return 0, (tdc_type, c_time, f_time-1, 0)
-    # c_time in units of 3.125 f_time in units of 260 ps,
-    # tdc_type: 10->TDC1R, 15->TDC1F, 14->TDC2R, 11->TDC2F
-
-
-@njit
-def process_pixel(packet):
-    split_points = (0, 16, 20, 30, 44, 61)
-    c_time, f_time, tot, m_time, pix_add = split_int(packet, pw_jit(split_points))
-    toa = numba.uint64(c_time * 2 ** 18 + m_time * 2 ** 4)
-    toa = numba.uint64(toa - f_time)
-    x, y = addr_to_coords(pix_add)
-    return 1, (x, y, toa, tot)  # x,y in pixels, toa in units of 25ns/2**4, tot in units of 25 ns
-
-
-def cluster_pixels(pixels, dbscan):
-    if not pixels:
-        return []
-    x, y, toa, tot = map(np.asarray, zip(*pixels))
-    toa = np.where(np.logical_and(x >= 194, x < 204), toa - 16, toa)
-    toa = fix_toa(toa)
-    cluster_index = dbscan.fit(np.column_stack((x, y))).labels_
-    return cluster_index, x, y, toa, tot
-
-
-@njit
-def average_over_clusters(cluster_index, x, y, toa, tot):
-    period = 25 * 2 ** 30
-    clusters = []
-    if len(cluster_index) > 0 and max(cluster_index) >= 0:
-        for i in range(max(cluster_index) + 1):
-            clusters.append((
-                np.average(toa[cluster_index == i] * 25 / (2 ** 4), weights=tot[cluster_index == i]) % period,
-                np.average(x[cluster_index == i], weights=tot[cluster_index == i]),
-                np.average(y[cluster_index == i], weights=tot[cluster_index == i]),
-            ))
-    return clusters
-
-
-@njit
-def sort_tdcs(cutoff, tdcs):
-    start_time = 0
-    pulses, etof, itof = [], [], []
-    for tdc_type, c_time, ftime, _ in tdcs:
-        tdc_time = 3.125 * c_time + .260 * ftime
-        if tdc_type == 15:
-            start_time = tdc_time
-        elif tdc_type == 14:
-            etof.append(tdc_time)
-        elif tdc_type == 10:
-            pulse_len = (tdc_time - start_time)
-            if pulse_len > cutoff:
-                pulses.append(start_time)
-            else:
-                itof.append(start_time)
-    return etof, itof, pulses
-
-
-@njit
-def process_chunk(chunk):
-    tdcs = []
-    pixels = []
-    for packet in chunk:
-        data_type, packet_data = process_packet(packet)
-        if data_type == -1:
-            continue
-        if data_type == 1:
-            pixels.append(packet_data)
-        elif data_type == 0:
-            tdcs.append(packet_data)
-    return pixels, tdcs
-
-
-@njit
-def sort_clusters(clusters):
-    period = 25 * 2 ** 30
-    t0 = clusters[0][0]
-    c_adjust = [((t - t0 + period / 2) % period - period / 2, x, y) for t, x, y in clusters]
-    return [((t + t0) % period, x, y) for t, x, y in sorted(c_adjust)]
-
-
-@njit
-def fix_toa(toa):
-    if max(toa) - min(toa) < 2 ** 32:
-        return toa
-    period = 2 ** 34
-    t0 = toa[0]
-    return (toa - t0 + period / 2) % period + t0 - period / 2
-
-
 # %%
-
 
 class AnalysisServer:
     def __init__(
@@ -279,7 +37,7 @@ class AnalysisServer:
             cluster_loops=1,
             processing_loops=1,
             cutoff=1000,
-            filename="test.cv4",
+            filename="test.cv3",
             max_clusters=65536,
             pulse_time_adjust=0,
             expected_pulse_diff=1e6+15,
@@ -324,8 +82,8 @@ class AnalysisServer:
         self.max_clusters=max_clusters
         self.cluster_plot=False
         self.desync=multiprocessing.Value('i',0)
-
         self.filename = filename
+        self.start_time=multiprocessing.Value('f',0)
 
     def __enter__(self):
         return self
@@ -357,7 +115,7 @@ class AnalysisServer:
             loops = [
                 *processing_loops,
                 *sorting_loops,
-                self.monitoring_loop,
+                # self.monitoring_loop,
                 *clustering_loops,
                 self.cluster_sorting_loop,
                 self.correlating_loop,
@@ -367,7 +125,7 @@ class AnalysisServer:
             loops = [
                 *processing_loops,
                 *sorting_loops,
-                self.monitoring_loop,
+                # self.monitoring_loop,
                 *clustering_loops,
                 self.cluster_sorting_loop,
                 self.diagnostic_saving_loop,
@@ -387,17 +145,6 @@ class AnalysisServer:
                 self.split_etof_queues[index].put((cnum, e))
             for i in itof:
                 self.split_itof_queues[index].put((cnum, i))
-
-    def plot_monitoring_loop(self):
-        fig,ax= plt.subplots(1,1)
-        plot=ax.imshow(np.zeros((256,256)))
-        while True:
-            if len(self.cluster_queue.buffer)==0:
-                continue
-            data=self.cluster_queue.buffer.get_all()
-            t,x,y=zip(*data)
-            hist,*_=np.histogram2d(x,y,bins=256,range=((0,256),(0,256)))
-            plot.set_data(hist)
 
     def sorting_loop(self, in_queues, out_queue):
         first = [q.get() for q in in_queues]
@@ -588,11 +335,13 @@ class AnalysisServer:
             deltas = [(lt - last_sent_time+1e6) % loop for lt in last_times]
             index = deltas.index(min(deltas))
             last_sent_time = last_times[index]
+            # if min([(lt - last_sent_time) for lt in last_times])<0:
+            #     print(last_sent_time, last_times, deltas)
             self.raw_cluster_queue.put(last_pulses[index])
             last_pulses[index] = self.split_cluster_queues[index].get()
             last_times[index] = last_pulses[index][0]
 
-    def correlating_loop(self, max_back=1e9, corr_cutoff=(1e6 + 1.5), corr_diff=12.666):
+    def correlating_loop(self, max_back=1e9):
         last_pulse = 0
         next_clust = (0, 0, 0)
         next_times = [0, 0, 0, 0]
@@ -610,26 +359,6 @@ class AnalysisServer:
                     self.next[i] = (t - last_pulse + max_back) % PERIOD-max_back
                     self.max_seen[i] = max(t, self.max_seen[i])
                     self.current[i] = t
-                #
-                # max_diff = max(map(lambda x: abs(x[0].qsize() - x[1].qsize()), itertools.combinations(in_queues, 2)))
-                # if max_diff>self.max_size/2:
-                #     print("-----------------------DESYNC DETECTED-----------------------------")
-                #     print(max_diff)
-                #     self.desync.value=1
-                #     while max(q.qsize() for q in in_queues)>0:
-                #         for queue in in_queues:
-                #             while not queue.empty():
-                #                 queue.get()
-                #         time.sleep(1)
-                #     self.desync.value=0
-                #
-                #     print("Desync Resolved")
-                #
-                #     last_pulse = 0
-                #     next_clust = (0, 0, 0)
-                #     next_times = [0, 0, 0, 0]
-                #     continue
-
 
             if to_pick == 0:
                 out_queues[0].put((pulse_number, next_times[0]))
@@ -637,8 +366,6 @@ class AnalysisServer:
 
                 pulse_number += 1
                 last_pulse, next_times[0] = next_times[0], in_queues[0].get()
-                if last_diff<corr_cutoff:
-                    last_pulse+=corr_diff
                 if next_times[0]<=0:
                     next_times[0]=(last_pulse+last_diff) % PERIOD
 
@@ -733,6 +460,9 @@ class AnalysisServer:
 
     def make_connection_handler(self):
         async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+            print(datetime.datetime.now().timestamp())
+            self.start_time.value=datetime.datetime.now().timestamp()
+            print(self.start_time.value)
             print(writer.get_extra_info('peername'))
             chunk_num = 0
             while not reader.at_eof():
@@ -763,6 +493,7 @@ class AnalysisServer:
     async def start(self, port=1234):
         loop_processes = [multiprocessing.Process(target=loop, daemon=True) for loop in self.get_loops()]
         [loop_process.start() for loop_process in loop_processes]
+        threading.Thread(target=lambda: indev.AnalysisServerUsage.aserv_monitor.run_gui(self)).start()
         print("Loops Started")
 
         server = await asyncio.start_server(self.make_connection_handler(), '127.0.0.1', port=port)
@@ -777,7 +508,7 @@ if __name__ == "__main__":
             max_size=100000,
             cluster_loops=6,
             processing_loops=6,
-            max_clusters=2,
+            max_clusters=1000,
             pulse_time_adjust=-500,
             diagnostic_mode=False,
     ) as aserv:
