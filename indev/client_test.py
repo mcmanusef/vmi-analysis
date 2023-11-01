@@ -1,7 +1,7 @@
 import asyncio
 import os
 import time
-
+import argparse
 import indev
 from indev.AnalysisServer import AnalysisServer
 
@@ -58,6 +58,9 @@ async def runserv(name):
     print("Done")
 
 if __name__ == '__main__':
-    name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231026\test4"
+    parser = argparse.ArgumentParser(prog='cv4 converter', description="converts .cv4 files to .cv3")
+    parser.add_argument("filename")
+    args=parser.parse_args()
+    name=args.filename
     asyncio.run(runserv(name))
 #%%

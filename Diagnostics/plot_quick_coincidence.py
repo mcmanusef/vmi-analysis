@@ -17,13 +17,13 @@ matplotlib.use('Qt5Agg')
 plt.close("all")
 def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=True, calibrate=False, save_or_load=False):
     # file=r"C:\Users\mcman\Code\VMI\indev\test.cv3"
-    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231026\test4.cv3"
+    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231031\kr003_e.cv4"
     # file=r"C:\Users\mcman\Code\VMI\Data\air_s_70.cv3"
     n = 256
     rx=ry=(0, 256)
     # rx=(117,122)
     # ry=(130,136)
-    rt=(500,520)
+    rt=(475,512)
     rtoa=(0,1000)
     # rtoa=(900000,975000 )
     rtof=(15000,17000)
