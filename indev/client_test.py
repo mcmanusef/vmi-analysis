@@ -2,7 +2,6 @@ import asyncio
 import os
 import time
 import argparse
-import indev
 from indev.AnalysisServer import AnalysisServer
 
 
