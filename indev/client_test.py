@@ -1,7 +1,8 @@
 import asyncio
 import os
 import time
-import argparse
+
+import indev
 from indev.AnalysisServer import AnalysisServer
 
 
@@ -38,9 +39,11 @@ async def main(folder,num=10000,skip_first=0):
         writer.close()
         await writer.wait_closed()
 
-async def runserv(name):
+async def runserv(name, out_name=None):
+    if out_name is None:
+        out_name=name+".cv4"
     with AnalysisServer(
-            filename=name+".cv4",
+            filename=out_name,
             max_size=100000,
             cluster_loops=6,
             processing_loops=6,
@@ -50,16 +53,15 @@ async def runserv(name):
     ) as aserv:
         task1=asyncio.create_task(aserv.start())
         time.sleep(10)
-        task2=asyncio.create_task(main(name,num=501,skip_first=0))
+        task2=asyncio.create_task(main(name,num=1000000,skip_first=0))
         await task1
         await task2
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q
     print("Done")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(prog='cv4 converter', description="converts .cv4 files to .cv3")
-    parser.add_argument("filename")
-    args=parser.parse_args()
-    name=args.filename
+
+    name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231211\o2_test_4"
+    out_name=r"C:\Users\mcman\Code\VMI\Data\xe005_e.cv4"
     asyncio.run(runserv(name))
 #%%

@@ -592,7 +592,7 @@ class AnalysisServer:
             last_pulses[index] = self.split_cluster_queues[index].get()
             last_times[index] = last_pulses[index][0]
 
-    def correlating_loop(self, max_back=1e9, corr_cutoff=(1e6 + 1.5), corr_diff=12.666):
+    def correlating_loop(self, max_back=1e9, corr_cutoff=(1e6 + 15), corr_diff=12.666):
         last_pulse = 0
         next_clust = (0, 0, 0)
         next_times = [0, 0, 0, 0]
@@ -610,26 +610,6 @@ class AnalysisServer:
                     self.next[i] = (t - last_pulse + max_back) % PERIOD-max_back
                     self.max_seen[i] = max(t, self.max_seen[i])
                     self.current[i] = t
-                #
-                # max_diff = max(map(lambda x: abs(x[0].qsize() - x[1].qsize()), itertools.combinations(in_queues, 2)))
-                # if max_diff>self.max_size/2:
-                #     print("-----------------------DESYNC DETECTED-----------------------------")
-                #     print(max_diff)
-                #     self.desync.value=1
-                #     while max(q.qsize() for q in in_queues)>0:
-                #         for queue in in_queues:
-                #             while not queue.empty():
-                #                 queue.get()
-                #         time.sleep(1)
-                #     self.desync.value=0
-                #
-                #     print("Desync Resolved")
-                #
-                #     last_pulse = 0
-                #     next_clust = (0, 0, 0)
-                #     next_times = [0, 0, 0, 0]
-                #     continue
-
 
             if to_pick == 0:
                 out_queues[0].put((pulse_number, next_times[0]))
@@ -637,8 +617,10 @@ class AnalysisServer:
 
                 pulse_number += 1
                 last_pulse, next_times[0] = next_times[0], in_queues[0].get()
-                if last_diff<corr_cutoff:
-                    last_pulse+=corr_diff
+                # print(next_times[0]-last_pulse-corr_cutoff)
+                if (next_times[0]-last_pulse) % PERIOD <corr_cutoff:
+                    # print("PULSE TIME")
+                    next_times[0]+=corr_diff
                 if next_times[0]<=0:
                     next_times[0]=(last_pulse+last_diff) % PERIOD
 

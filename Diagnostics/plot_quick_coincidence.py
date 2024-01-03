@@ -15,27 +15,39 @@ from indev import coincidence_v4
 matplotlib.rc('image', cmap='jet')
 matplotlib.use('Qt5Agg')
 plt.close("all")
-def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=True, calibrate=False, save_or_load=False):
+def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=False, calibrate=False, save_or_load=False):
     # file=r"C:\Users\mcman\Code\VMI\indev\test.cv3"
-    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231031\kr003_e.cv4"
+    #
     # file=r"C:\Users\mcman\Code\VMI\Data\air_s_70.cv3"
+
+    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231211\o2_test_4.cv4"
+    # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231031\after_torr.cv4"
     n = 256
-    rx=ry=(0, 256)
-    # rx=(117,122)
-    # ry=(130,136)
-    rt=(475,512)
-    rtoa=(0,1000)
-    # rtoa=(900000,975000 )
-    rtof=(15000,17000)
-    # rtof=(769000,771000)
-    # rtof=(755500,757000)
-    rtof_plot=(0,20000)
-    # rt=rtoa=rtof=(0,1e6)
+    t0 = 748000
+    rt=(749020, 749060)
+    rtoa=(748800-25, 748850-25)
+    # rt=rtoa=(0,1e6)
+    rtof=(10000 + t0, 12000 + t0)
+    rtof_plot=(0 + t0, 30000 + t0)
     angle=np.arctan2(91-168,183-66)
-    center=(0,0)
     center=(120,132)
     rx=(-120,256-120)
     ry=(-132,256-132)
+
+    # ry=(-5,5)
+
+    # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\xe005_e.cv4"
+    # n = 256
+    # rt=(490,520)
+    # rtoa=(0,1000)
+    # rtof=(15000,17000)
+    # rtof_plot=(0,30000)
+    # angle=np.arctan2(91-168,183-66)
+    # center=(120,132)
+    # rx=(-120,256-120)
+    # ry=(-132,256-132)
+
+
     # ry=(-2,2)
     print(angle)
 
@@ -141,9 +153,9 @@ def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=
         t,x,y = filter_coords((t,x,y), (rtoa,rx,ry))
 
         fig, ax= plt.subplots(2,2, num="Clusters")
-        ax[0,0].hist2d(x, y, bins=n, range=[rx, ry], norm="log")
-        ax[0,1].hist2d(t, y, bins=n, range=[rtoa, ry], norm="log")
-        ax[1,0].hist2d(x, t, bins=n, range=[rx, rtoa], norm="log")
+        ax[0,0].hist2d(x, y, bins=n, range=[rx, ry])
+        ax[0,1].hist2d(t, y, bins=n, range=[rtoa, ry])
+        ax[1,0].hist2d(x, t, bins=n, range=[rx, rtoa])
         ax[1,1].hist(t,bins=1000, range=rtoa)
 
     if do_raw:
@@ -155,9 +167,9 @@ def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=
         x, y = rotate_coords(angle, center,x,y)
 
         fig, ax= plt.subplots(2,2, num="Raw")
-        ax[0,0].hist2d(x, y, bins=n, range=[rx, ry], norm="log")
-        ax[0,1].hist2d(t, y, bins=n, range=[rtoa, ry], norm="log")
-        ax[1,0].hist2d(x, t, bins=n, range=[rx, rtoa], norm="log")
+        ax[0,0].hist2d(x, y, bins=n, range=[rx, ry])
+        ax[0,1].hist2d(t, y, bins=n, range=[rtoa, ry])
+        ax[1,0].hist2d(x, t, bins=n, range=[rx, rtoa])
         ax[1,1].hist(t,bins=1000, range=rtoa)
 
 
