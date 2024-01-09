@@ -261,7 +261,7 @@ if __name__ == '__main__':
     # %% Running
     p = Pool(os.cpu_count())
     print('Starting:', datetime.now().strftime("%H:%M:%S"))
-    output_name = args.output if args.output else args.filename[:-3]+".cv3"
+    output_name = args.output if args.output else args.filename[:-3]+".uv3"
 
     f_in = h5py.File(args.filename)
 
