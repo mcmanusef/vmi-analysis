@@ -476,14 +476,14 @@ if __name__ == '__main__':
     etof_times = get_times_iter(iter_dataset(f_in, 'tdc_time'), iter_dataset(f_in, 'tdc_type'), 'etof', args.cutoff)
     itof_times = get_times_iter(iter_dataset(f_in, 'tdc_time'), iter_dataset(f_in, 'tdc_type'), 'itof', args.cutoff)
 
-    pt1, pt2, pt3 = safetee(pulse_times, 3)
-    pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa), 2)
-    etof_data = get_t_iter(pt2, etof_times)
-    itof_data = get_t_iter(pt3, itof_times)
+    # pt1, pt2, pt3 = safetee(pulse_times, 3)
+    pt = list(pulse_times)
+    pixel_corr, t_pixel = split_iter(get_t_iter(pt, toa), 2)
+    etof_data = get_t_iter(pt, etof_times)
+    itof_data = get_t_iter(pt, itof_times)
     formatted_data = format_data(pixel_corr, [x, y, t_pixel, tot])
 
-    clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster,
-                                                                                                 formatted_data)
+    clustered_data = p.imap(cluster, formatted_data, chunksize=1000) if not args.single else map(cluster, formatted_data)
 
     averaged_cluster_data = itertools.starmap(average_over_cluster, clustered_data)
 
