@@ -49,7 +49,7 @@ async def runserv(name):
             diagnostic_mode=False,
     ) as aserv:
         task1=asyncio.create_task(aserv.start())
-        time.sleep(60)
+        time.sleep(120)
         task2=asyncio.create_task(main(name,num=1000,skip_first=0))
         await task1
         await task2
