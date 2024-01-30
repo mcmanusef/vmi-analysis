@@ -41,7 +41,7 @@ async def main(folder,num=10000,skip_first=0):
 async def runserv(name):
     with AnalysisServer(
             filename=name+".cv4",
-            max_size=100000,
+            max_size=10000,
             cluster_loops=6,
             processing_loops=6,
             max_clusters=2,
@@ -51,8 +51,9 @@ async def runserv(name):
         task1=asyncio.create_task(aserv.start())
         input()
         task2=asyncio.create_task(main(name,num=1000,skip_first=0))
-        await task1
         await task2
+        os.sleep(900)
+        task1.cancel()
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q
     print("Done")
 

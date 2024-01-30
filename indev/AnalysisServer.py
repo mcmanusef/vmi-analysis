@@ -328,6 +328,7 @@ class AnalysisServer:
         self.filename = filename
 
     def __enter__(self):
+        print("Initializing")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -743,6 +744,7 @@ class AnalysisServer:
         return handle_connection
 
     async def start(self, port=1234):
+        print("Starting")
         loop_processes = [multiprocessing.Process(target=loop, daemon=True) for loop in self.get_loops()]
         [loop_process.start() for loop_process in loop_processes]
         print("Loops Started")
