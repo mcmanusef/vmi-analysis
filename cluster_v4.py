@@ -51,10 +51,10 @@ async def runserv(name):
     ) as aserv:
         task1=multiprocessing.Process(target=lambda: asyncio.run(aserv.start()))
         task1.start()
-        os.sleep(10)
+        time.sleep(10)
         task2=asyncio.create_task(main(name,num=1000,skip_first=0))
         await task2
-        os.sleep(900)
+        time.sleep(900)
         task1.terminate()
         task1.join()
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q
