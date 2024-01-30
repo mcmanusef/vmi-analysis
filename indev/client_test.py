@@ -53,15 +53,14 @@ async def runserv(name, out_name=None):
     ) as aserv:
         task1=asyncio.create_task(aserv.start())
         time.sleep(10)
-        task2=asyncio.create_task(main(name,num=3,skip_first=0))
+        task2=asyncio.create_task(main(name,num=1000,skip_first=0))
         await task1
         await task2
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q
     print("Done")
 
 if __name__ == '__main__':
-
-    name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240108\o2_p_2"
+    name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240122\air_09_e"
     out_name=r"C:\Users\mcman\Code\VMI\Data\xe005_e.cv4"
     asyncio.run(runserv(name))
 #%%

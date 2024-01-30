@@ -1,13 +1,12 @@
 import functools
 import os
-
 import h5py
 import matplotlib
 import matplotlib.pyplot as plt
-import mayavi.mlab
+# import mayavi.mlab
 import numpy as np
 import scipy.io
-from mayavi import mlab
+# from mayavi import mlab
 import cv3_analysis
 from minor_utils.tof_calibration import get_calibration
 from indev import coincidence_v4
@@ -15,25 +14,29 @@ from indev import coincidence_v4
 matplotlib.rc('image', cmap='jet')
 matplotlib.use('Qt5Agg')
 plt.close("all")
-def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=False, calibrate=False, save_or_load=False):
+def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_raw=False, calibrate=False, save_or_load=True):
     # file=r"C:\Users\mcman\Code\VMI\indev\test.cv3"
     #
     # file=r"C:\Users\mcman\Code\VMI\Data\air_s_70.cv3"
 
-    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231211\o2_test_4.cv4"
+    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240122\air_09_e.cv4"
+    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240129\xe_01_e.cv4"
     # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231031\after_torr.cv4"
     n = 256
     t0 = 748000
-    rt=(749020, 749060)
+    rt=(749040, 749070)
     rtoa=(748800-25, 748850-25)
     # rt=rtoa=(0,1e6)
     rtof=(10000 + t0, 12000 + t0)
     rtof_plot=(0 + t0, 30000 + t0)
-    angle=np.arctan2(91-168,183-66)
-    center=(120,132)
-    rx=(-120,256-120)
-    ry=(-132,256-132)
+    angle=-np.arctan2(69-198,150-101)
+    # angle=0
+    center=(122,131)
+    # center=(0,0)
+    rx=(-center[0],256-center[0])
+    ry=(-center[1],256-center[1])
 
+    # rx=(-5,5)
     # ry=(-5,5)
 
     # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\xe005_e.cv4"
@@ -109,11 +112,11 @@ def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=
             fig.canvas.draw_idle()
         slider_gamma.on_changed(update)
         update(1)
-
-    if do_3d:
-        hist3d=np.histogramdd((x,y,t), range=(rx,ry,rt), bins=128)[0]
-        mayavi.mlab.figure()
-        mayavi.mlab.contour3d(hist3d, contours=30, transparent=True)
+    #
+    # if do_3d:
+    #     hist3d=np.histogramdd((x,y,t), range=(rx,ry,rt), bins=128)[0]
+    #     mayavi.mlab.figure()
+    #     mayavi.mlab.contour3d(hist3d, contours=30, transparent=True)
 
     if do_nc:
         if save_or_load:

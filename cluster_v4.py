@@ -50,7 +50,7 @@ async def runserv(name):
     ) as aserv:
         task1=asyncio.create_task(aserv.start())
         time.sleep(10)
-        task2=asyncio.create_task(main(name,num=501,skip_first=0))
+        task2=asyncio.create_task(main(name,num=1000,skip_first=0))
         await task1
         await task2
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q

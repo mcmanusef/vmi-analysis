@@ -592,7 +592,7 @@ class AnalysisServer:
             last_pulses[index] = self.split_cluster_queues[index].get()
             last_times[index] = last_pulses[index][0]
 
-    def correlating_loop(self, max_back=1e9, corr_cutoff=(1e6 + 15), corr_diff=12.666):
+    def correlating_loop(self, max_back=1e9, corr_cutoff=(1e6), corr_diff=12.666):
         last_pulse = 0
         next_clust = (0, 0, 0)
         next_times = [0, 0, 0, 0]
@@ -618,7 +618,7 @@ class AnalysisServer:
                 pulse_number += 1
                 last_pulse, next_times[0] = next_times[0], in_queues[0].get()
                 # print(next_times[0]-last_pulse-corr_cutoff)
-                if (next_times[0]-last_pulse) % PERIOD <corr_cutoff:
+                if (next_times[0]-last_pulse) % PERIOD < corr_cutoff:
                     # print("PULSE TIME")
                     next_times[0]+=corr_diff
                 if next_times[0]<=0:
