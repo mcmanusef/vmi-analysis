@@ -348,9 +348,15 @@ def fix_hole(x, y, t, center, hole_center, hole_radius):
 sort_key = lambda x: int(x.split('_')[1]) if x.endswith('.cv4') else 0
 if __name__ == '__main__':
     matplotlib.rc('image', cmap='jet')
-    matplotlib.use('Qt5Agg')
+    if os.name == 'nt':
+        dir= r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
+        matplotlib.use('Qt5Agg')
+    else:
+        dir= r"/mnt/NAS/ctgroup/UCONN/VMI/VMI/20240208"
+        matplotlib.use('pdf')
+
     plt.close("all")
-    dir = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
+
     for file in sorted(os.listdir(dir), key=sort_key):
         if file.endswith(".cv4"):
             match file.split("_"):
