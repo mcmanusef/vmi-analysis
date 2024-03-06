@@ -1,9 +1,7 @@
 import asyncio
 import os
 import time
-
-import indev
-from indev.AnalysisServer import AnalysisServer
+from AnalysisServer import AnalysisServer
 
 
 async def tcp_echo_client(message):
@@ -53,14 +51,14 @@ async def runserv(name, out_name=None):
     ) as aserv:
         task1=asyncio.create_task(aserv.start())
         time.sleep(10)
-        task2=asyncio.create_task(main(name,num=1000,skip_first=0))
+        task2=asyncio.create_task(main(name,num=20,skip_first=0))
         await task1
         await task2
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q
     print("Done")
 
 if __name__ == '__main__':
-    name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240122\air_09_e"
-    out_name=r"C:\Users\mcman\Code\VMI\Data\xe005_e.cv4"
+    name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\xe_07_b"
+    out_name=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240129\o2_04_e_s.cv4"
     asyncio.run(runserv(name))
 #%%

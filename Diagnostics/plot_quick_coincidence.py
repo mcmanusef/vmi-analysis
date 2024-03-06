@@ -1,4 +1,3 @@
-import functools
 import os
 import h5py
 import matplotlib
@@ -7,28 +6,30 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io
 # from mayavi import mlab
-import cv3_analysis
-from minor_utils.tof_calibration import get_calibration
-from indev import coincidence_v4
+import coincidence_v4
+from plotting.plotting_utils import itof_filter, rotate_coords, dp_filter, filter_coords
 
 matplotlib.rc('image', cmap='jet')
 matplotlib.use('Qt5Agg')
 plt.close("all")
-def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_raw=False, calibrate=False, save_or_load=True):
+def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=False, calibrate=False, save_or_load=False):
     # file=r"C:\Users\mcman\Code\VMI\indev\test.cv3"
     #
     # file=r"C:\Users\mcman\Code\VMI\Data\air_s_70.cv3"
 
-    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240122\air_09_e.cv4"
-    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240129\xe_01_e.cv4"
+    # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240122\o2_02_p.cv4"
+    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\xe_03_a.cv4"
     # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231031\after_torr.cv4"
     n = 256
     t0 = 748000
     rt=(749040, 749070)
-    rtoa=(748800-25, 748850-25)
+    # rt=(749000, 749040)
+    rtoa=(748800-100, 748850-25)
     # rt=rtoa=(0,1e6)
     rtof=(10000 + t0, 12000 + t0)
     rtof_plot=(0 + t0, 30000 + t0)
+    rtof=(766000, 768000)
+    rtof=(770000, 773000)
     angle=-np.arctan2(69-198,150-101)
     # angle=0
     center=(122,131)
@@ -67,20 +68,20 @@ def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_ra
                 data=scipy.io.loadmat(file+".mat")
                 x,y,toa,etof,itof=(data[k].flatten() for k in keys)
             else:
-                data=coincidence_v4.load_file(file)
+                data=coincidence_v4.load_file_coin(file)
                 x,y,toa,etof,itof=data
                 scipy.io.savemat(file+".mat", {k:d for k,d in zip(keys,data)})
         else:
-            data=coincidence_v4.load_file(file)
+            data=coincidence_v4.load_file_coin(file)
             x,y,toa,etof,itof=data
 
         t=etof+0.26*np.random.random_sample(len(etof))
 
         x,y,t, itof,toa= dp_filter(dead_pixels, x, y, t, itof, toa)
-        x,y,t,toa = itof_filter(rtof, itof, x, y, t,toa)
+        x,y,t,toa = itof_filter(rtof, itof, x, y, t, toa)
         x, y = rotate_coords(angle, center, x, y)
         # t, toa, x, y = diff_filter(200, t, toa, x, y)
-        t,x,y,toa = filter_coords((t,x,y,toa), (rt,rx,ry,rtoa))
+        t,x,y,toa = filter_coords((t, x, y, toa), (rt, rx, ry, rtoa))
 
         if calibrate:
             x=P_xy(x)
@@ -134,9 +135,9 @@ def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_ra
         t=etof+0.26*np.random.random_sample(len(etof))
 
         x,y,t,toa= dp_filter(dead_pixels, x, y, t, toa)
-        x, y = rotate_coords(angle, center, x,y)
+        x, y = rotate_coords(angle, center, x, y)
         # t, toa, x, y = diff_filter(200, t, toa, x, y)
-        t,x,y,toa = filter_coords((t,x,y,toa), (rt,rx,ry,rtoa))
+        t,x,y,toa = filter_coords((t, x, y, toa), (rt, rx, ry, rtoa))
 
         fig, ax= plt.subplots(2,2, num="No Coincidence")
         ax[0,0].hist2d(x, y, bins=n, range=[rx, ry])
@@ -152,8 +153,8 @@ def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_ra
         t=toa+0.26*np.random.random_sample(len(toa))
 
         x,y,t= dp_filter(dead_pixels, x, y, t)
-        x, y = rotate_coords(angle, center,x,y)
-        t,x,y = filter_coords((t,x,y), (rtoa,rx,ry))
+        x, y = rotate_coords(angle, center, x, y)
+        t,x,y = filter_coords((t, x, y), (rtoa, rx, ry))
 
         fig, ax= plt.subplots(2,2, num="Clusters")
         ax[0,0].hist2d(x, y, bins=n, range=[rx, ry])
@@ -167,7 +168,7 @@ def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_ra
             print(len(x))
         # x,y,toa,etof=coincidence_v4.load_file_nc(file)
         t=toa+1.6*np.random.random_sample(len(toa))
-        x, y = rotate_coords(angle, center,x,y)
+        x, y = rotate_coords(angle, center, x, y)
 
         fig, ax= plt.subplots(2,2, num="Raw")
         ax[0,0].hist2d(x, y, bins=n, range=[rx, ry])
@@ -175,35 +176,6 @@ def main(do_coincidence=False, do_nc=True, do_3d=False, do_clusters=False, do_ra
         ax[1,0].hist2d(x, t, bins=n, range=[rx, rtoa])
         ax[1,1].hist(t,bins=1000, range=rtoa)
 
-
-def itof_filter(rtof, itof, *args):
-    itof_index = [i for i, it in enumerate(itof) if rtof[0] < it < rtof[1]]
-    return tuple(arg[itof_index] for arg in args)
-
-
-def rotate_coords(angle, center, x, y):
-    x, y = coincidence_v4.rotate_data(x - center[0], y - center[1], angle)
-    return x, y
-
-
-def dp_filter(dead_pixels, x, y, *args):
-    dp_dists = [np.sqrt((x - x0) ** 2 + (y - y0) ** 2) for x0, y0 in dead_pixels]
-    dp_index = np.argwhere(functools.reduce(np.minimum, dp_dists) > 2).flatten()
-    x = x[dp_index]
-    y = y[dp_index]
-    out=tuple(arg[dp_index] for arg in args)
-    print(len(x))
-    return x, y, *out
-
-def filter_coords(coords,ranges):
-    index=functools.reduce(np.intersect1d,
-                           (np.argwhere([r[0]<c<r[1] for c in c_list]) for c_list,r in zip(coords,ranges)))
-    print(len(index))
-    return tuple(c[index] for c in coords)
-
-def diff_filter(max_diff,t1,t2, *args):
-    index=np.argwhere(np.abs(t1-t2)<max_diff).flatten()
-    return t1[index], t2[index], *(arg[index] for arg in args)
 
 def P_xy(x):
     return np.sqrt(0.000503545) * x * np.sqrt(2 * 0.03675)

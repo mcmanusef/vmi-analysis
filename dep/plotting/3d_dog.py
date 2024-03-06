@@ -6,8 +6,8 @@ import matplotlib.widgets
 import scipy.ndimage
 import h5py
 
-from Diagnostics.plot_quick_coincidence import itof_filter
-from indev import coincidence_v4
+from plotting.plotting_utils import itof_filter
+import coincidence_v4
 
 matplotlib.use('Qt5Agg')
 

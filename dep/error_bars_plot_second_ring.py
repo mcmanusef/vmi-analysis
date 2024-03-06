@@ -25,28 +25,28 @@ mpl.use('Qt5Agg')
 # %% Functions
 def cache_results(func):
     def wrapper(*args, **kwargs):
-        if not os.path.isdir('../plotting/func_cache'):
-            os.mkdir('../plotting/func_cache')
-        if func.__name__ in os.listdir("../plotting/func_cache"):
-            with open(os.path.join("../plotting/func_cache", func.__name__, "dir.txt")) as f:
+        if not os.path.isdir('plotting/func_cache'):
+            os.mkdir('plotting/func_cache')
+        if func.__name__ in os.listdir("plotting/func_cache"):
+            with open(os.path.join("plotting/func_cache", func.__name__, "dir.txt")) as f:
                 for dir_string in [x for x in f.readlines() if str([args, kwargs]) in x]:
                     print("Loading from Cache")
                     file = dir_string.split("-->")[0]
-                    with open(os.path.join("../plotting/func_cache", func.__name__, file), 'rb') as f2:
+                    with open(os.path.join("plotting/func_cache", func.__name__, file), 'rb') as f2:
                         return pickle.load(f2)
                 print("Could not find saved results")
         else:
-            os.mkdir(os.path.join("../plotting/func_cache", func.__name__))
-            with open(os.path.join("../plotting/func_cache", func.__name__, "dir.txt"), 'w') as f:
+            os.mkdir(os.path.join("plotting/func_cache", func.__name__))
+            with open(os.path.join("plotting/func_cache", func.__name__, "dir.txt"), 'w') as f:
                 pass
 
         out = func(*args, **kwargs)
 
         filename = f"{hash(str([args, kwargs]))}.pickle"
         print(f"Saving to {filename}")
-        with open(os.path.join("../plotting/func_cache", func.__name__, "dir.txt"), 'a') as f:
+        with open(os.path.join("plotting/func_cache", func.__name__, "dir.txt"), 'a') as f:
             print(f"{filename}-->{str([args, kwargs])}", file=f)
-        with open(os.path.join("../plotting/func_cache", func.__name__, filename), 'wb') as f:
+        with open(os.path.join("plotting/func_cache", func.__name__, filename), 'wb') as f:
             pickle.dump(out, f)
         return out
 

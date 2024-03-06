@@ -1,7 +1,9 @@
 import datetime
+import os
 
 import h5py
 import numpy as np
+import scipy
 
 
 def iter_first(*iterables):
@@ -23,9 +25,9 @@ def correlate(*iterables):
             yield vals
 
 
-def load_file(filename):
+def load_file_coin(filename):
     with h5py.File(filename,mode='r') as f:
-        print(f"Loading {filename}:"
+        print(f"Loading {filename} (Coincidence):"
               f" {len(f['cluster_corr'])} clusters,"
               f" {len(f['etof_corr'])} etofs,"
               f" {len(f['tof_corr'])} itofs")
@@ -38,7 +40,7 @@ def load_file(filename):
 
 def load_file_nc(filename):
     with h5py.File(filename,mode='r') as f:
-        print(f"Loading {filename}:"
+        print(f"Loading {filename} (No Coincidence:"
               f" {len(f['cluster_corr'])} clusters,"
               f" {len(f['etof_corr'])} etofs,"
               f" {len(f['tof_corr'])} itofs")
@@ -49,7 +51,29 @@ def load_file_nc(filename):
     x,y,t=zip(*c_data)
     return tuple(map(np.asarray,(x,y,t,etof)))
 
+def load_file(filename, ext=None, force_recalc=False):
+    if ext is None:
+        ext = lambda x: x.replace('.cv4','.mat')
+    cache_file = ext(filename)
+    if force_recalc or not os.path.exists(cache_file):
+        print(f"Calculating {cache_file}")
+        coincidence_data = load_file_coin(filename)
+        x,y,t,etof,itof = coincidence_data
+        print(f"Saving to {cache_file}")
+        scipy.io.savemat(cache_file, {'x':x, 'y':y, 't':t, 'etof':etof, 'itof':itof})
+        return x,y,t,etof,itof
+    else:
+        print(f"Loading {cache_file}")
+        data=scipy.io.loadmat(cache_file, squeeze_me=True, struct_as_record=False)
+        x,y,t,etof,itof = data['x'], data['y'], data['t'], data['etof'], data['itof']
+        return x,y,t,etof,itof
+
+
+
 
 def rotate_data(x,y,theta):
     return x*np.cos(theta)+y*np.sin(theta), y*np.cos(theta)-x*np.sin(theta)
 
+
+#%%
+""

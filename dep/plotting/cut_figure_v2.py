@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-import plotting.niceplot as niceplot
-import plotting.error_bars_plot as ebp
+import dep.plotting.niceplot as niceplot
+import dep.plotting.error_bars_plot as ebp
 
 plt.rcParams["font.weight"] = "bold"
 plt.rcParams["axes.labelweight"] = "bold"
@@ -94,7 +94,7 @@ def gen_polar_plot(data, axis, row_norm=False):
     pr,theta=np.sqrt(px**2+py**2),np.degrees(np.arctan2(py,px))
     hist,xe,ye=np.histogram2d(theta, pr, bins=256, range=[[-180, 180], [0, 0.6]], density=True)
     hist=scipy.ndimage.gaussian_filter(hist, sigma=3)
-    axis.pcolormesh(xe,ye,hist.T, cmap=niceplot.trans_jet())
+    axis.pcolormesh(xe, ye, hist.T, cmap=niceplot.trans_jet())
     axis.set_aspect(360/0.6, 'box')
     plt.plot(np.degrees(inter_theta),inter_r, color='k', linewidth=3)
     plt.plot(np.degrees(ebp.unwrap(intra_theta, start_between=(-np.pi, 0), period=np.pi)),intra_r, color='k', linewidth=3)
@@ -104,7 +104,7 @@ def gen_polar_plot(data, axis, row_norm=False):
 
 def gen_cartesian_plot(data, axis, ellipticity):
     inter_r, inter_theta, intra_r, intra_theta, px, py = unpack(data)
-    niceplot.make_fig(axis, py, px, ellipse=True, bins=256, text=False, ell=ellipticity, width=0.6,blurring=1)
+    niceplot.make_fig(axis, py, px, ellipse=True, bins=256, text=False, ell=ellipticity, width=0.6, blurring=1)
 
     axis.plot(inter_r * np.sin(inter_theta), inter_r * np.cos(inter_theta),color='k', linewidth=3)
     inter_theta_unwrapped = ebp.unwrap(intra_theta, start_between=(np.pi, 2 * np.pi), period=np.pi)

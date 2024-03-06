@@ -6,7 +6,7 @@ import scipy.ndimage
 
 matplotlib.use("QT5Agg")
 
-file = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20230821\kr_p_l2.cv3"
+file = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\xe_01_p.cv4"
 # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\clust_v3\xe001_p.cv3"
 
 num = -1
@@ -20,7 +20,7 @@ def P_xy(x):
 with h5py.File(file, mode='r') as f:
     x = f['x'][0:num]
     y = f['y'][0:num]
-    t = f['t'][0:num] % 2e7 / 1e3
+    t = f['t'][0:num] % 1e6
 
 n = 256
 px = P_xy(x - cx)
@@ -31,9 +31,12 @@ plt.scatter(cx, cy)
 
 plt.figure()
 plt.hist(t, bins=1000, range=(0, 20000))
-idx = np.argwhere(np.logical_and(t < 19800, t > 18500)).flatten()
+idx = np.argwhere(np.logical_and(t < 749000, t > 749100)).flatten()
+idx2= np.argwhere((x-205)**2+(y-197)**2>1.5).flatten()
+idx3= np.argwhere((x-197)**2+(y-205)**2>1).flatten()
+idx=np.intersect1d(np.intersect1d(idx,idx2),idx3)
 # idx=np.argwhere(t<1e6).flatten()
-plt.hist(t[idx], bins=1000, range=(0, 20000))
+plt.hist(t[idx], bins=1000, range=(749000,749100))
 fig, ax = plt.subplots()
 plt.subplots_adjust(bottom=0.25)
 
@@ -41,8 +44,9 @@ plt.subplots_adjust(bottom=0.25)
 r = 256
 
 #
-hist, xedges, yedges, im = ax.hist2d(px[idx], py[idx], range=((-0.6, 0.6), (-0.6, 0.6)), bins=n, cmap='jet',
-                                     density=True)
+# hist, xedges, yedges, im = ax.hist2d(px[idx], py[idx], range=((-0.6, 0.6), (-0.6, 0.6)), bins=n, cmap='jet',
+#                                      density=True)
+hist, xedges, yedges, im = ax.hist2d(x, y, range=((0, 256), (0, 256)), bins=n, cmap='jet', density=True)
 xx, yy = np.mgrid[-r:r:2 * r / n, -r:r:2 * r / n]
 rr = np.sqrt(xx ** 2 + yy ** 2)
 # hist=hist/np.max(hist)

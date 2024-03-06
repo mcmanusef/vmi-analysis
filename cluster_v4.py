@@ -52,7 +52,7 @@ async def runserv(name):
         task1=multiprocessing.Process(target=lambda: asyncio.run(aserv.start()))
         task1.start()
         time.sleep(10)
-        task2=asyncio.create_task(main(name,num=1000,skip_first=0))
+        task2=asyncio.create_task(main(name,num=100000,skip_first=0))
         await task2
         time.sleep(900)
         task1.terminate()
