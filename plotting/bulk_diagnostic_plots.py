@@ -352,7 +352,7 @@ if __name__ == '__main__':
         dir= r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
         matplotlib.use('Qt5Agg')
     else:
-        dir= r"/mnt/NAS/ctgroup/UCONN/VMI/VMI/20240208"
+        dir= r"/mnt/NAS/ctgroup/DATA/UCONN/VMI/VMI/20240208"
         matplotlib.use('pdf')
 
     plt.close("all")
