@@ -178,9 +178,7 @@ def analyze_to_pdf(file, output, dead_pixels=None, center=(123.48, 131.01, 74905
         pdf.savefig()
         if calibration:
             print("Calibrating")
-            x_fixed, y_fixed, t_fixed = fix_hole(x, y, t, center, hole_coords, hole_radius)
-            px, py, pz = calibration(x_fixed, y_fixed, t_fixed, center, angle)
-
+            px, py, pz = fix_hole_calibrated(x, y, t, center, angle, calibration)
             py, pz = coincidence_v4.rotate_data(py, pz, polarization_angle)
             xyt_calibrated = plt.figure("Calibrated Momentum", figsize=(12, 10))
             calibrated_plot(px, py, pz, p_range, xyt_calibrated)
@@ -200,8 +198,7 @@ def analyze_to_pdf(file, output, dead_pixels=None, center=(123.48, 131.01, 74905
             plt.tight_layout()
             pdf.savefig()
             if calibration:
-                x_fixed, y_fixed, t_fixed = fix_hole(x, y, t, center, hole_coords, hole_radius)
-                px, py, pz = calibration(x_fixed, y_fixed, t_fixed, center, angle)
+                px, py, pz = fix_hole_calibrated(xf, yf, tf, center, angle, calibration)
                 py, pz = coincidence_v4.rotate_data(py, pz, polarization_angle)
                 xyt_calibrated = plt.figure(f"Calibrated Momentum {i}", figsize=(12, 10))
                 calibrated_plot(px, py, pz, p_range, xyt_calibrated)
@@ -215,6 +212,34 @@ def analyze_to_pdf(file, output, dead_pixels=None, center=(123.48, 131.01, 74905
                     save_data_mike(output.replace(".pdf", f'_mike.mat'), px, py, pz, file, center, angle,
                                    polarization_angle, left, right, etof_range,
                                    itof_range)
+
+                    data_len=len(x)
+
+                    reduction_factor=5
+                    beginning_uncalibrated=[x[:data_len//reduction_factor],y[:data_len//reduction_factor],t[:data_len//reduction_factor],itof[:data_len//reduction_factor]]
+                    end_uncalibrated=[x[-data_len//reduction_factor:],y[-data_len//reduction_factor:],t[-data_len//reduction_factor:],itof[-data_len//reduction_factor:]]
+
+                    beginning=fix_hole_calibrated(beginning_uncalibrated[0],beginning_uncalibrated[1],beginning_uncalibrated[2],center,angle,calibration)
+                    end=fix_hole_calibrated(end_uncalibrated[0],end_uncalibrated[1],end_uncalibrated[2],center,angle,calibration)
+
+                    fig, axes=plt.subplots(2,2, figsize=(12,10))
+                    plt.suptitle('Beginning vs End')
+                    axes[0,0].hist2d(beginning[1], beginning[2], bins=256, range=[p_range, p_range], cmap='jet')
+                    axes[0,0].title.set_text('Beginning (Projection)')
+                    axes[0,1].hist2d(end[1], end[2], bins=256, range=[p_range, p_range], cmap='jet')
+                    axes[0,1].title.set_text('End (Projection)')
+
+                    beg_slice=filter_coords(beginning, [(-0.03, 0.03), p_range, p_range])
+                    end_slice=filter_coords(end, [(-0.03, 0.03), p_range, p_range])
+                    axes[1,0].hist2d(beg_slice[1],beg_slice[2], bins=256, range=[p_range, p_range], cmap='jet')
+                    axes[1,0].title.set_text('Beginning (Slice)')
+                    axes[1,1].hist2d(end_slice[1],end_slice[2], bins=256, range=[p_range, p_range], cmap='jet')
+                    axes[1,1].title.set_text('End (Slice)')
+                    plt.tight_layout()
+                    pdf.savefig()
+
+
+
 
 
 def save_data_mike(output, px, py, pz, file, center, angle, polarization_angle, left, right, etof_range, itof_range):
@@ -344,39 +369,68 @@ def fix_hole(x, y, t, center, hole_center, hole_radius):
         [y[~hole_mask], y_opp]), np.concatenate([t[~hole_mask], t_opp])
     return x_fixed, y_fixed, t_fixed
 
+def fix_hole_calibrated(x,y,t,center,angle, calibration):
+    p_range=(-0.6,0.6)
+    r=0.03
+    px,py,pz=calibration(x,y,t,center,angle, symmetrize=False)
+    xy_hist,xe,ye=np.histogram2d(px, py, bins=1024, range=(p_range,p_range), density=True)
+    smoothed=scipy.ndimage.gaussian_filter(xy_hist, sigma=8)
+    laplace=scipy.ndimage.laplace(smoothed)
+    laplace=np.maximum(laplace,0)
+    xc,yc=np.argwhere(laplace==np.max(laplace)).flatten()
+    mask=np.argwhere(((px-xe[xc])**2+(py-ye[yc])**2)>r**2).flatten()
+    opp_mask=np.argwhere(((px+xe[xc])**2+(py+ye[yc])**2)<r**2).flatten()
+    x_fix,y_fix,z_fix=np.append(px[mask],-px[opp_mask]),np.append(py[mask],-py[opp_mask]),np.append(pz[mask],-pz[opp_mask])
+    x_fix,y_fix,z_fix=np.append(x_fix,-x_fix),np.append(y_fix,-y_fix),np.append(z_fix,-z_fix)
+    print(xe[xc],ye[yc])
+    return x_fix,y_fix,z_fix
 
-sort_key = lambda x: int(x.split('_')[1]) if x.endswith('.cv4') else 0
+
+
 if __name__ == '__main__':
-    matplotlib.rc('image', cmap='jet')
-    if os.name == 'nt':
-        dir= r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
-        matplotlib.use('Qt5Agg')
-    else:
-        dir= r"/mnt/NAS/ctgroup/DATA/UCONN/VMI/VMI/20240208"
-        matplotlib.use('pdf')
-
-    plt.close("all")
-
-    for file in sorted(os.listdir(dir), key=sort_key):
-        if file.endswith(".cv4"):
-            match file.split("_"):
-                case _, _, "a.cv4":
-                    polarization_angle = 0.038 + 4 * np.pi / 180
-                case _, _, "b.cv4":
-                    polarization_angle = 0.306 + 4 * np.pi / 180
-                case _, _, "s.cv4":
-                    polarization_angle = np.pi / 2
-                case _, _, "p.cv4":
-                    polarization_angle = 0
-
-            analyze_to_pdf(os.path.join(dir, file), os.path.join(dir, file.replace(".cv4", ".pdf")), dead_pixels=[
-                (206, 197),
-                (191, 197),
-                (196, 194),
-                (0, 0)
-            ], angle=1.197608, calibration=calibration_20240208, polarization_angle=polarization_angle,
-                           hole_coords=(109.25, 136.5), hole_radius=5)
-            # np.arctan2(91-168,183-66)
-        plt.close(fig="all")
-    plt.show()
+    dir= r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240312"
+    file= r"xe_40uj.cv4"
+    analyze_to_pdf(os.path.join(dir, file), os.path.join(dir, file.replace(".cv4", ".pdf")), dead_pixels=[
+        (206, 197),
+        (197,  206),
+        (191, 197),
+        (196, 194),
+        (0, 0)], angle=1.197608, calibration=calibration_20240208, polarization_angle=0.0,
+                     hole_coords=(109.25, 136.5), hole_radius=5)
+# sort_key = lambda x: int(x.split('_')[1]) if x.endswith('.cv4') else 0
+# if __name__ == '__main__':
+#     matplotlib.rc('image', cmap='jet')
+#     if os.name == 'nt':
+#         dir= r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
+#         matplotlib.use('pdf')
+#     else:
+#         dir= r"/mnt/NAS/ctgroup/DATA/UCONN/VMI/VMI/20240208"
+#         matplotlib.use('pdf')
+#
+#     plt.close("all")
+#
+#     for file in sorted(os.listdir(dir), key=sort_key):
+#         if file.endswith(".cv4") and sort_key(file) ==3:
+#             match file.split("_"):
+#                 case _, _, "a.cv4":
+#                     polarization_angle = 0.038 + 4 * np.pi / 180
+#                 case _, _, "b.cv4":
+#                     polarization_angle = 0.306 + 4 * np.pi / 180
+#                 case _, _, "s.cv4":
+#                     polarization_angle = np.pi / 2
+#                 case _, _, "p.cv4":
+#                     polarization_angle = 0
+#
+#             analyze_to_pdf(os.path.join(dir, file), os.path.join(dir, file.replace(".cv4", ".pdf")), dead_pixels=[
+#                 (206, 197),
+#                 (197,  206),
+#                 (191, 197),
+#                 (196, 194),
+#                 (0, 0)
+#             ], angle=1.197608, calibration=calibration_20240208, polarization_angle=polarization_angle,
+#                            hole_coords=(109.25, 136.5), hole_radius=5)
+#             # np.arctan2(91-168,183-66)
+#             # break
+#         plt.close(fig="all")
+#     plt.show()
 # %%

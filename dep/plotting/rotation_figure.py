@@ -110,7 +110,6 @@ for d, e in [('xe002_s.mat', -0.1),
             angles.append(mean_angle + np.pi * (angles[-1] - mean_angle) / abs(angles[-1] - mean_angle))
         else:
             angles.append(mean_angle)
-
     plt.sca(ax1)
     plt.plot(r[peaks], (np.asarray(angles)) * 180 / np.pi, label=f"${np.abs(e)}$", linestyle='--', marker='o',
              linewidth=2, markersize=6)

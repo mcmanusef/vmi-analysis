@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import time
 import argparse
-from indev.AnalysisServer import AnalysisServer
+from AnalysisServer import AnalysisServer
 
 
 async def tcp_echo_client(message):
@@ -39,24 +39,30 @@ async def main(folder,num=10000,skip_first=0):
         writer.close()
         await writer.wait_closed()
 
+def start_server(**kwargs):
+   with AnalysisServer(**kwargs) as aserv:
+        task1=asyncio.run(aserv.start())
+
 async def runserv(name):
-    with AnalysisServer(
+    kwargs=dict(
             filename=name+".cv4",
             max_size=10000,
             cluster_loops=6,
             processing_loops=6,
             max_clusters=2,
             pulse_time_adjust=-500,
-            diagnostic_mode=False,
-    ) as aserv:
-        task1=multiprocessing.Process(target=lambda: asyncio.run(aserv.start()))
-        task1.start()
-        time.sleep(10)
-        task2=asyncio.create_task(main(name,num=100000,skip_first=0))
-        await task2
-        time.sleep(900)
-        task1.terminate()
-        task1.join()
+            diagnostic_mode=False)
+
+    task1=multiprocessing.Process(target=start_server,kwargs=kwargs)
+
+
+    task1.start()
+    time.sleep(10)
+    task2=asyncio.create_task(main(name,num=100000,skip_first=0))
+    await task2
+    time.sleep(900)
+    task1.terminate()
+    task1.join()
     # asyncio.run(main(r"C:\Users\mcman\Code\VMI\Data\xe001_p",num=1,skip_first=0))q
     print("Done")
 
