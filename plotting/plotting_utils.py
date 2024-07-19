@@ -1,9 +1,18 @@
 import functools
 
 import numpy as np
-
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 import coincidence_v4
 
+def trans_jet(opaque_point=0.15):
+    # Create a colormap that looks like jet
+    cmap = plt.cm.jet
+
+    # Create a new colormap that is transparent at low values
+    cmap_colors = cmap(np.arange(cmap.N))
+    cmap_colors[:int(cmap.N * opaque_point), -1] = np.linspace(0, 1, int(cmap.N * opaque_point))
+    return ListedColormap(cmap_colors)
 
 def itof_filter(rtof, itof, *args):
     itof_index = [i for i, it in enumerate(itof) if rtof[0] < it < rtof[1]]

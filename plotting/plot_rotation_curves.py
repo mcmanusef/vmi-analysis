@@ -40,7 +40,7 @@ def main(file_path, p_max=1, unsymmetrize=False, slice_width=0.05):
     r_widths=np.round(r_widths).astype(int)
 
     r_peaks, r_widths, r_peak_heights=r_centers[r_peaks], r_centers[r_widths], radial_spectrum[r_peaks]
-    hist2d, _,_=np.histogram2d(angle,p_r,bins=256,range=((-np.pi,np.pi),(0,p_max)))
+    hist2d, _,_=np.histogram2d(angle,p_r,bins=256,range=((1,np.pi),(0,p_max)))
     hist2d=scipy.ndimage.gaussian_filter(hist2d, sigma=1)
 
     fig, ax=plt.subplots(1,1)
@@ -90,10 +90,12 @@ def plot_multicolored_line(x,y,c,ax=None, cmap='viridis', outline='k', **kwargs)
 if __name__ == "__main__":
     mpl.use('Qt5Agg')
     wdir=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
-    for file in sorted(os.listdir(wdir), key=lambda x: int(x.split('_')[1])if x.endswith('_mike.mat') else -1):
+    wdir=r"J:\ctgroup\Edward\DATA\VMI\20240424"
+    for file in sorted(os.listdir(wdir), key=lambda x: int(x.split('_')[2])if x.endswith('_mike.mat') else -1):
         if not file.endswith('_mike.mat'):
             continue
         print(file)
         file=os.path.join(wdir,file)
         main(file,p_max=0.6, unsymmetrize=True)
     plt.show()
+#%%

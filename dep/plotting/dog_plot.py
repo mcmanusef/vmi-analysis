@@ -3,10 +3,11 @@ import matplotlib.widgets
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
+import calibrations
 
 matplotlib.use("QT5Agg")
 
-file = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\xe_01_p.cv4"
+file = r"C:\Users\mcman\Code\VMI\plotting\o2_b_01.mat"
 # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20220613\clust_v3\xe001_p.cv3"
 
 num = -1
@@ -16,16 +17,20 @@ cx, cy = 126.5, 141.5
 def P_xy(x):
     return np.sqrt(0.000503545) * (x) * np.sqrt(2 * 0.03675)
 
+#
+# with h5py.File(file, mode='r') as f:
+#     x = f['x'][0:num]
+#     y = f['y'][0:num]
+#     t = f['t'][0:num] % 1e6
+# #
+# n = 256
+# px = P_xy(x - cx)
+# py = P_xy(y - cy)
+# plt.figure()
 
-with h5py.File(file, mode='r') as f:
-    x = f['x'][0:num]
-    y = f['y'][0:num]
-    t = f['t'][0:num] % 1e6
-
-n = 256
-px = P_xy(x - cx)
-py = P_xy(y - cy)
-plt.figure()
+data=scipy.io.loadmat(file,squeeze_me=True,struct_as_record=False)
+x,y,t,etof=data['x'],data['y'],data['t'],data['etof']
+px,py,pz=calibrations.calibration_20240208(x,y,etof,center=(cx,cy,749055.4),angle=1.197608,symmetrize=True)
 plt.hist2d(x, y, range=((0, 256), (0, 256)), bins=n, cmap='jet', density=True)
 plt.scatter(cx, cy)
 

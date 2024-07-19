@@ -94,3 +94,4 @@ if __name__ == '__main__':
     n = 256
 
     do_nc_with_dog(file, angle, center, dead_pixels, rx, ry, rt, rtoa, n)
+
