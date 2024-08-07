@@ -279,3 +279,5 @@ if __name__ == '__main__':
 
     save_iter(output_name, pixel_data, etof_data, itof_data, groupsize=args.groupsize, maxlen=args.maxlen)
     print('Finished:', datetime.now().strftime("%H:%M:%S"))
+
+#%%
