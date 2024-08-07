@@ -23,13 +23,13 @@ def process_tdc(tdc_data):
             tdc_type=4
         yield tdc_type, tdc_time
 
-fname=r"J:\ctgroup\Edward\DATA\VMI\20240701\1030_trigger_test_000000.tpx3"
-outname=r"J:\ctgroup\Edward\DATA\VMI\20240701\1030_trigger_test_000000.h5"
+fname=r"J:\ctgroup\Edward\DATA\VMI\20240730\firstNanoData_08_000000.tpx3"
+outname=fname[:-4]+"h5"
 
 with open(fname, mode='rb') as f:
     # Separate file into 8 byte chunks
     file_size=os.path.getsize(fname)//8
-    file_size=10000
+    # file_size=10000
 
     packets=[f.read(8) for _ in range(file_size)]
 
@@ -61,11 +61,11 @@ with open(fname, mode='rb') as f:
     print("All chunks processed")
 
     with h5py.File(outname, mode='w') as f:
-        f.create_dataset("x", data=x)
-        f.create_dataset("y", data=y)
-        f.create_dataset("toa", data=toa)
-        f.create_dataset("tot", data=tot)
-        f.create_dataset("tdc_time", data=tdc_time)
-        f.create_dataset("tdc_type", data=tdc_type)
+        f.create_dataset("x", data=x, chunks=1000)
+        f.create_dataset("y", data=y, chunks=1000)
+        f.create_dataset("toa", data=toa, chunks=1000)
+        f.create_dataset("tot", data=tot, chunks=1000)
+        f.create_dataset("tdc_time", data=tdc_time, chunks=1000)
+        f.create_dataset("tdc_type", data=tdc_type, chunks=1000)
         print(f"Data saved to {outname}")
 #%%
