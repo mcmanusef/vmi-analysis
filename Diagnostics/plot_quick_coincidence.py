@@ -18,8 +18,9 @@ def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=
     # file=r"C:\Users\mcman\Code\VMI\Data\air_s_70.cv3"
 
     # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240122\o2_02_p.cv4"
-    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\xe_03_a.cv4"
+    # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\xe_03_a.cv4"
     # file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20231031\after_torr.cv4"
+    file=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240805\s_3.cv4"
     n = 256
     t0 = 748000
     rt=(749040, 749070)
