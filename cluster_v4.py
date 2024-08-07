@@ -46,7 +46,7 @@ def start_server(**kwargs):
 async def runserv(name):
     kwargs=dict(
             filename=name+".cv4",
-            max_size=10000,
+            max_size=100000,
             cluster_loops=6,
             processing_loops=6,
             max_clusters=2,
@@ -58,7 +58,7 @@ async def runserv(name):
 
     task1.start()
     time.sleep(10)
-    task2=asyncio.create_task(main(name,num=100000,skip_first=0))
+    task2=asyncio.create_task(main(name,num=10000,skip_first=0))
     await task2
     time.sleep(900)
     task1.terminate()
