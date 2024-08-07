@@ -325,6 +325,8 @@ class AnalysisServer:
         self.cluster_plot=False
         self.desync=multiprocessing.Value('i',0)
 
+        self.threads=[]
+
         self.filename = filename
 
     def __enter__(self):
@@ -332,8 +334,8 @@ class AnalysisServer:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for process in multiprocessing.active_children():
-            process.terminate()
+        for t in self.threads:
+            t.terminate()
 
     def get_loops(self):
         processing_loops = [
@@ -747,9 +749,11 @@ class AnalysisServer:
         print("Starting")
         loop_processes = [multiprocessing.Process(target=loop, daemon=True) for loop in self.get_loops()]
         [loop_process.start() for loop_process in loop_processes]
+        self.threads=loop_processes
         print("Loops Started")
 
         server = await asyncio.start_server(self.make_connection_handler(), '127.0.0.1', port=port)
+        self.server=server
         addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
         print(f'Serving on {addrs}')
         async with server:
