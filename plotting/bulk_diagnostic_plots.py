@@ -181,6 +181,7 @@ def analyze_to_pdf(file, output, dead_pixels=None, center=(123.48, 131.01, 74905
 
         x, y, t, itof = filter_coords([x, y, t, itof], [(0, 256), (0, 256), etof_range, itof_range])
 
+        print(f"Filtered {file}: {len(x)}")
         # Derivative plots of t
         plt.figure("Peak Analysis", figsize=(12, 10))
         plt.subplot(211)
@@ -454,9 +455,9 @@ def fix_hole_calibrated(x, y, t, center, angle, calibration):
 
 
 if __name__ == '__main__':
-    dir = r"J:\ctgroup\Edward\DATA\VMI\20240424"
+    dir = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240805"
     for file in os.listdir(dir):
-        if file.endswith(".cv4"):
+        if file.endswith("3.cv4"):
             analyze_to_pdf(os.path.join(dir, file), os.path.join(dir, file.replace(".cv4", ".pdf")), dead_pixels=[
                 (206, 197),
                 (197, 206),
