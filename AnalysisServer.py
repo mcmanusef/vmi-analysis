@@ -3,6 +3,7 @@ import datetime
 import functools
 import itertools
 import multiprocessing
+import queue
 import random
 import time
 import warnings
@@ -24,6 +25,7 @@ warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 PERIOD = 25 * 2 ** 30
+TIMEOUT = 10
 
 
 class CircularBuffer(Sequence):
@@ -378,23 +380,29 @@ class AnalysisServer:
         return loops
 
     def processing_loop(self, index=0):
-        while True:
-            cnum, chunk = self.chunk_queue.get()
-            pixels, tdcs = process_chunk(chunk)
-            etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
-            if pixels:
-                self.split_pixel_queues[index].put((cnum, pixels))
-            for p in pulses:
-                self.split_pulse_queues[index].put((cnum, p+self.pulse_time_adjust))
-            for e in etof:
-                self.split_etof_queues[index].put((cnum, e))
-            for i in itof:
-                self.split_itof_queues[index].put((cnum, i))
+        while self.finished.value<5:
+            try:
+                cnum, chunk = self.chunk_queue.get(timeout=TIMEOUT)
+                pixels, tdcs = process_chunk(chunk)
+                etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
+                if pixels:
+                    self.split_pixel_queues[index].put((cnum, pixels))
+                for p in pulses:
+                    self.split_pulse_queues[index].put((cnum, p+self.pulse_time_adjust))
+                for e in etof:
+                    self.split_etof_queues[index].put((cnum, e))
+                for i in itof:
+                    self.split_itof_queues[index].put((cnum, i))
+            except (ValueError, queue.Empty):
+                if self.finished.value>0:
+                    break
+                continue
+        print(f"Processing Finished")
 
     def plot_monitoring_loop(self):
         fig,ax= plt.subplots(1,1)
         plot=ax.imshow(np.zeros((256,256)))
-        while True:
+        while self.finished.value<5:
             if len(self.cluster_queue.buffer)==0:
                 continue
             data=self.cluster_queue.buffer.get_all()
@@ -406,13 +414,19 @@ class AnalysisServer:
         first = [q.get() for q in in_queues]
         last_index = [f[0] for f in first]
         last_data = [f[1] for f in first]
-        while True:
-            # if self.desync.value == 0:
-            idx = last_index.index(min(last_index))
-            index, data = in_queues[idx].get()
-            out_queue.put(last_data[idx])
-            last_data[idx] = data
-            last_index[idx] = index
+        while self.finished.value<5:
+            try:
+                # if self.desync.value == 0:
+                idx = last_index.index(min(last_index))
+                index, data = in_queues[idx].get(timeout=TIMEOUT)
+                out_queue.put(last_data[idx])
+                last_data[idx] = data
+                last_index[idx] = index
+            except (ValueError, queue.Empty):
+                if self.finished.value>0:
+                    break
+                continue
+        print(f"Sorting Finished")
 
     def diagnostic_saving_loop(self):
         with h5py.File(self.filename, 'w', libver='latest') as f:
@@ -432,35 +446,39 @@ class AnalysisServer:
                 f.create_dataset(name, data=[0.], dtype=np.double, chunks=1000, maxshape=(None,))
             f.swmr_mode = True
 
-            while True:
-                lens = [q.qsize() for q in queues]
-                index = lens.index(max(lens))
-                if lens[index] > 1000:
-                    q, name = queues[index], names[index]
-                    data = (q.get() for _ in range(1000))
+            while self.finished.value<5:
+                try:
+                    lens = [q.qsize() for q in queues]
+                    index = lens.index(max(lens))
+                    if lens[index] > 1000:
+                        q, name = queues[index], names[index]
+                        data = (q.get(timeout=TIMEOUT) for _ in range(1000))
 
-                    def flatten(d):
-                        for di in d:
-                            yield di if not isinstance(di, tuple) else di[0]
+                        def flatten(d):
+                            for di in d:
+                                yield di if not isinstance(di, tuple) else di[0]
 
-                    data = list(flatten(data))
-                    h5append(f[name], data)
-                    self.finished.value = min(self.finished.value, 1)
-                elif self.finished.value > 0:
-                    print(f"______________________{self.finished.value}_______________________")
-                    time.sleep(1)
-                    self.finished.value += 1
-                    if self.finished.value >= 5:
-                        print("FINISHED")
+                        data = list(flatten(data))
+                        h5append(f[name], data)
+                        self.finished.value = min(self.finished.value, 1)
+                    elif self.finished.value > 0:
+                        print(f"______________________{self.finished.value}_______________________")
+                        time.sleep(1)
+                        self.finished.value += 1
+                        if self.finished.value >= 5:
+                            print("FINISHED")
+                            break
+                except (ValueError, queue.Empty):
+                    if self.finished.value>0:
                         break
+                    break
   
     def monitoring_loop(self, split_queue_monitoring=False, rate_monitoring=True):
         started = False
         total_pulse_time = 0
         start_time = datetime.datetime.now()
         elapsed_time = 0
-        while True:
-
+        while self.finished.value<5:
             queues = (self.chunk_queue,
                       self.pixel_queue,
                       self.raw_pulse_queue,
@@ -547,53 +565,73 @@ class AnalysisServer:
             print("")
             print("")
             print("")
+        print("Monitoring Finished")
 
     def dumping_loop(self):
-        while True:
-            queues = (self.cluster_queue, self.itof_queue, self.etof_queue)
-            for q in queues:
-                if not q.empty():
-                    q.get()
+        while self.finished.value<5:
+            try:
+                queues = (self.cluster_queue, self.itof_queue, self.etof_queue)
+                for q in queues:
+                    if not q.empty():
+                        q.get(timeout=TIMEOUT)
+            except (ValueError, queue.Empty):
+                if self.finished.value>0:
+                    break
+                break
+        print("Dumping Finished")
 
     def clustering_loop(self, index=0):
         dbscan = skcluster.DBSCAN(eps=1.5, min_samples=self.min_samples)
         i=-1
         last=(0,0,0),0
         last_max=0
-        while True:
-            i+=1
-            pixels = self.pixel_queue.get()
-            times=[pix[2] for pix in pixels]
-            last_max=max(times)
-            if not pixels:
+        while self.finished.value<5:
+            try:
+                i+=1
+                pixels = self.pixel_queue.get(timeout=TIMEOUT)
+                times=[pix[2] for pix in pixels]
+                last_max=max(times)
+                if not pixels:
+                    continue
+                clust_data = cluster_pixels(pixels, dbscan)
+                clusters = average_over_clusters(*clust_data)
+                if self.cluster_plot and i%100==0:
+                    xr,yr,*_=zip(*pixels)
+                    plt.figure()
+                    plt.hist2d(xr,yr, bins=256,range=[(0,256)]*2)
+                    if clusters:
+                        _,x,y= zip(*clusters)
+                        plt.scatter(x,y, s=1)
+                    plt.savefig(f"temp_{i}.png")
+                if not clusters or len(clusters)>self.max_clusters:
+                    continue
+                for c in sort_clusters(clusters):
+                    self.split_cluster_queues[index].put(c)
+            except (ValueError, queue.Empty):
+                if self.finished.value>0:
+                    break
                 continue
-            clust_data = cluster_pixels(pixels, dbscan)
-            clusters = average_over_clusters(*clust_data)
-            if self.cluster_plot and i%100==0:
-                xr,yr,*_=zip(*pixels)
-                plt.figure()
-                plt.hist2d(xr,yr, bins=256,range=[(0,256)]*2)
-                if clusters:
-                    _,x,y= zip(*clusters)
-                    plt.scatter(x,y, s=1)
-                plt.savefig(f"temp_{i}.png")
-            if not clusters or len(clusters)>self.max_clusters:
-                continue
-            for c in sort_clusters(clusters):
-                self.split_cluster_queues[index].put(c)
+
+        print(f"Clustering Finished")
 
     def cluster_sorting_loop(self):
         loop = 25 * 2 ** 30  # 26.8 second loop time
         last_sent_time = 0
         last_pulses = [q.get() for q in self.split_cluster_queues]
         last_times = [p[0] for p in last_pulses]
-        while True:
-            deltas = [(lt - last_sent_time+1e6) % loop for lt in last_times]
-            index = deltas.index(min(deltas))
-            last_sent_time = last_times[index]
-            self.raw_cluster_queue.put(last_pulses[index])
-            last_pulses[index] = self.split_cluster_queues[index].get()
-            last_times[index] = last_pulses[index][0]
+        while self.finished.value<5:
+            try:
+                deltas = [(lt - last_sent_time+1e6) % loop for lt in last_times]
+                index = deltas.index(min(deltas))
+                last_sent_time = last_times[index]
+                self.raw_cluster_queue.put(last_pulses[index])
+                last_pulses[index] = self.split_cluster_queues[index].get(timeout=TIMEOUT)
+                last_times[index] = last_pulses[index][0]
+            except (ValueError, queue.Empty):
+                if self.finished.value>0:
+                    break
+                continue
+        print("Cluster Sorting Finished")
 
     def correlating_loop(self, max_back=1e9, corr_cutoff=(1e6), corr_diff=12.666):
         last_pulse = 0
@@ -604,57 +642,65 @@ class AnalysisServer:
         pulse_number = 0
 
         for loop_number in itertools.cycle(range(100)):
-            while last_pulse == 0:
-                last_pulse, next_times[0] = next_times[0], self.raw_pulse_queue.get()
+            try:
+                if self.finished.value>=5:
+                    break
 
-            to_pick = np.argmin([(t - last_pulse + max_back) % PERIOD-max_back for t in next_times])
-            if loop_number == 0:
-                for i, t in enumerate(next_times):
-                    self.next[i] = (t - last_pulse + max_back) % PERIOD-max_back
-                    self.max_seen[i] = max(t, self.max_seen[i])
-                    self.current[i] = t
+                while last_pulse == 0:
+                    last_pulse, next_times[0] = next_times[0], self.raw_pulse_queue.get(timeout=TIMEOUT)
 
-            if to_pick == 0:
-                out_queues[0].put((pulse_number, next_times[0]))
-                last_diff=(next_times[0]-last_pulse) % PERIOD
+                to_pick = np.argmin([(t - last_pulse + max_back) % PERIOD-max_back for t in next_times])
+                if loop_number == 0:
+                    for i, t in enumerate(next_times):
+                        self.next[i] = (t - last_pulse + max_back) % PERIOD-max_back
+                        self.max_seen[i] = max(t, self.max_seen[i])
+                        self.current[i] = t
 
-                pulse_number += 1
-                last_pulse, next_times[0] = next_times[0], in_queues[0].get()
-                # print(next_times[0]-last_pulse-corr_cutoff)
-                if (next_times[0]-last_pulse) % PERIOD < corr_cutoff:
-                    # print("PULSE TIME")
-                    next_times[0]+=corr_diff
-                if next_times[0]<=0:
-                    next_times[0]=(last_pulse+last_diff) % PERIOD
+                if to_pick == 0:
+                    out_queues[0].put((pulse_number, next_times[0]))
+                    last_diff=(next_times[0]-last_pulse) % PERIOD
 
-                if 0 < next_times[0] < last_pulse - 1e9:
-                    print(f"Looping from {last_pulse / 1e9:.4f} to {next_times[0] / 1e9:.4f}")
-                    self.overflow_loops.value += 1
-                    last_pulse, next_times[0] = next_times[0], in_queues[0].get()
-                    for i in range(4):
-                        while next_times[i] > 1e9 or next_times[i] == 0:
-                            next_times[i] = in_queues[i].get()
-                            if i == 3:
-                                next_clust = next_times[3]
-                                next_times[3] = next_clust[0]
-            else:
-                if next_times[to_pick] > last_pulse:
-                    if to_pick < 3:
-                        out_queues[to_pick].put((pulse_number, next_times[to_pick] - last_pulse))
-                    else:
-                        out_queues[3].put(
-                            (pulse_number, (next_times[to_pick] - last_pulse, next_clust[1], next_clust[2]))
-                        )
+                    pulse_number += 1
+                    last_pulse, next_times[0] = next_times[0], in_queues[0].get(timeout=TIMEOUT)
+                    # print(next_times[0]-last_pulse-corr_cutoff)
+                    if (next_times[0]-last_pulse) % PERIOD < corr_cutoff:
+                        # print("PULSE TIME")
+                        next_times[0]+=corr_diff
+                    if next_times[0]<=0:
+                        next_times[0]=(last_pulse+last_diff) % PERIOD
 
-                next_times[to_pick] = in_queues[to_pick].get()
+                    if 0 < next_times[0] < last_pulse - 1e9:
+                        print(f"Looping from {last_pulse / 1e9:.4f} to {next_times[0] / 1e9:.4f}")
+                        self.overflow_loops.value += 1
+                        last_pulse, next_times[0] = next_times[0], in_queues[0].get(timeout=TIMEOUT)
+                        for i in range(4):
+                            while next_times[i] > 1e9 or next_times[i] == 0:
+                                next_times[i] = in_queues[i].get(timeout=TIMEOUT)
+                                if i == 3:
+                                    next_clust = next_times[3]
+                                    next_times[3] = next_clust[0]
+                else:
+                    if next_times[to_pick] > last_pulse:
+                        if to_pick < 3:
+                            out_queues[to_pick].put((pulse_number, next_times[to_pick] - last_pulse))
+                        else:
+                            out_queues[3].put(
+                                (pulse_number, (next_times[to_pick] - last_pulse, next_clust[1], next_clust[2]))
+                            )
 
-                if to_pick == 3:
-                    next_clust = next_times[3]
-                    next_times[3] = next_clust[0]
+                    next_times[to_pick] = in_queues[to_pick].get(timeout=TIMEOUT)
+
+                    if to_pick == 3:
+                        next_clust = next_times[3]
+                        next_times[3] = next_clust[0]
+            except (ValueError, queue.Empty):
+                if self.finished.value>0:
+                    break
+                continue
+        print("Correlating Finished")
 
     def saving_loop(self):
         with h5py.File(self.filename, 'w', libver='latest') as f:
-
             groupsize = 1000
             queues = [
                 self.cluster_queue,
@@ -678,43 +724,50 @@ class AnalysisServer:
             pulse_corr_d = f.create_dataset('pulse_corr', [0], dtype=int, chunks=groupsize, maxshape=(None,))
             f.swmr_mode = True
 
-            while True:
-                lens = [q.qsize() for q in queues]
-                index = lens.index(max(lens))
-                if lens[index] > groupsize:
-                    data = (queues[index].get() for _ in range(groupsize))
-                    match index:
-                        case 0:
-                            corr, clust = zip(*data)
-                            t, x, y = zip(*clust)
-                            h5append(xd, x)
-                            h5append(yd, y)
-                            h5append(td, t)
-                            h5append(corrd, corr)
+            while self.finished.value<5:
+                try:
+                    lens = [q.qsize() for q in queues]
+                    index = lens.index(max(lens))
+                    if lens[index] > groupsize:
+                        data = (queues[index].get(timeout=TIMEOUT) for _ in range(groupsize))
+                        match index:
+                            case 0:
+                                corr, clust = zip(*data)
+                                t, x, y = zip(*clust)
+                                h5append(xd, x)
+                                h5append(yd, y)
+                                h5append(td, t)
+                                h5append(corrd, corr)
 
-                        case 1:
-                            corr, t = zip(*data)
-                            h5append(t_etof_d, t)
-                            h5append(etof_corr_d, corr)
+                            case 1:
+                                corr, t = zip(*data)
+                                h5append(t_etof_d, t)
+                                h5append(etof_corr_d, corr)
 
-                        case 2:
-                            corr, t = zip(*data)
-                            h5append(t_tof_d, t)
-                            h5append(tof_corr_d, corr)
+                            case 2:
+                                corr, t = zip(*data)
+                                h5append(t_tof_d, t)
+                                h5append(tof_corr_d, corr)
 
-                        case 3:
-                            corr, t = zip(*data)
-                            h5append(t_pulse_d, t)
-                            h5append(pulse_corr_d, corr)
+                            case 3:
+                                corr, t = zip(*data)
+                                h5append(t_pulse_d, t)
+                                h5append(pulse_corr_d, corr)
 
-                    self.finished.value = min(self.finished.value, 1)
-                elif self.finished.value > 0:
-                    print(f"______________________{self.finished.value}_______________________")
-                    time.sleep(1)
-                    self.finished.value += 1
-                    if self.finished.value >= 5:
-                        print("FINISHED")
+                        self.finished.value = min(self.finished.value, 1)
+                    elif self.finished.value > 0:
+                        print(f"______________________{self.finished.value}_______________________")
+                        time.sleep(1)
+                        self.finished.value += 1
+                        if self.finished.value >= 5:
+                            print("FINISHED")
+
+                            break
+                except (ValueError, queue.Empty):
+                    if self.finished.value>0:
                         break
+                    continue
+        print("Saving Finished")
 
     def make_connection_handler(self):
         async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -747,17 +800,64 @@ class AnalysisServer:
 
     async def start(self, port=1234):
         print("Starting")
-        loop_processes = [multiprocessing.Process(target=loop, daemon=True) for loop in self.get_loops()]
+        loop_processes = [multiprocessing.Process(target=loop, daemon=True, name=loop.__name__)
+                          if not isinstance(loop, functools.partial) else
+                          multiprocessing.Process(target=loop, daemon=True, name=loop.func.__name__)
+                          for loop in self.get_loops()]
+
         [loop_process.start() for loop_process in loop_processes]
         self.threads=loop_processes
-        print("Loops Started")
 
+        numbered_processes = [(i, p) for i, p in enumerate(loop_processes)]
+
+        print("Loops Started")
         server = await asyncio.start_server(self.make_connection_handler(), '127.0.0.1', port=port)
         self.server=server
         addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
         print(f'Serving on {addrs}')
-        async with server:
-            await server.serve_forever()
+        serving_task=asyncio.create_task(server.serve_forever())
+        while self.finished.value<5:
+            await asyncio.sleep(1)
+
+        print("Closing")
+        all_queues=[
+            self.chunk_queue,
+            *self.split_pulse_queues,
+            *self.split_etof_queues,
+            *self.split_itof_queues,
+            *self.split_pixel_queues,
+
+            self.raw_pulse_queue,
+            self.raw_itof_queue,
+            self.raw_etof_queue,
+
+            self.pixel_queue,
+            *self.split_cluster_queues,
+            self.raw_cluster_queue,
+
+            self.itof_queue.queue,
+            self.etof_queue.queue,
+            self.cluster_queue.queue,
+            self.pulse_queue.queue,
+        ]
+        for q in all_queues:
+            while not q.empty():
+                q.get_nowait()
+            q.close()
+
+        serving_task.cancel()
+        server.close()
+        await server.wait_closed()
+        print("Server Closed")
+
+        for p in loop_processes:
+            p.kill()
+        print("Loops Closed")
+
+        await asyncio.sleep(10)
+
+        for i,p in numbered_processes:
+            print(f"Process {i} is alive: {p.is_alive()} ({p.name})")
 
 
 if __name__ == "__main__":
