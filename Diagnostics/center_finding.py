@@ -10,7 +10,7 @@ def calibrate_data(x,y,etof,center):
     return px,py,pz
 
 if __name__ == '__main__':
-    filename=r"J:\ctgroup\Edward\DATA\VMI\20240424\xe_b_01.mat"
+    filename=r"D:\Data\xe_s_8W.mat"
     # filename=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208\kr_06_b.mat"
     data=scipy.io.loadmat(filename,squeeze_me=True,struct_as_record=False)
     x,y,t,etof=data['x'],data['y'],data['t'],data['etof']
@@ -62,3 +62,5 @@ if __name__ == '__main__':
 
 
 
+
+#%%

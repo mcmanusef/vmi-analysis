@@ -27,10 +27,13 @@ def main(file_path, p_max=1, unsymmetrize=False, slice_width=0.05):
 
     p_r=np.sqrt(major**2+minor**2+propagation**2)
     angle=np.arctan2(minor,major)
+
     radial_spectrum, r_edges=np.histogram(p_r,bins=256,range=(0,p_max))
     r_centers=(r_edges[1:]+r_edges[:-1])/2
+
     angular_spectrum, a_edges=np.histogram(angle,bins=256,range=(-np.pi,np.pi))
     a_centers=(a_edges[1:]+a_edges[:-1])/2
+
     radial_spectrum=scipy.signal.savgol_filter(radial_spectrum, 21, 3)
     angular_spectrum=scipy.signal.savgol_filter(angular_spectrum, 21, 3)
 
@@ -40,14 +43,20 @@ def main(file_path, p_max=1, unsymmetrize=False, slice_width=0.05):
     r_widths=np.round(r_widths).astype(int)
 
     r_peaks, r_widths, r_peak_heights=r_centers[r_peaks], r_centers[r_widths], radial_spectrum[r_peaks]
-    hist2d, _,_=np.histogram2d(angle,p_r,bins=256,range=((1,np.pi),(0,p_max)))
+    hist2d, _,_=np.histogram2d(angle,p_r,bins=256,range=((-np.pi,np.pi),(0,p_max)))
     hist2d=scipy.ndimage.gaussian_filter(hist2d, sigma=1)
 
     fig, ax=plt.subplots(1,1)
     plt.title(file_path)
     plt.grid(linestyle='--',zorder=-1)
     plt.imshow(hist2d.T, extent=(-np.pi,np.pi,0,p_max), cmap=trans_jet(), aspect='auto', origin='lower', zorder=0)
-    plot_multicolored_line([weighted_circular_mean(a_centers,hist2d[:,i],period=np.pi) for i in range(len(hist2d))],r_centers,np.sum(hist2d,axis=0)/np.max(np.sum(hist2d,axis=0)),cmap='inferno')
+
+    line=[weighted_circular_mean(a_centers,hist2d[:,i],period=np.pi) for i in range(len(hist2d))]
+    line=np.unwrap(line,period=np.pi)
+    for i in [-2,-1,0,1,2]:
+        plot_multicolored_line(line+i*np.pi, r_centers,np.sum(hist2d,axis=0)/np.max(np.sum(hist2d,axis=0)),cmap='inferno')
+    plt.xlim(-np.pi,np.pi)
+
     plt.xlabel('Angle (rad)')
     plt.ylabel('Momentum (a.u.)')
     plt.twiny(ax)
@@ -91,11 +100,13 @@ if __name__ == "__main__":
     mpl.use('Qt5Agg')
     wdir=r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240208"
     wdir=r"J:\ctgroup\Edward\DATA\VMI\20240424"
-    for file in sorted(os.listdir(wdir), key=lambda x: int(x.split('_')[2])if x.endswith('_mike.mat') else -1):
+    wdir=r"D:\Data"
+    for file in os.listdir(wdir):
+    # for file in sorted(os.listdir(wdir), key=lambda x: int(x.split('_')[2])if x.endswith('_mike.mat') else -1):
         if not file.endswith('_mike.mat'):
             continue
         print(file)
         file=os.path.join(wdir,file)
-        main(file,p_max=0.6, unsymmetrize=True)
+        main(file,p_max=0.6, unsymmetrize=True, slice_width=0.6)
     plt.show()
 #%%

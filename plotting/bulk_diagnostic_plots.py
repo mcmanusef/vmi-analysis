@@ -455,17 +455,21 @@ def fix_hole_calibrated(x, y, t, center, angle, calibration):
 
 
 if __name__ == '__main__':
-    dir = r"J:\ctgroup\DATA\UCONN\VMI\VMI\20240805"
+    dir = r"D:\Data"
     for file in os.listdir(dir):
-        if file.endswith("3.cv4"):
-            analyze_to_pdf(os.path.join(dir, file), os.path.join(dir, file.replace(".cv4", ".pdf")), dead_pixels=[
-                (206, 197),
-                (197, 206),
-                (191, 197),
-                (196, 194),
-                (98.2, 163.3),
-                (0, 0)], angle=1.197608, calibration=calibration_20240208, polarization_angle=0.0,
-                           hole_coords=(109.25, 136.5), hole_radius=5)
+        if file.endswith("20deg.cv4"):
+            try:
+                analyze_to_pdf(os.path.join(dir, file), os.path.join(dir, file.replace(".cv4", ".pdf")), dead_pixels=[
+                    (206, 197),
+                    (197, 206),
+                    (191, 197),
+                    (196, 194),
+                    (98.2, 163.3),
+                    (0, 0)], angle=1.197608, calibration=calibration_20240208, polarization_angle=0.0,
+                               hole_coords=(109.25, 136.5), hole_radius=5)
+            except np.linalg.LinAlgError:
+                print(f"Error in {file}")
+                continue
 # sort_key = lambda x: int(x.split('_')[1]) if x.endswith('.cv4') else 0
 # if __name__ == '__main__':
 #     matplotlib.rc('image', cmap='jet')

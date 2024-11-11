@@ -267,9 +267,11 @@ if __name__ == '__main__':
 
     (tdc_time, tdc_type, x, y, tot, toa) = iter_file(f_in)
 
-    pulse_times = correct_pulse_times_iter(get_times_iter(tdc_time, tdc_type, 'pulse', args.cutoff))
+    # pulse_times = correct_pulse_times_iter(get_times_iter(tdc_time, tdc_type, 'pulse', args.cutoff))
+    pulse_times= get_times_iter(tdc_time, tdc_type, 'pulse', args.cutoff)
     etof_times = get_times_iter(iter_dataset(f_in, 'tdc_time'), iter_dataset(f_in, 'tdc_type'), 'etof', args.cutoff)
     itof_times = get_times_iter(iter_dataset(f_in, 'tdc_time'), iter_dataset(f_in, 'tdc_type'), 'itof', args.cutoff)
+    # print(list(itof_times))
 
     pt1, pt2, pt3 = it.tee(pulse_times, 3)
     pixel_corr, t_pixel = split_iter(get_t_iter(pt1, toa), 2)
