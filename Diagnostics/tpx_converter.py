@@ -23,7 +23,7 @@ def process_tdc(tdc_data):
             tdc_type=4
         yield tdc_type, tdc_time
 
-fname=r"J:\ctgroup\Edward\DATA\VMI\20240730\firstNanoData_08_000000.tpx3"
+fname=r"J:\ctgroup\Edward\DATA\VMI\20240730\firstNanoData_06_000000.tpx3"
 outname=fname[:-4]+"h5"
 
 with open(fname, mode='rb') as f:
@@ -42,7 +42,7 @@ with open(fname, mode='rb') as f:
     processed_chunks=[AnalysisServer.process_chunk(chunk) for chunk in chunk_ints]
     try:
         pixel_data=np.concatenate([chunk[0] for chunk in processed_chunks if chunk[0]])
-        x,y,toa,tot=pixel_data[:,0],pixel_data[:,1],pixel_data[:,2],pixel_data[:,3]
+        x,y,toa,tot=pixel_data[:,0],pixel_data[:,1],pixel_data[:,2]*25/16,pixel_data[:,3]
     except ValueError:
         print("No pixel data found")
         x,y,toa,tot=np.zeros(0), np.zeros(0), np.zeros(0), np.zeros(0)
