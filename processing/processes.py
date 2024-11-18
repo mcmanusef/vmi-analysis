@@ -178,13 +178,19 @@ class Weaver(AnalysisStep):
         if any(cur is None for cur in self.current):
             for i, q in enumerate(self.input_queues):
                 if self.current[i] is None:
+                    if q.closed.value and q.empty():
+                        self.current[i] = np.inf
                     try:
-                        self.current[i] = q.get_monotonic(timeout=0.1)
+                        self.current[i] = q.get(timeout=0.1)
                     except queue.Empty:
                         time.sleep(0.1)
                         return
+        if all(cur == np.inf for cur in self.current):
+            self.shutdown()
+            return
 
-        min_idx = self.current.index(min(self.current))
+        min_idx = self.current.index(min(c for c in self.current if c != np.inf))
+
         self.output_queue.put(self.current[min_idx])
         self.current[min_idx] = None
 
@@ -407,6 +413,24 @@ class SaveToH5(AnalysisStep):
         self.h5_file.close() if self.h5_file else None
         super().shutdown(**kwargs)
 
-# TODO: Implement function to create multiple instances of a process with a weaver, along with internal Queues
+
+def create_process_instances(process_class, n_instances, output_queue, process_args, queue_args=None, process_name="", queue_name=""):
+    if queue_args is None:
+        queue_args = {}
+    queues=tuple([ExtendedQueue(**queue_args) for _ in range(n_instances)])
+    args=[]
+    for q in queues:
+        new_args=process_args.copy()
+        out_key=[k for k,v in new_args.items() if v is None][0]
+        new_args[out_key]=q
+        args.append(new_args)
+    processes={f"{process_name}_{i}": process_class(**a) for i,a in enumerate(args)}
+    weaver=Weaver(queues, output_queue)
+    return (
+        {f"{queue_name}_{i}": q for i,q in enumerate(queues)},
+        processes,
+        weaver
+    )
+
 
 # %%
