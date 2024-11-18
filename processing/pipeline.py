@@ -27,6 +27,7 @@ class AnalysisPipeline:
         for name, process in self.processes.items():
             logger.debug(f"Initializing process {name}")
             process.start()
+        for name, process in self.processes.items():
             while not process.initialized.value:
                 time.sleep(0.1)
             logger.debug(f"Process {name} initialized")
@@ -44,6 +45,8 @@ class AnalysisPipeline:
     def stop(self):
         self.active.value = False
         logger.info("Stopping pipeline")
+        logger.debug("Process Status:")
+        [logger.debug(f"{n} - {p.status()}") for n, p in self.processes.items()]
         for name, process in self.processes.items():
             if not process.stopped.value:
                 logger.debug(f"Stopping process {name}")
@@ -209,79 +212,138 @@ class ClusterSavePipeline(AnalysisPipeline):
 
 
 class CV4ConverterPipeline(AnalysisPipeline):
-    def __init__(self, input_path, output_path, save_pixels=False, **kwargs):
+    def __init__(self, input_path, output_path, save_pixels=False, cluster_processes=1, **kwargs):
         super().__init__(**kwargs)
 
-        self.queues = {
-            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
-            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
-            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
-            "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
-                                                 chunk_size=2000),
+        if cluster_processes > 1:
+            self.queues = {
+                "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+                "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+                "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
+                "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
+                "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+                "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
+                                                     chunk_size=2000),
 
-            "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ("t_etof",)), chunk_size=2000),
-            "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('tof_corr', ("t_tof",)), chunk_size=2000),
-            "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('t_pulse',), chunk_size=10000),
-            "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")),
-                                                  chunk_size=2000),
-        }
-
-        self.processes = {
-            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
-
-            "Converter": processes.VMIConverter(
-                    chunk_queue=self.queues['Chunk'],
-                    pixel_queue=self.queues['Pixel'],
-                    laser_queue=self.queues['Pulses'],
-                    etof_queue=self.queues['Etof'],
-                    itof_queue=self.queues['Itof']
-            ).make_process(),
-
-            "Clusterer": processes.DBSCANClusterer(
-                    pixel_queue=self.queues['Pixel'],
-                    cluster_queue=self.queues['Clusters']
-            ).make_process(),
-
-            "Correlator": processes.TriggerAnalyzer(
-                    input_trigger_queue=self.queues['Pulses'],
-                    queues_to_index=(self.queues['Etof'], self.queues['Itof'], self.queues['Clusters']),
-                    output_trigger_queue=self.queues['t_pulse'],
-                    indexed_queues=(self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])
-            ).make_process(),
-
-            "Saver": processes.SaveToH5(output_path, {
-                "t_etof": self.queues['t_etof'],
-                "t_itof": self.queues['t_itof'],
-                "t_pulse": self.queues['t_pulse'],
-                "t_cluster": self.queues['t_cluster']
-            }).make_process(),
-
-        }
-        if save_pixels:
-            self.queues["pixels"] = data_types.ExtendedQueue(buffer_size=0, dtypes=(('f', 'i', 'i', 'i'), 'i'),
-                                                             names=(('toa', 'x', 'y', 'tot'), 'cluster_index'), force_monotone=True, max_back=1e9,
-                                                             chunk_size=10000)
-            self.queues["t_pixel"] = data_types.ExtendedQueue(buffer_size=0, dtypes=('i', (('f', 'i', 'i', 'i'), 'i')),
-                                                              names=('pixel_corr', (('t', 'x', 'y', 'tot'), 'cluster_index')), chunk_size=10000)
-
-            self.processes["Saver"].astep.in_queues['pixels'] = self.queues["t_pixel"]
-            self.processes["Saver"].astep.input_queues += (self.queues["t_pixel"],)
-            self.processes["Saver"].astep.flat = {
-                "t_etof": True,
-                "t_itof": True,
-                "t_pulse": True,
-                "t_cluster": True,
-                "pixels": False,
+                "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ("t_etof",)), chunk_size=2000),
+                "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('tof_corr', ("t_tof",)), chunk_size=2000),
+                "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('t_pulse',), chunk_size=10000),
+                "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")),
+                                                      chunk_size=2000),
             }
-            self.processes["Correlator"].astep.output_queues += (self.queues["t_pixel"],)
-            self.processes["Correlator"].astep.indexed_queues += (self.queues["t_pixel"],)
-            self.processes["Correlator"].astep.input_queues += (self.queues["pixels"],)
-            self.processes["Correlator"].astep.queues_to_index += (self.queues["pixels"],)
-            self.processes["Correlator"].astep.current.append(None)
-            self.processes["Correlator"].astep.current_samples.append(None)
-            self.processes["Clusterer"].astep.output_pixel_queue = self.queues["pixels"]
+
+            queues, proc, weaver = processes.create_process_instances(processes.DBSCANClusterer, cluster_processes, self.queues["Clusters"],
+                                                                      process_args={"pixel_queue": self.queues['Pixel'],"cluster_queue": None},
+                                                                      queue_args={
+                                                                          "buffer_size": 0,
+                                                                          "dtypes": ('f', 'f', 'f'),
+                                                                          "names": ("toa", "x", "y"),
+                                                                          "force_monotone": True,
+                                                                          "chunk_size": 2000},
+                                                                      queue_name="clust",process_name="clusterer")
+            self.queues.update(queues)
+            self.processes = {"Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
+
+                              "Converter": processes.VMIConverter(
+                                      chunk_queue=self.queues['Chunk'],
+                                      pixel_queue=self.queues['Pixel'],
+                                      laser_queue=self.queues['Pulses'],
+                                      etof_queue=self.queues['Etof'],
+                                      itof_queue=self.queues['Itof']
+                              ).make_process(),
+
+                              **{n: k.make_process() for n, k in proc.items()},
+
+                              "Weaver": weaver.make_process(),
+
+                              "Correlator": processes.TriggerAnalyzer(
+                                      input_trigger_queue=self.queues['Pulses'],
+                                      queues_to_index=(self.queues['Etof'], self.queues['Itof'], self.queues['Clusters']),
+                                      output_trigger_queue=self.queues['t_pulse'],
+                                      indexed_queues=(self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])
+                              ).make_process(),
+
+                              "Saver": processes.SaveToH5(output_path, {
+                                  "t_etof": self.queues['t_etof'],
+                                  "t_itof": self.queues['t_itof'],
+                                  "t_pulse": self.queues['t_pulse'],
+                                  "t_cluster": self.queues['t_cluster']
+                              }).make_process(),
+                              }
+
+
+        else:
+            self.queues = {
+                "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+                "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+                "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
+                "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
+                "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+                "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
+                                                     chunk_size=2000),
+
+                "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ("t_etof",)), chunk_size=2000),
+                "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('tof_corr', ("t_tof",)), chunk_size=2000),
+                "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('t_pulse',), chunk_size=10000),
+                "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")),
+                                                      chunk_size=2000),
+            }
+
+            self.processes = {
+                "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
+
+                "Converter": processes.VMIConverter(
+                        chunk_queue=self.queues['Chunk'],
+                        pixel_queue=self.queues['Pixel'],
+                        laser_queue=self.queues['Pulses'],
+                        etof_queue=self.queues['Etof'],
+                        itof_queue=self.queues['Itof']
+                ).make_process(),
+
+                "Clusterer": processes.DBSCANClusterer(
+                        pixel_queue=self.queues['Pixel'],
+                        cluster_queue=self.queues['Clusters']
+                ).make_process(),
+
+                "Correlator": processes.TriggerAnalyzer(
+                        input_trigger_queue=self.queues['Pulses'],
+                        queues_to_index=(self.queues['Etof'], self.queues['Itof'], self.queues['Clusters']),
+                        output_trigger_queue=self.queues['t_pulse'],
+                        indexed_queues=(self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])
+                ).make_process(),
+
+                "Saver": processes.SaveToH5(output_path, {
+                    "t_etof": self.queues['t_etof'],
+                    "t_itof": self.queues['t_itof'],
+                    "t_pulse": self.queues['t_pulse'],
+                    "t_cluster": self.queues['t_cluster']
+                }).make_process(),
+
+            }
+
+            if save_pixels:
+                self.queues["pixels"] = data_types.ExtendedQueue(buffer_size=0, dtypes=(('f', 'i', 'i', 'i'), 'i'),
+                                                                 names=(('toa', 'x', 'y', 'tot'), 'cluster_index'), force_monotone=True, max_back=1e9,
+                                                                 chunk_size=10000)
+                self.queues["t_pixel"] = data_types.ExtendedQueue(buffer_size=0, dtypes=('i', (('f', 'i', 'i', 'i'), 'i')),
+                                                                  names=('pixel_corr', (('t', 'x', 'y', 'tot'), 'cluster_index')), chunk_size=10000)
+
+                self.processes["Saver"].astep.in_queues['pixels'] = self.queues["t_pixel"]
+                self.processes["Saver"].astep.input_queues += (self.queues["t_pixel"],)
+                self.processes["Saver"].astep.flat = {
+                    "t_etof": True,
+                    "t_itof": True,
+                    "t_pulse": True,
+                    "t_cluster": True,
+                    "pixels": False,
+                }
+                self.processes["Correlator"].astep.output_queues += (self.queues["t_pixel"],)
+                self.processes["Correlator"].astep.indexed_queues += (self.queues["t_pixel"],)
+                self.processes["Correlator"].astep.input_queues += (self.queues["pixels"],)
+                self.processes["Correlator"].astep.queues_to_index += (self.queues["pixels"],)
+                self.processes["Correlator"].astep.current.append(None)
+                self.processes["Correlator"].astep.current_samples.append(None)
+                self.processes["Clusterer"].astep.output_pixel_queue = self.queues["pixels"]
 
 
 def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
@@ -307,16 +369,17 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.DEBUG)
     # fname = r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
-    # fname = r"D:\Data\xe002_s\xe000000.tpx3"
+    fname = r"D:\Data\xe002_s\xe000000.tpx3"
     # pipeline = ClusterSavePipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5", monotone=True)
     # pipeline = TPXFileConverter(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
     #                             single_process=False).set_profile(True)
-    # pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", save_pixels=False)
+    pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", cluster_processes=8)
     # pipeline=VMIConverterPipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
 
-    fname = r"C:\serval_test"
-    outname=fname+'\out.h5'
-    pipeline=TPXFileConverter(input_path=fname, output_path=outname)
+    # fname = r"C:\serval_test"
+    # outname=fname+'\out.h5'
+    # pipeline=TPXFileConverter(input_path=fname, output_path=outname)
+
     start = time.time()
     run_pipeline(pipeline)
     print(f"Time taken: {time.time() - start}")
