@@ -10,7 +10,7 @@ def calibration_20240208(x, y, t, center, angle=0, symmetrize=True, cutup=False)
     px=np.sqrt(2*0.0367493* E_xy(x-center[0]))*np.sign(x-center[0])
     py=np.sqrt(2*0.0367493* E_xy(y-center[1]))*np.sign(y-center[1])
     pz=np.sqrt(2*0.0367493* E_t(t-center[2]))*np.sign(t-center[2])
-    px,py=coincidence_v4.rotate_data(px, py, angle)
+    px,py= coincidence_v4.rotate_data(px, py, angle)
     if cutup:
         idx=np.argwhere(pz>0).flatten()
         px,py,pz=px[idx],py[idx],pz[idx]
@@ -26,7 +26,7 @@ def calibration_20240806(x,y,t,center,angle=0,symmetrize=True, cutup=False):
     px=np.sqrt(2*0.0367493* E_xy(x-center[0]))*np.sign(x-center[0])
     py=np.sqrt(2*0.0367493* E_xy(y-center[1]))*np.sign(y-center[1])
     pz=np.sqrt(2*0.0367493* E_t(t-center[2]))*np.sign(t-center[2])
-    px,py=coincidence_v4.rotate_data(px, py, angle)
+    px,py= coincidence_v4.rotate_data(px, py, angle)
     if cutup:
         idx=np.argwhere(pz>0).flatten()
         px,py,pz=px[idx],py[idx],pz[idx]

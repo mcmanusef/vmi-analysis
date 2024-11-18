@@ -4,10 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.widgets
 import scipy.ndimage
-import h5py
 
-from plotting.plotting_utils import itof_filter
-import coincidence_v4
+from Old import coincidence_v4
 
 matplotlib.use('Qt5Agg')
 

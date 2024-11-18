@@ -1,9 +1,8 @@
-import h5py
 import matplotlib.widgets
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
-import calibrations
+from Old import calibrations
 
 matplotlib.use("QT5Agg")
 
@@ -30,7 +29,7 @@ def P_xy(x):
 
 data=scipy.io.loadmat(file,squeeze_me=True,struct_as_record=False)
 x,y,t,etof=data['x'],data['y'],data['t'],data['etof']
-px,py,pz=calibrations.calibration_20240208(x,y,etof,center=(cx,cy,749055.4),angle=1.197608,symmetrize=True)
+px,py,pz= calibrations.calibration_20240208(x, y, etof, center=(cx, cy, 749055.4), angle=1.197608, symmetrize=True)
 plt.hist2d(x, y, range=((0, 256), (0, 256)), bins=n, cmap='jet', density=True)
 plt.scatter(cx, cy)
 

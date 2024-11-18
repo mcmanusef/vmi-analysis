@@ -1,11 +1,10 @@
 import functools
-import itertools
 import os
 import h5py
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import cv3_analysis
+from Old import cv3_analysis
 from cluster_v3 import iter_dataset
 
 def iter_min(indexes, curr, iters):
@@ -50,11 +49,11 @@ with h5py.File(file) as f:
 
     correlated_data=correlate_tof_coincidence(cluster_data,etof_data,itof_data)
 
-    coincidence_data=((x,y,cv3_analysis.smear(t/1000)) for (x,y,t,itof) in correlated_data if in_ranges((x,y,t,itof), (rx,ry,rz,ri)))
+    coincidence_data=((x, y, cv3_analysis.smear(t / 1000)) for (x, y, t, itof) in correlated_data if in_ranges((x, y, t, itof), (rx, ry, rz, ri)))
 
     data=map(functools.partial(cv3_analysis.rotate_coords, theta=1.1),
-                  map(functools.partial(cv3_analysis.centering, center=center),
-                    filter(cv3_analysis.in_good_pixels, coincidence_data)))
+             map(functools.partial(cv3_analysis.centering, center=center),
+                 filter(cv3_analysis.in_good_pixels, coincidence_data)))
     x,y,z= tuple(map(np.asarray,zip(*data)))
 
 

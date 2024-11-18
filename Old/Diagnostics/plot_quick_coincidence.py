@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io
 # from mayavi import mlab
-import coincidence_v4
+from Old import coincidence_v4
 from plotting.plotting_utils import itof_filter, rotate_coords, dp_filter, filter_coords
 
 matplotlib.rc('image', cmap='jet')
@@ -69,11 +69,11 @@ def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=
                 data=scipy.io.loadmat(file+".mat")
                 x,y,toa,etof,itof=(data[k].flatten() for k in keys)
             else:
-                data=coincidence_v4.load_file_coin(file)
+                data= coincidence_v4.load_file_coin(file)
                 x,y,toa,etof,itof=data
                 scipy.io.savemat(file+".mat", {k:d for k,d in zip(keys,data)})
         else:
-            data=coincidence_v4.load_file_coin(file)
+            data= coincidence_v4.load_file_coin(file)
             x,y,toa,etof,itof=data
 
         t=etof+0.26*np.random.random_sample(len(etof))
@@ -127,11 +127,11 @@ def main(do_coincidence=True, do_nc=True, do_3d=False, do_clusters=True, do_raw=
                 data=scipy.io.loadmat(file+"_nc.mat")
                 x,y,toa,etof=(data[k].flatten() for k in keys)
             else:
-                data=coincidence_v4.load_file_nc(file)
+                data= coincidence_v4.load_file_nc(file)
                 x,y,toa,etof=data
                 scipy.io.savemat(file+"_nc.mat", {k:d for k,d in zip(keys,data)})
         else:
-            data=coincidence_v4.load_file_nc(file)
+            data= coincidence_v4.load_file_nc(file)
             x,y,toa,etof=data
         t=etof+0.26*np.random.random_sample(len(etof))
 

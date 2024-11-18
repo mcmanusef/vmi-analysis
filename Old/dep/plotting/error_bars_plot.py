@@ -16,7 +16,7 @@ from scipy.io import loadmat
 from scipy.optimize import curve_fit
 from scipy.stats import qmc
 
-from cv3_analysis import load_cv3
+from Old.cv3_analysis import load_cv3
 
 mpl.rc('image', cmap='jet')
 mpl.use('Qt5Agg')

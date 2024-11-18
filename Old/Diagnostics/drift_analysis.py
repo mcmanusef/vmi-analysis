@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from coincidence_v4 import load_file
+from Old.coincidence_v4 import load_file
 matplotlib.use('Qt5Agg')
 
 sort_key=lambda x: int(x.split('_')[1]) if x.endswith('.cv4') else 0

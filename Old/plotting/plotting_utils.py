@@ -3,7 +3,8 @@ import functools
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-import coincidence_v4
+from Old import coincidence_v4
+
 
 def trans_jet(opaque_point=0.15):
     # Create a colormap that looks like jet

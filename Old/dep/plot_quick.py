@@ -1,14 +1,12 @@
-import os
-
 import h5py
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from mayavi import mlab
-import cv3_analysis
+from Old import cv3_analysis
 from minor_utils.tof_calibration import get_calibration
 
-from cv3_analysis import load_cv3
+from Old.cv3_analysis import load_cv3
 
 matplotlib.rc('image', cmap='jet')
 matplotlib.use('Qt5Agg')
@@ -63,7 +61,7 @@ with h5py.File(file) as f:
     for k in f.keys():
         data2[k] = f[k][()]
     etof=f['t_etof'][()]#/1000
-    smeared_etof=np.asarray(list(map(cv3_analysis.smear,etof)))
+    smeared_etof=np.asarray(list(map(cv3_analysis.smear, etof)))
     plt.figure("e-tof")
     plt.hist(smeared_etof, bins=1000,range=(0,1e6))
 #%%

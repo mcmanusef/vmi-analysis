@@ -5,9 +5,9 @@ import numpy as np
 import scipy.signal
 from matplotlib.backends.backend_pdf import PdfPages
 
-import coincidence_v4
+from Old import coincidence_v4
 import minor_utils.autoconvolve
-from calibrations import calibration_20240208
+from Old.calibrations import calibration_20240208
 from plotting.plotting_utils import dp_filter, filter_coords
 
 

@@ -5,7 +5,8 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from plotting import plotting_utils
-import calibrations
+from Old import calibrations
+
 #%%
 file="o2_b_01.mat"
 data=scipy.io.loadmat(r"o2_b_01.mat",squeeze_me=True,struct_as_record=False)
@@ -35,7 +36,7 @@ x, y, etof = plotting_utils.filter_coords((x,y,etof),((0,256),(0,256),(center[2]
 #%%
 for pxr in itertools.pairwise(np.linspace(-0.25, 0.25, 6)):
     pxr=tuple(pxr)
-    px,py,pz=calibrations.calibration_20240208(x,y,etof,center=center,angle=1.197608,symmetrize=True)
+    px,py,pz= calibrations.calibration_20240208(x, y, etof, center=center, angle=1.197608, symmetrize=True)
 
 
     px,py,pz= plotting_utils.filter_coords((px,py,pz),(pxr,(-1,1),(-1,1)))
