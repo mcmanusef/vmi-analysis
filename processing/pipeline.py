@@ -1,10 +1,7 @@
-import processes
-import data_types
+from processing import processes,data_types,base_processes
 import logging
 import time
 import multiprocessing
-
-import base_processes
 
 logger = logging.getLogger()
 
@@ -309,13 +306,17 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.DEBUG)
-    fname = r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
-    fname = r"D:\Data\xe002_s\xe000000.tpx3"
+    # fname = r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
+    # fname = r"D:\Data\xe002_s\xe000000.tpx3"
     # pipeline = ClusterSavePipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5", monotone=True)
     # pipeline = TPXFileConverter(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
     #                             single_process=False).set_profile(True)
-    pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", save_pixels=False)
+    # pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", save_pixels=False)
     # pipeline=VMIConverterPipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
+
+    fname = r"C:\serval_test"
+    outname=fname+'\out.h5'
+    pipeline=TPXFileConverter(input_path=fname, output_path=outname)
     start = time.time()
     run_pipeline(pipeline)
     print(f"Time taken: {time.time() - start}")
