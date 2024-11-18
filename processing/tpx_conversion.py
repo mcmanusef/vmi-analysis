@@ -1,6 +1,7 @@
-from numba import njit
 import numba
 import numpy as np
+from numba import njit
+
 
 @njit
 def pw_jit(lst):
@@ -51,13 +52,14 @@ def process_tdc_old(packet):
     # c_time in units of 3.125 f_time in units of 260 ps,
     # tdc_type: 10->TDC1R, 15->TDC1F, 14->TDC2R, 11->TDC2F
 
+
 @njit
 def process_tdc(packet: int):
     split_points = (5, 9, 44, 56, 60)
-    f_time,  c_time, _, tdc_type = split_int(packet, pw_jit(split_points))
+    f_time, c_time, _, tdc_type = split_int(packet, pw_jit(split_points))
     c_time = c_time & 0x1ffffffff  # Remove 2 most significant bit to loop at same point as pixels
 
-    return 0, (tdc_type, c_time, f_time-1, 0)
+    return 0, (tdc_type, c_time, f_time - 1, 0)
     # c_time in units of 3.125 f_time in units of 260 ps,
     # tdc_type: 10->TDC1R, 15->TDC1F, 14->TDC2R, 11->TDC2F
 
@@ -69,7 +71,7 @@ def process_pixel(packet: int):
     toa = numba.uint64(c_time * 2 ** 18 + m_time * 2 ** 4)
     toa = numba.uint64(toa - f_time)
     x, y = addr_to_coords(pix_add)
-    return 1, (toa, x, y,  tot)  # x,y in pixels, toa in units of 25ns/2**4, tot in units of 25 ns
+    return 1, (toa, x, y, tot)  # x,y in pixels, toa in units of 25ns/2**4, tot in units of 25 ns
 
 
 def cluster_pixels(pixels, dbscan):
@@ -77,12 +79,11 @@ def cluster_pixels(pixels, dbscan):
         return []
     toa, x, y, tot = map(np.asarray, zip(*pixels))
     cluster_index = dbscan.fit(np.column_stack((x, y))).labels_
-    return cluster_index, toa, x, y,  tot
+    return cluster_index, toa, x, y, tot
 
 
 # @njit
 def average_over_clusters(cluster_index, toa, x, y, tot):
-    period = 25 * 2 ** 30
     clusters = []
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
         for i in range(max(cluster_index) + 1):
@@ -95,7 +96,7 @@ def average_over_clusters(cluster_index, toa, x, y, tot):
 
 
 # @njit
-def sort_tdcs(cutoff:float|int, tdcs: list[tuple[int, int, int, int]]):
+def sort_tdcs(cutoff: float | int, tdcs: list[tuple[int, int, int, int]]):
     start_time = 0
     pulses, etof, itof = [], [], []
     for tdc_type, c_time, ftime, _ in tdcs:
@@ -111,6 +112,7 @@ def sort_tdcs(cutoff:float|int, tdcs: list[tuple[int, int, int, int]]):
             else:
                 itof.append(start_time) if start_time > 0 else None
     return etof, itof, pulses
+
 
 # @njit
 def process_chunk(chunk):
@@ -143,16 +145,18 @@ def fix_toa(toa):
     t0 = toa[0]
     return (toa - t0 + period / 2) % period + t0 - period / 2
 
+
 # @njit
 def apply_timewalk(pixels, timewalk_correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
         if tot >= len(timewalk_correction):
-            pixels[i] = (toa-timewalk_correction[-1], x, y, tot)
-        pixels[i] = (toa-timewalk_correction[tot], x, y, tot)
+            pixels[i] = (toa - timewalk_correction[-1], x, y, tot)
+        pixels[i] = (toa - timewalk_correction[tot], x, y, tot)
     return pixels
+
 
 # @njit
 def toa_correction(pixels, correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
-        pixels[i] = (toa-correction, x, y, tot)
+        pixels[i] = (toa - correction, x, y, tot)
     return pixels

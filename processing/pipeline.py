@@ -15,8 +15,8 @@ class AnalysisPipeline:
     initialized: bool
     profile: bool
 
-    def __init__(self):
-        self.active=multiprocessing.Value('b', True)
+    def __init__(self, **kwargs):
+        self.active = multiprocessing.Value('b', True)
 
     def set_profile(self, profile: bool):
         for process in self.processes.values():
@@ -45,7 +45,7 @@ class AnalysisPipeline:
             logger.debug(f"Process {name} started")
 
     def stop(self):
-        self.active.value=False
+        self.active.value = False
         logger.info("Stopping pipeline")
         for name, process in self.processes.items():
             if not process.stopped.value:
@@ -116,7 +116,8 @@ class RawVMIConverterPipeline(AnalysisPipeline):
         super().__init__(**kwargs)
         self.queues = {
             "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-            "pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'i', 'i', 'i'), names=('toa', 'x', 'y', 'tot'), unwrap=True, force_monotone=True, max_back=1e9, chunk_size=10000),
+            "pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'i', 'i', 'i'), names=('toa', 'x', 'y', 'tot'), unwrap=True,
+                                              force_monotone=True, max_back=1e9, chunk_size=10000),
             "etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('etof',), force_monotone=True, max_back=1e9, chunk_size=2000),
             "itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('itof',), force_monotone=True, max_back=1e9, chunk_size=2000),
             "pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('pulses',), force_monotone=True, max_back=1e9, chunk_size=10000),
@@ -124,7 +125,8 @@ class RawVMIConverterPipeline(AnalysisPipeline):
 
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
-            "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'], self.queues['itof']).make_process(),
+            "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
+                                                self.queues['itof']).make_process(),
             "Saver": processes.SaveToH5(output_path, {
                 "pixel": self.queues['pixel'],
                 "etof": self.queues['etof'],
@@ -139,7 +141,8 @@ class VMIConverterPipeline(AnalysisPipeline):
         super().__init__(**kwargs)
         self.queues = {
             "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-            "pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'i', 'i', 'i'), names=('toa', 'x', 'y', 'tot'), unwrap=True, force_monotone=True, max_back=1e9, chunk_size=10000),
+            "pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'i', 'i', 'i'), names=('toa', 'x', 'y', 'tot'), unwrap=True,
+                                              force_monotone=True, max_back=1e9, chunk_size=10000),
             "etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('etof',), force_monotone=True, max_back=1e9, chunk_size=2000),
             "itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('itof',), force_monotone=True, max_back=1e9, chunk_size=2000),
             "pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('pulses',), force_monotone=True, max_back=1e9, chunk_size=10000),
@@ -147,13 +150,14 @@ class VMIConverterPipeline(AnalysisPipeline):
             "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ('t_etof',)), chunk_size=2000),
             "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('itof_corr', ('t_itof',)), chunk_size=2000),
             "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('t_pulse',), chunk_size=10000),
-            "t_pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'i', 'i', 'i')), names=('pixel_corr', ('t', 'x', 'y', 'tot')), chunk_size=10000),
-            }
-
+            "t_pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'i', 'i', 'i')), names=('pixel_corr', ('t', 'x', 'y', 'tot')),
+                                                chunk_size=10000),
+        }
 
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
-            "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'], self.queues['itof']).make_process(),
+            "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
+                                                self.queues['itof']).make_process(),
             "Correlator": processes.TriggerAnalyzer(self.queues['pulses'],
                                                     (self.queues['etof'], self.queues['itof'], self.queues['pixel']),
                                                     self.queues['t_pulse'],
@@ -177,9 +181,10 @@ class ClusterSavePipeline(AnalysisPipeline):
             "etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=monotone, chunk_size=2000),
             "itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=monotone, chunk_size=2000),
             "pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=monotone, chunk_size=10000),
-            "clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=monotone, chunk_size=2000),
-            "clustered": data_types.ExtendedQueue(buffer_size=0, dtypes=(('f','i','i','i'),'i'),
-                                                  names=(('toa_pix','x_pix','y_pix','tot_pix'),'cluster_pix'),
+            "clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=monotone,
+                                                 chunk_size=2000),
+            "clustered": data_types.ExtendedQueue(buffer_size=0, dtypes=(('f', 'i', 'i', 'i'), 'i'),
+                                                  names=(('toa_pix', 'x_pix', 'y_pix', 'tot_pix'), 'cluster_pix'),
                                                   force_monotone=monotone, chunk_size=2000),
         }
 
@@ -207,7 +212,7 @@ class ClusterSavePipeline(AnalysisPipeline):
 
 
 class CV4ConverterPipeline(AnalysisPipeline):
-    def __init__(self, input_path, output_path, save_pixels=False,**kwargs):
+    def __init__(self, input_path, output_path, save_pixels=False, **kwargs):
         super().__init__(**kwargs)
 
         self.queues = {
@@ -216,12 +221,14 @@ class CV4ConverterPipeline(AnalysisPipeline):
             "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
             "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
             "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
-            "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True, chunk_size=2000),
+            "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
+                                                 chunk_size=2000),
 
             "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ("t_etof",)), chunk_size=2000),
             "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('tof_corr', ("t_tof",)), chunk_size=2000),
             "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('t_pulse',), chunk_size=10000),
-            "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")), chunk_size=2000),
+            "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")),
+                                                  chunk_size=2000),
         }
 
         self.processes = {
@@ -256,42 +263,44 @@ class CV4ConverterPipeline(AnalysisPipeline):
 
         }
         if save_pixels:
-            self.queues["pixels"]=data_types.ExtendedQueue(buffer_size=0, dtypes=(('f', 'i', 'i', 'i'),'i'), names=(('toa', 'x', 'y', 'tot'), 'cluster_index'), force_monotone=True, max_back=1e9, chunk_size=10000)
-            self.queues["t_pixel"]=data_types.ExtendedQueue(buffer_size=0, dtypes=('i', (('f', 'i', 'i', 'i'), 'i')), names=('pixel_corr', (('t', 'x', 'y', 'tot'), 'cluster_index')), chunk_size=10000)
+            self.queues["pixels"] = data_types.ExtendedQueue(buffer_size=0, dtypes=(('f', 'i', 'i', 'i'), 'i'),
+                                                             names=(('toa', 'x', 'y', 'tot'), 'cluster_index'), force_monotone=True, max_back=1e9,
+                                                             chunk_size=10000)
+            self.queues["t_pixel"] = data_types.ExtendedQueue(buffer_size=0, dtypes=('i', (('f', 'i', 'i', 'i'), 'i')),
+                                                              names=('pixel_corr', (('t', 'x', 'y', 'tot'), 'cluster_index')), chunk_size=10000)
 
             self.processes["Saver"].astep.in_queues['pixels'] = self.queues["t_pixel"]
-            self.processes["Saver"].astep.input_queues+=(self.queues["t_pixel"],)
-            self.processes["Saver"].astep.flat={
+            self.processes["Saver"].astep.input_queues += (self.queues["t_pixel"],)
+            self.processes["Saver"].astep.flat = {
                 "t_etof": True,
                 "t_itof": True,
                 "t_pulse": True,
                 "t_cluster": True,
                 "pixels": False,
             }
-            self.processes["Correlator"].astep.output_queues+=(self.queues["t_pixel"],)
-            self.processes["Correlator"].astep.indexed_queues+=(self.queues["t_pixel"],)
-            self.processes["Correlator"].astep.input_queues+=(self.queues["pixels"],)
-            self.processes["Correlator"].astep.queues_to_index+=(self.queues["pixels"],)
+            self.processes["Correlator"].astep.output_queues += (self.queues["t_pixel"],)
+            self.processes["Correlator"].astep.indexed_queues += (self.queues["t_pixel"],)
+            self.processes["Correlator"].astep.input_queues += (self.queues["pixels"],)
+            self.processes["Correlator"].astep.queues_to_index += (self.queues["pixels"],)
             self.processes["Correlator"].astep.current.append(None)
             self.processes["Correlator"].astep.current_samples.append(None)
-            self.processes["Clusterer"].astep.output_pixel_queue=self.queues["pixels"]
+            self.processes["Clusterer"].astep.output_pixel_queue = self.queues["pixels"]
 
 
-
-def run_pipeline(pipeline: AnalysisPipeline, forever=False):
+def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
     print("Initializing pipeline")
-    with pipeline:
-        for name, process in pipeline.processes.items():
+    with target_pipeline:
+        for name, process in target_pipeline.processes.items():
             print(f"{name} initialized correctly: {process.initialized.value}")
         print("Starting pipeline")
-        pipeline.start()
-        for name, process in pipeline.processes.items():
+        target_pipeline.start()
+        for name, process in target_pipeline.processes.items():
             print(f"{name} running: {process.running.value}")
 
-        while not all(p.astep.stopped.value for p in pipeline.processes.values()) or forever:
-            for name, process in pipeline.processes.items():
+        while not all(p.astep.stopped.value for p in target_pipeline.processes.values()) or forever:
+            for name, process in target_pipeline.processes.items():
                 print(f"{name} status: {process.status()}")
-                for qname, q in pipeline.queues.items():
+                for qname, q in target_pipeline.queues.items():
                     if q in process.astep.output_queues:
                         print(f"\t{qname} ({'Closed' if q.closed.value else 'Open'}) queue size: {q.qsize()}")
             time.sleep(1)
@@ -300,11 +309,12 @@ def run_pipeline(pipeline: AnalysisPipeline, forever=False):
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.DEBUG)
-    fname=r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
+    fname = r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
+    fname = r"D:\Data\xe002_s\xe000000.tpx3"
     # pipeline = ClusterSavePipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5", monotone=True)
     # pipeline = TPXFileConverter(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
     #                             single_process=False).set_profile(True)
-    pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", save_pixels=True)
+    pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", save_pixels=False)
     # pipeline=VMIConverterPipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
     start = time.time()
     run_pipeline(pipeline)

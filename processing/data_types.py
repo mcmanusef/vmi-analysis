@@ -5,18 +5,14 @@ from collections.abc import Sequence
 from contextlib import contextmanager, ExitStack
 from typing import TypeVar, Generic, NamedTuple
 
-
 T = TypeVar('T')
 Chunk = list[int]
 PixelData = NamedTuple('PixelData', [('toa', float), ('x', int), ('y', int), ('tot', int)])
 TDCData = NamedTuple('TDCData', [('tdc_time', float), ('tdc_type', int)])
 ClusterData = NamedTuple('ClusterData', [('toa', float), ('x', float), ('y', float)])
-TriggerTime=ToF=float
+TriggerTime = ToF = float
 CameraData = TypeVar('CameraData', PixelData, ClusterData)
 
-
-def null_hashfn(x):
-    return None
 
 def structure_map(func, t):
     if isinstance(t, tuple):
@@ -68,15 +64,16 @@ class CircularBuffer(Sequence):
             raise IndexError
         with self.get_lock():
             return structure(
-                self.dtypes,
-                [a[(self.index.value - self.size.value + item) % self.max_size] for a in self.arrays]
+                    self.dtypes,
+                    [a[(self.index.value - self.size.value + item) % self.max_size] for a in self.arrays]
             )
 
-    def __len__(self)->int:
+    def __len__(self) -> int:
         return self.size.value
 
     def get_all(self):
         return [self[i] for i in range(len(self))]
+
 
 class ExtendedQueue(Generic[T]):
     def __init__(self, *args,
@@ -86,7 +83,7 @@ class ExtendedQueue(Generic[T]):
                  manager=None,
                  multi_process=True,
                  force_monotone=False,
-                 period=25*2**30,
+                 period=25 * 2 ** 30,
                  max_back=1e9,
                  unwrap=False,
                  **kwargs):
@@ -99,32 +96,32 @@ class ExtendedQueue(Generic[T]):
 
         self.names = names
         self.dtypes = dtypes
-        self.chunked=chunk_size>0
-        self.chunk_size=chunk_size
-        self.input_buffer=[]
+        self.chunked = chunk_size > 0
+        self.chunk_size = chunk_size
+        self.input_buffer = []
         self.output_queue = None
-        self.multi_process=multi_process
-        self.last=None
-        self.currsum=0
-        self.force_monotone=multiprocessing.Value('b', force_monotone)
-        self.period=multiprocessing.Value('f', period)
-        self.max_back=multiprocessing.Value('f', max_back)
-        self.closed=multiprocessing.Value('b', False)
-        self.unwrap=unwrap
-
+        self.multi_process = multi_process
+        self.last = None
+        self.current_sum = 0
+        self.force_monotone = multiprocessing.Value('b', force_monotone)
+        self.period = multiprocessing.Value('f', period)
+        self.max_back = multiprocessing.Value('f', max_back)
+        self.closed = multiprocessing.Value('b', False)
+        self.unwrap = unwrap
 
     def put(self, obj: T, **kwargs):
         if self.unwrap:
             return [self._put(o, **kwargs) for o in obj]
         return self._put(obj, **kwargs)
+
     def _put(self, obj: T, **kwargs):
         if self.closed.value:
             raise ValueError("Queue is closed")
         if self.chunked:
             self.input_buffer.append(obj)
-            if len(self.input_buffer)>=self.chunk_size:
+            if len(self.input_buffer) >= self.chunk_size:
                 self.queue.put(self.input_buffer)
-                self.input_buffer=[]
+                self.input_buffer = []
         else:
             self.queue.put(obj, **kwargs)
 
@@ -149,9 +146,9 @@ class ExtendedQueue(Generic[T]):
 
     def qsize(self) -> int:
         if self.chunked and self.output_queue:
-            return len(self.input_buffer)+self.queue.qsize()*self.chunk_size+self.output_queue.qsize()
+            return len(self.input_buffer) + self.queue.qsize() * self.chunk_size + self.output_queue.qsize()
         elif self.chunked:
-            return len(self.input_buffer)+self.queue.qsize()*self.chunk_size
+            return len(self.input_buffer) + self.queue.qsize() * self.chunk_size
         else:
             return self.queue.qsize()
 
@@ -165,33 +162,28 @@ class ExtendedQueue(Generic[T]):
             raise ValueError("Queue is already single process")
         if self.multi_process:
             self.queue = queue.Queue()
-            self.multi_process=False
+            self.multi_process = False
         return self
 
-    def get_monotonic(self, period=25*2**30, max_back=0, **kwargs)->T:
+    def get_monotonic(self, period=25 * 2 ** 30, max_back=0, **kwargs) -> T:
         if self.last is None:
-            out=self._get(**kwargs)
-            self.last=list(unstructure(out))[0]
+            out = self._get(**kwargs)
+            self.last = list(unstructure(out))[0]
             return out
 
-        current=self._get(**kwargs)
-        curr_unstruct=list(unstructure(current))
-        curr_unstruct[0]+=self.currsum
-        while curr_unstruct[0]<self.last-max_back:
-            curr_unstruct[0]+=period
-            self.currsum+=period
+        current = self._get(**kwargs)
+        curr_unstruct = list(unstructure(current))
+        curr_unstruct[0] += self.current_sum
+        while curr_unstruct[0] < self.last - max_back:
+            curr_unstruct[0] += period
+            self.current_sum += period
 
-        self.last=curr_unstruct[0]
+        self.last = curr_unstruct[0]
         return structure(current, curr_unstruct)
 
     def close(self):
         if self.input_buffer:
             self.queue.put(self.input_buffer)
-            self.input_buffer=[]
+            self.input_buffer = []
         time.sleep(1)
-        self.closed.value=True
-
-
-
-
-
+        self.closed.value = True
