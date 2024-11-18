@@ -1,11 +1,12 @@
+import os
 import typing
 
 import h5py
 import sklearn.cluster
 
-from data_types import *
+from processing.data_types import *
 from processing.base_processes import AnalysisStep
-from tpx_conversion import *
+from processing.tpx_conversion import *
 
 PIXEL_RES = 25 / 16
 PERIOD = 25 * 2 ** 30
@@ -48,16 +49,24 @@ class TPXFileReader(AnalysisStep):
         self.chunk_queue = chunk_queue
         self.output_queues = (chunk_queue,)
         self.file = None
+        self.folder: bool= os.path.isdir(path)
+        self.files = [os.path.join(path,f) for f in os.listdir(path) if f.endswith('.tpx3')] if self.folder else [path]
+        self.curr_file_idx = 0
         self.holding.value = True
 
     def initialize(self):
-        self.file = open(self.path, 'rb')
+        self.file = open(self.files[self.curr_file_idx], 'rb')
         super().initialize()
 
     def action(self):
         packet = self.file.read(8)
         if len(packet) < 8:
-            self.shutdown()
+            self.curr_file_idx += 1
+            if self.curr_file_idx >= len(self.files):
+                self.shutdown()
+                return
+            self.file.close()
+            self.file = open(self.files[self.curr_file_idx], 'rb')
             return
         _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
         num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
