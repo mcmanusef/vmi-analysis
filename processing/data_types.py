@@ -86,13 +86,14 @@ class ExtendedQueue(Generic[T]):
                  period=25 * 2 ** 30,
                  max_back=1e9,
                  unwrap=False,
+                 maxsize=0,
                  **kwargs):
         self.buffer = CircularBuffer(buffer_size, dtypes) if buffer_size > 0 else None
 
         if multi_process:
-            self.queue = multiprocessing.Queue(*args, **kwargs) if manager is None else manager.Queue(*args, **kwargs)
+            self.queue = multiprocessing.Queue(maxsize=maxsize, **kwargs) if manager is None else manager.Queue(maxsize, **kwargs)
         else:
-            self.queue = queue.Queue(*args, **kwargs)
+            self.queue = queue.Queue(maxsize=maxsize)
 
         self.names = names
         self.dtypes = dtypes
