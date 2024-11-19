@@ -1,8 +1,13 @@
+import collections
 import os
 import typing
 
 import h5py
+import matplotlib
+import numpy as np
 import sklearn.cluster
+from matplotlib import pyplot as plt
+matplotlib.use('qt5agg')
 
 from processing.data_types import *
 from processing.base_processes import AnalysisStep
@@ -195,7 +200,7 @@ class Weaver(AnalysisStep):
         self.current[min_idx] = None
 
 
-class Void(AnalysisStep):
+class QueueVoid(AnalysisStep):
     def __init__(self, input_queues, **kwargs):
         super().__init__(**kwargs)
         self.input_queues = input_queues
@@ -412,6 +417,260 @@ class SaveToH5(AnalysisStep):
     def shutdown(self, **kwargs):
         self.h5_file.close() if self.h5_file else None
         super().shutdown(**kwargs)
+
+class QueueDecimator(AnalysisStep):
+    def __init__(self, input_queue, output_queue,n, **kwargs):
+        super().__init__(**kwargs)
+        self.n = n
+        self.i=0
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.input_queues = (input_queue,)
+        self.output_queues = (output_queue,)
+
+    def action(self):
+        try:
+            data = self.input_queue.get(timeout=0.1)
+        except queue.Empty:
+            return
+        if self.i % self.n == 0:
+            self.output_queue.put(data)
+        self.i+=1
+
+class QueueReducer(AnalysisStep):
+    def __init__(self, input_queue, output_queue, max_size, record=10000,**kwargs):
+        super().__init__(**kwargs)
+        self.input_queue = input_queue
+        self.input_queues = (input_queue,)
+        self.output_queue = output_queue
+        self.output_queues = (output_queue,)
+        self.max_size = max_size
+        self.statuses=collections.deque(maxlen=record)
+        self.record=record
+        self.ratio=multiprocessing.Value('f',0)
+
+    def action(self):
+        try:
+            data = self.input_queue.get(timeout=0.1)
+
+        except queue.Empty:
+            return
+        if self.output_queue.qsize() < self.max_size:
+            self.output_queue.put(data)
+            self.statuses.append(1)
+        else:
+            self.statuses.append(0)
+        self.ratio.value=self.statuses.count(1)/self.record
+
+    def status(self):
+        stat=super().status()
+        stat["ratio"]=self.ratio.value
+        return stat
+
+class QueueGrouper(AnalysisStep):
+
+    def __init__(self, input_queues,output_queue,output_empty=True, **kwargs):
+        super().__init__(**kwargs)
+        self.input_queues = input_queues
+        self.output_queue = output_queue
+        self.output_queues = (output_queue,)
+        self.current=0
+        self.nexts:list[tuple[int, typing.Any] | None]=[None for _ in input_queues]
+        self.out=tuple([] for _ in self.input_queues)
+        self.output_empty=output_empty
+
+    def action(self):
+        if any(n is None for n in self.nexts):
+            for i,q in enumerate(self.input_queues):
+                if self.nexts[i] is None:
+                    if q.closed.value and q.empty():
+                        self.nexts[i]=(np.inf,)
+                    try:
+                        self.nexts[i]=q.get(timeout=0.1)
+                    except queue.Empty:
+                        time.sleep(0.1)
+                        return
+
+        if all(n[0]==np.inf for n in self.nexts):
+            self.shutdown()
+            return
+
+        for i,n in enumerate(self.nexts):
+            while self.nexts[i][0]==self.current:
+                self.out[i].append(self.nexts[i][1])
+                try:
+                    self.nexts[i]=self.input_queues[i].get(timeout=0.1)
+                except queue.Empty:
+                    self.nexts[i]=None
+                    break
+        if any(n is None for n in self.nexts):
+            return
+
+        self.output_queue.put(self.out) if any(self.out) or self.output_empty else None
+        self.out=tuple([] for _ in self.input_queues)
+        self.current+=1
+
+
+class Display(AnalysisStep):
+    def __init__(
+            self,
+            grouped_queue,
+            n
+    ):
+        super().__init__()
+        self.input_queues = (grouped_queue,)
+        self.grouped_queue = grouped_queue
+        self.name = "Display"
+        self.current_data={
+            "etof": collections.deque(maxlen=n),
+            "itof": collections.deque(maxlen=n),
+            "cluster": collections.deque(maxlen=n),
+            "timestamps": collections.deque(maxlen=n)
+        }
+        self.figure=None
+        self.ax=None
+        self.xy_hist=None
+        self.xy_hist_data=np.zeros((256,256))
+        self.toa_hist=None
+        self.toa_hist_data=np.zeros(2000)
+        self.etof_hist=None
+        self.etof_hist_data=np.zeros(2000)
+        self.itof_hist=None
+        self.itof_hist_data=np.zeros(400)
+        self.update_interval=1
+        self.last_update=0
+
+    def initialize(self):
+        self.figure, self.ax = plt.subplots(2,2)
+        self.xy_hist=self.ax[0,0].imshow(np.random.random(size=(256,256)), extent=[0,256,0,256], origin='lower')
+        self.ax[0,0].set_title("XY")
+        self.toa_hist=self.ax[0,1].plot(np.linspace(0, 2000, 2000), np.linspace(0,1,num=2000))[0]
+        self.ax[0,1].set_title("ToA")
+        self.etof_hist=self.ax[1,0].plot(np.linspace(0, 2000, 2000), np.linspace(0,1,num=2000))[0]
+
+        self.ax[1,0].set_title("eToF")
+        self.itof_hist=self.ax[1,1].plot(np.linspace(0, 2e4, 400), np.linspace(0,1,num=400))[0]
+        self.ax[1,1].set_title("iToF")
+        plt.suptitle("Processing Rate:")
+        self.figure.tight_layout()
+        self.figure.show()
+        super().initialize()
+
+    def action(self):
+        try:
+            data = self.grouped_queue.get(timeout=0.1)
+            # print(data)
+        except queue.Empty:
+            return
+
+        if len(self.current_data["etof"])==self.current_data["etof"].maxlen:
+            etof_rem=self.current_data["etof"].popleft()
+            itof_rem=self.current_data["itof"].popleft()
+            t_rem,x_rem,y_rem= zip(*last) if (last:=self.current_data["cluster"].popleft()) else ([],[],[])
+            last_timestamp=self.current_data["timestamps"].popleft()
+
+            for x,y in zip(x_rem,y_rem):
+
+                self.xy_hist_data[int(x),int(y)]-=1
+            for t in t_rem:
+                if 0<t<2e4:
+                    self.toa_hist_data[int(t/10)]-=1
+            for t in etof_rem:
+                if 0<t<2e4:
+                    self.etof_hist_data[int(t/10)]-=1
+            for t in itof_rem:
+                if 0<t<2e4:
+                    self.itof_hist_data[int(t/50)]-=1
+
+            processing_rate=self.current_data["timestamps"].maxlen/(time.time()-last_timestamp)
+            plt.suptitle(f"Processing Rate: {processing_rate:.2f} Hz")
+
+
+
+        etof, itof, cluster = data
+        self.current_data["etof"].append(etof)
+        self.current_data["itof"].append(itof)
+        self.current_data["cluster"].append(cluster)
+        self.current_data["timestamps"].append(time.time())
+        if cluster:
+            clust=list(zip(*cluster))
+            for x,y in zip(clust[1],clust[2]):
+                self.xy_hist_data[int(x),int(y)]+=1 if x<256 and y<256 else 0
+            for t in clust[0]:
+                if 0<t<2000:
+                    self.toa_hist_data[int(t)]+=1
+
+        for t in etof:
+            if 0<t<2000:
+                self.etof_hist_data[int(t)]+=1
+        for t in itof:
+            if 0<t<2e4:
+                self.itof_hist_data[int(t/50)]+=1
+
+        if time.time()-self.last_update>self.update_interval:
+            self.xy_hist.set_data(self.xy_hist_data/np.max(self.xy_hist_data))
+            self.toa_hist.set_ydata(self.toa_hist_data/np.max(self.toa_hist_data))
+            self.etof_hist.set_ydata(self.etof_hist_data/np.max(self.etof_hist_data))
+            self.itof_hist.set_ydata(self.itof_hist_data/np.max(self.itof_hist_data))
+
+            cluster_count_rate=np.mean([len(c) for c in self.current_data["cluster"]])
+            etof_count_rate=np.mean([len(c) for c in self.current_data["etof"]])
+            itof_count_rate=np.mean([len(c) for c in self.current_data["itof"]])
+
+            self.ax[0,0].set_title(f"XY (Cluster Rate: {cluster_count_rate:.2f})")
+            self.ax[0,1].set_title(f"ToA (Count Rate: {cluster_count_rate:.2f})")
+            self.ax[1,0].set_title(f"eToF (Count Rate: {etof_count_rate:.2f})")
+            self.ax[1,1].set_title(f"iToF (Count Rate: {itof_count_rate:.2f})")
+
+            self.figure.canvas.draw()
+            self.figure.canvas.flush_events()
+            self.last_update=time.time()
+
+class DummyStream(TPXFileReader):
+    def __init__(self, path, chunk_queue, delay, **kwargs):
+        super().__init__(path, chunk_queue, **kwargs)
+        self.delay = delay
+        self.name = "DummyStream"
+
+    def action(self):
+        try:
+            packet = self.file.read(8)
+            if len(packet) < 8:
+                self.curr_file_idx += 1
+                if self.curr_file_idx >= len(self.files):
+                    self.curr_file_idx = 0
+                self.file.close()
+                self.file = open(self.files[self.curr_file_idx], 'rb')
+                return
+            _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
+            num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
+            packets = [int.from_bytes(self.file.read(8), 'little') - 2 ** 62 for _ in range(num_bytes // 8)]
+            self.chunk_queue.put(packets)
+            time.sleep(self.delay)
+        except Exception as e:
+            print(e)
+            self.shutdown()
+            return
+
+
+class FolderStream(TPXFileReader):
+    def __init__(self, path, chunk_queue, max_age=0, **kwargs):
+        super().__init__(path, chunk_queue, **kwargs)
+        self.max_age = max_age
+        self.name = "FolderStream"
+
+    def action(self):
+        super().action()
+        most_recent_file=sorted(os.listdir(self.path), key=os.path.getmtime)[-1]
+        if self.max_age and time.time()-os.path.getmtime(os.path.join(self.path, most_recent_file))>self.max_age:
+            return
+        self.files[0] = os.path.join(self.path, most_recent_file)
+        self.curr_file_idx = 0
+
+
+
+
+
 
 
 def create_process_instances(process_class, n_instances, output_queue, process_args, queue_args=None, process_name="", queue_name=""):
