@@ -345,6 +345,80 @@ class CV4ConverterPipeline(AnalysisPipeline):
                 self.processes["Correlator"].astep.current_samples.append(None)
                 self.processes["Clusterer"].astep.output_pixel_queue = self.queues["pixels"]
 
+class MonitorPipeline(AnalysisPipeline):
+    def __init__(self,cluster_processes=1, **kwargs):
+        super().__init__(**kwargs)
+        if cluster_processes==1:
+            self.queues = {
+                "chunk_stream": data_types.ExtendedQueue(),
+                "chunk": data_types.ExtendedQueue(),
+                "pixel": data_types.ExtendedQueue(),
+                "etof": data_types.ExtendedQueue(force_monotone=True),
+                "itof": data_types.ExtendedQueue(force_monotone=True),
+                "pulses": data_types.ExtendedQueue(force_monotone=True),
+                "clusters": data_types.ExtendedQueue(force_monotone=True),
+
+                "t_etof": data_types.ExtendedQueue(),
+                "t_itof": data_types.ExtendedQueue(),
+                "t_pulse": data_types.ExtendedQueue(),
+                "t_cluster": data_types.ExtendedQueue(),
+
+                "grouped": data_types.ExtendedQueue()
+            }
+
+            self.processes = {
+                "ChunkStream": processes.DummyStream(r"D:\\Data\\xe002_s\\xe000000.tpx3", self.queues['chunk_stream'], delay=0).make_process(),
+                "Chunk": processes.QueueReducer(self.queues['chunk_stream'], self.queues['chunk'], max_size=10000).make_process(),
+                "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'], self.queues['itof']).make_process(),
+                "Clusterer": processes.DBSCANClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
+                "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']), self.queues['t_pulse'], (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])).make_process(),
+                "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']), self.queues['grouped']).make_process(),
+                "Display": processes.Display(self.queues['grouped'], 10000).make_process(),
+                "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
+            }
+        else:
+            self.queues = {
+                "chunk_stream": data_types.ExtendedQueue(),
+                "chunk": data_types.ExtendedQueue(),
+                "pixel": data_types.ExtendedQueue(),
+                "etof": data_types.ExtendedQueue(force_monotone=True),
+                "itof": data_types.ExtendedQueue(force_monotone=True),
+                "pulses": data_types.ExtendedQueue(force_monotone=True),
+                "clusters": data_types.ExtendedQueue(force_monotone=True),
+
+                "t_etof": data_types.ExtendedQueue(),
+                "t_itof": data_types.ExtendedQueue(),
+                "t_pulse": data_types.ExtendedQueue(),
+                "t_cluster": data_types.ExtendedQueue(),
+
+                "grouped": data_types.ExtendedQueue(),
+                "reduced_grouped": data_types.ExtendedQueue(),
+            }
+
+            queues, proc, weaver = processes.create_process_instances(processes.DBSCANClusterer, cluster_processes, self.queues["clusters"],
+                                                                      process_args={"pixel_queue": self.queues['pixel'],"cluster_queue": None},
+                                                                      queue_args={"force_monotone": True},
+                                                                      queue_name="clust",process_name="clusterer")
+
+            self.queues.update(queues)
+            self.processes = {
+                "ChunkStream": processes.DummyStream(r"D:\Data\xe_03_Scan5W\xe_000000.tpx3", self.queues['chunk_stream'], delay=0).make_process(),
+                "Chunk": processes.QueueReducer(self.queues['chunk_stream'], self.queues['chunk'], max_size=1000).make_process(),
+                "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'], self.queues['itof']).make_process(),
+                **{n: k.make_process() for n, k in proc.items()},
+                "Weaver": weaver.make_process(),
+                "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']), self.queues['t_pulse'], (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])).make_process(),
+                "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']), self.queues['grouped']).make_process(),
+                "Reducer": processes.QueueReducer(self.queues['grouped'], self.queues['reduced_grouped'], max_size=10000).make_process(),
+                "Display": processes.Display(self.queues['reduced_grouped'], 10000).make_process(),
+                "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
+
+            }
+
+
+
+
+
 
 def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
     print("Initializing pipeline")
@@ -373,13 +447,14 @@ if __name__ == '__main__':
     # pipeline = ClusterSavePipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5", monotone=True)
     # pipeline = TPXFileConverter(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
     #                             single_process=False).set_profile(True)
-    pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", cluster_processes=8)
+    # pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", cluster_processes=8)
     # pipeline=VMIConverterPipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
 
     # fname = r"C:\serval_test"
     # outname=fname+'\out.h5'
     # pipeline=TPXFileConverter(input_path=fname, output_path=outname)
 
+    pipeline=MonitorPipeline(cluster_processes=8)
     start = time.time()
     run_pipeline(pipeline)
     print(f"Time taken: {time.time() - start}")
