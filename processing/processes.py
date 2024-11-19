@@ -661,10 +661,13 @@ class FolderStream(TPXFileReader):
 
     def action(self):
         super().action()
+        if self.curr_file_idx == 0:
+            return
         most_recent_file=sorted(os.listdir(self.path), key=lambda x: os.path.getmtime(os.path.join(self.path, x)))[-1]
         if self.max_age and time.time()-os.path.getmtime(os.path.join(self.path, most_recent_file))>self.max_age:
             return
-        self.files[0] = os.path.join(self.path, most_recent_file)
+        self.file.close() if self.file else None
+        self.file = open(os.path.join(self.path, most_recent_file), 'rb')
         self.curr_file_idx = 0
 
 
