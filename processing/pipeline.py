@@ -346,7 +346,7 @@ class CV4ConverterPipeline(AnalysisPipeline):
                 self.processes["Clusterer"].astep.output_pixel_queue = self.queues["pixels"]
 
 class MonitorPipeline(AnalysisPipeline):
-    def __init__(self,cluster_processes=1, **kwargs):
+    def __init__(self,saving_path,cluster_processes=1, **kwargs):
         super().__init__(**kwargs)
         if cluster_processes==1:
             self.queues = {
@@ -367,7 +367,7 @@ class MonitorPipeline(AnalysisPipeline):
             }
 
             self.processes = {
-                "ChunkStream": processes.DummyStream(r"D:\\Data\\xe002_s\\xe000000.tpx3", self.queues['chunk_stream'], delay=0).make_process(),
+                "ChunkStream": processes.FolderStream(saving_path, self.queues['chunk_stream']).make_process(),
                 "Chunk": processes.QueueReducer(self.queues['chunk_stream'], self.queues['chunk'], max_size=10000).make_process(),
                 "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'], self.queues['itof']).make_process(),
                 "Clusterer": processes.DBSCANClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
@@ -402,7 +402,7 @@ class MonitorPipeline(AnalysisPipeline):
 
             self.queues.update(queues)
             self.processes = {
-                "ChunkStream": processes.DummyStream(r"D:\Data\xe_03_Scan5W\xe_000000.tpx3", self.queues['chunk_stream'], delay=0).make_process(),
+                "ChunkStream": processes.FolderStream(saving_path, self.queues['chunk_stream']).make_process(),
                 "Chunk": processes.QueueReducer(self.queues['chunk_stream'], self.queues['chunk'], max_size=1000).make_process(),
                 "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'], self.queues['itof']).make_process(),
                 **{n: k.make_process() for n, k in proc.items()},
@@ -454,7 +454,7 @@ if __name__ == '__main__':
     # outname=fname+'\out.h5'
     # pipeline=TPXFileConverter(input_path=fname, output_path=outname)
 
-    pipeline=MonitorPipeline(cluster_processes=8)
+    pipeline=MonitorPipeline(r"D:\\Data\\xe002_s",cluster_processes=8)
     start = time.time()
     run_pipeline(pipeline)
     print(f"Time taken: {time.time() - start}")
