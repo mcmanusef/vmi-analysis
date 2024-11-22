@@ -1,3 +1,6 @@
+import os
+os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
+
 import numba
 import numpy as np
 from numba import njit

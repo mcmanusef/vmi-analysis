@@ -4,7 +4,8 @@ import typing
 
 import h5py
 import matplotlib
-import numpy as np
+import os
+os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import sklearn.cluster
 from matplotlib import pyplot as plt
 matplotlib.use('qt5agg')
@@ -27,7 +28,7 @@ class QueueTee(AnalysisStep):
     def action(self):
         try:
             data = self.input_queue.get(timeout=0.1)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             return
         for q in self.output_queues:
             q.put(data)
@@ -101,7 +102,7 @@ class TPXConverter(AnalysisStep):
     def action(self):
         try:
             chunk = self.chunk_queue.get(timeout=1)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             return
 
         for packet in chunk:
@@ -146,7 +147,7 @@ class VMIConverter(AnalysisStep):
     def action(self):
         try:
             chunk = self.chunk_queue.get(timeout=1)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             return
         pixels, tdcs = process_chunk(chunk)
         pixels = [(toa * PIXEL_RES, x, y, tot) for toa, x, y, tot in pixels]
@@ -187,7 +188,7 @@ class Weaver(AnalysisStep):
                         self.current[i] = np.inf
                     try:
                         self.current[i] = q.get(timeout=0.1)
-                    except queue.Empty:
+                    except queue.Empty or InterruptedError:
                         time.sleep(0.1)
                         return
         if all(cur == np.inf for cur in self.current):
@@ -211,7 +212,7 @@ class QueueVoid(AnalysisStep):
             try:
                 for _ in range(q.qsize()):
                     q.get(timeout=0.1)
-            except queue.Empty:
+            except queue.Empty or InterruptedError:
                 continue
 
 
@@ -239,7 +240,7 @@ class DBSCANClusterer(AnalysisStep):
     def action(self):
         try:
             pixels = self.pixel_queue.get(timeout=0.1)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             time.sleep(0.1)
             return
         if len(pixels) == 0:
@@ -288,7 +289,7 @@ class TriggerAnalyzer(AnalysisStep):
         while self.current_trigger_time is None:
             try:
                 self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1)
-            except queue.Empty:
+            except queue.Empty or InterruptedError:
                 time.sleep(0.1)
                 return
 
@@ -300,7 +301,7 @@ class TriggerAnalyzer(AnalysisStep):
                         self.current_samples[i] = c
                     self.current[i] = list(unstructure(c))
 
-                except queue.Empty:
+                except queue.Empty or InterruptedError:
                     if q.closed.value and q.empty():
                         self.current[i] = [np.inf, ]
                     time.sleep(0.1)
@@ -318,7 +319,7 @@ class TriggerAnalyzer(AnalysisStep):
                 try:
                     c = q.get(block=False)
                     self.current[i] = list(unstructure(c))
-                except queue.Empty:
+                except queue.Empty or InterruptedError:
                     self.current[i] = None
                     break
 
@@ -330,7 +331,7 @@ class TriggerAnalyzer(AnalysisStep):
 
         try:
             self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             self.current_trigger_time = None
         # print(self.current_trigger_time, self.last_trigger_time, self.current_trigger_idx, self.current)
         self.current_trigger_idx += 1
@@ -392,7 +393,7 @@ class SaveToH5(AnalysisStep):
             try:
                 data = max_queue.get(timeout=0.1)
                 to_write.append(list(unstructure(data)))
-            except queue.Empty:
+            except queue.Empty or InterruptedError:
                 break
 
         data_lists = tuple(zip(*to_write))
@@ -431,7 +432,7 @@ class QueueDecimator(AnalysisStep):
     def action(self):
         try:
             data = self.input_queue.get(timeout=0.1)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             return
         if self.i % self.n == 0:
             self.output_queue.put(data)
@@ -457,7 +458,7 @@ class QueueReducer(AnalysisStep):
                 data = self.input_queue.get(timeout=0.1)
                 if i<delta:
                     self.output_queue.put(data, timeout=0)
-            except queue.Empty or queue.Full:
+            except queue.Empty or queue.Full or InterruptedError:
                 return
         if self.input_queue.qsize()>self.max_size*5:
             self.input_queue.make_empty()
@@ -489,7 +490,7 @@ class QueueGrouper(AnalysisStep):
                         self.nexts[i]=(np.inf,)
                     try:
                         self.nexts[i]=q.get(timeout=0.1)
-                    except queue.Empty:
+                    except queue.Empty or InterruptedError:
                         time.sleep(0.1)
                         return
 
@@ -502,7 +503,7 @@ class QueueGrouper(AnalysisStep):
                 self.out[i].append(self.nexts[i][1])
                 try:
                     self.nexts[i]=self.input_queues[i].get(timeout=0.1)
-                except queue.Empty:
+                except queue.Empty or InterruptedError:
                     self.nexts[i]=None
                     break
         if any(n is None for n in self.nexts):
@@ -588,7 +589,7 @@ class Display(AnalysisStep):
         try:
             data = self.grouped_queue.get(timeout=0.1)
             # print(data)
-        except queue.Empty:
+        except queue.Empty or InterruptedError:
             return
 
         if len(self.current_data["etof"])==self.current_data["etof"].maxlen:

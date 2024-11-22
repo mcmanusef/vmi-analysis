@@ -1,5 +1,3 @@
-import os
-
 from processing import processes,data_types,base_processes
 import logging
 import time
@@ -49,7 +47,9 @@ class AnalysisPipeline:
         logger.info("Stopping pipeline")
         logger.debug("Process Status:")
         [logger.debug(f"{n} - {p.status()}") for n, p in self.processes.items()]
+        [logger.debug(f"{n} - {p.status()}\n\t{p.exitcode}") for n, p in self.processes.items()]
         for name, process in self.processes.items():
+
             if not process.stopped.value:
                 logger.debug(f"Stopping process {name}")
                 process.shutdown()
@@ -441,6 +441,7 @@ class RunMonitorPipeline(AnalysisPipeline):
 def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
     print("Initializing pipeline")
     with target_pipeline:
+    # target_pipeline.initialize()
         for name, process in target_pipeline.processes.items():
             print(f"{name} initialized correctly: {process.initialized.value}")
         print("Starting pipeline")
@@ -460,34 +461,8 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.DEBUG)
-    fname = r"J:\ctgroup\Edward\DATA\VMI\20241120\n2o_p_7W"
-    pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=4)
-    # fname = r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
-    fname = r"D:\Data\xe002_s\xe000000.tpx3"
-    # pipeline = ClusterSavePipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5", monotone=True)
-    # pipeline = TPXFileConverter(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
-    #                             single_process=False).set_profile(True)
-    # pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", cluster_processes=8)
-    # pipeline=VMIConverterPipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
-
-    # fname = r"C:\serval_test"
-    # outname=fname+'\out.h5'
-    # pipeline=TPXFileConverter(input_path=fname, output_path=outname)
-    # for f in os.listdir(r"C:\monitor"):
-    #     if f.endswith(".tpx3"):
-    #         try:
-    #             fname = os.path.join(r"C:\monitor", f)
-    #             os.remove(fname)
-    #         except PermissionError:
-    #             pass
-    # time.sleep(1)
-
-    pipeline=RunMonitorPipeline(r"C:\DATA\20241120\c2h4_p_1,2W",cluster_processes=4,
-                             toa_range=(500, 750),
-                             # etof_range=(480, 520),
-                             # itof_range=(7500, 8000)
-                             )
-    # pipeline=MonitorPipeline(r"C:\DATA\20240806\xe_03_Scan3W",cluster_processes=1)
+    fname = r"J:\ctgroup\Edward\DATA\VMI\20241120\n2o_p_6W"
+    pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=1)
     start = time.time()
     run_pipeline(pipeline)
     print(f"Time taken: {time.time() - start}")

@@ -1,6 +1,9 @@
 import cProfile
 import logging
 import multiprocessing
+import os
+import signal
+import sys
 import threading
 import time
 
@@ -65,8 +68,9 @@ class AnalysisStep:
 
                 if self.profile:
                     pr.disable()
-
             except Exception as e:
+                print(f"Error in {self.name}: {e}")
+                print(f"Shutting down {self.name}")
 
                 if self.profile:
                     pr.dump_stats(f"{self.name}.prof")
@@ -106,6 +110,8 @@ class AnalysisProcess(multiprocessing.Process):
         return self.astep.status()
 
     def initialize(self):
+        print(f"Initializing Process: {self.name}")
+        signal.signal(signal.SIGINT, self.self_shutdown)
         self.astep.initialize()
 
     def begin(self):
@@ -127,18 +133,25 @@ class AnalysisProcess(multiprocessing.Process):
     def stopped(self):
         return self.astep.stopped
 
+    def self_shutdown(self, *args, **kwargs):
+        print(f"{self.name} received shutdown signal")
+        try:
+            self.shutdown()
+            print(f"{self.name} shut down")
+        finally:
+            os.kill(os.getpid(), signal.SIGTERM)
+
     def shutdown(self):
         self.astep.shutdown()
 
     def run(self):
-        self.astep.initialize()
+        self.initialize()
         while not self.astep.initialized.value:
             time.sleep(0.1)
 
         while not self.astep.stopped.value:
             self.astep.run_loop()
-
-        logging.info(f"{self.name} Finished")
+        print(f"{self.name} Finished")
 
 
 class AnalysisThread(threading.Thread):
