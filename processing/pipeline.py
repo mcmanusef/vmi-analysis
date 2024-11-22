@@ -1,3 +1,5 @@
+import os
+
 from processing import processes,data_types,base_processes
 import logging
 import time
@@ -460,10 +462,16 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.DEBUG)
-    fname = r"J:\ctgroup\Edward\DATA\VMI\20241120\n2o_p_6W"
-    pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=1)
-    start = time.time()
-    run_pipeline(pipeline)
-    print(f"Time taken: {time.time() - start}")
+    logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.INFO)
+    dirname = r"/mnt/NAS/ctgroup/Edward/Data/VMI/20241120"
+    for f in os.listdir(dirname):
+        if os.path.isdir(os.path.join(dirname, f)) and not os.path.exists(os.path.join(dirname, f+".cv4")):
+            fname = os.path.join(dirname, f)
+        else:
+            continue
+
+        pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=4)
+        start = time.time()
+        run_pipeline(pipeline)
+        print(f"Time taken: {time.time() - start}")
 # %%
