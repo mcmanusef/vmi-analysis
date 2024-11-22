@@ -243,7 +243,9 @@ class CV4ConverterPipeline(AnalysisPipeline):
                                                                           "dtypes": ('f', 'f', 'f'),
                                                                           "names": ("toa", "x", "y"),
                                                                           "force_monotone": True,
-                                                                          "chunk_size": 2000},
+                                                                          "chunk_size": 2000,
+                                                                          "maxsize": 10,
+                                                                      },
                                                                       queue_name="clust",process_name="clusterer")
             self.queues.update(queues)
             self.processes = {"Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
@@ -463,15 +465,17 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.INFO)
-    dirname = r"/mnt/NAS/ctgroup/Edward/DATA/VMI/20241120"
+    dirname = r"J:\ctgroup\Edward\DATA\VMI\20241120"
     for f in os.listdir(dirname):
         if os.path.isdir(os.path.join(dirname, f)) and not os.path.exists(os.path.join(dirname, f+".cv4")):
             fname = os.path.join(dirname, f)
         else:
             continue
+        fname=r"J:\ctgroup\Edward\DATA\VMI\20241120\c2h4_p_1,2W\ds_000000.tpx3"
 
-        pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=4)
+        pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=4).set_profile(True)
         start = time.time()
         run_pipeline(pipeline)
         print(f"Time taken: {time.time() - start}")
+        break
 # %%
