@@ -379,6 +379,7 @@ class MonitorPipeline(AnalysisPipeline):
             "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
         }
 
+
         if cluster_processes > 1:
             queues, proc, weaver = processes.create_process_instances(processes.DBSCANClusterer, cluster_processes, self.queues["clusters"],
                                                                       process_args={"pixel_queue": self.queues['pixel'],"cluster_queue": None},
@@ -410,26 +411,15 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
                 print(f"{name} status: {process.status()}")
                 for qname, q in target_pipeline.queues.items():
                     if q in process.astep.output_queues:
-                        print(f"\t{qname} ({'Closed' if q.closed.value else 'Open'}) queue size: {q.qsize()}")
+                        print(f"\t{qname} ({'Closed' if q.closed.value else 'Open'}) queue size: {q.qsize()} (internal: {q.queue.qsize()})")
             time.sleep(1)
             print("\n")
 
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s:   %(message)s', level=logging.DEBUG)
-    # fname = r"D:\Data\xe_03_Scan3W\xe_000000.tpx3"
-    fname = r"D:\Data\xe002_s\xe000000.tpx3"
-    # pipeline = ClusterSavePipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5", monotone=True)
-    # pipeline = TPXFileConverter(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
-    #                             single_process=False).set_profile(True)
-    # pipeline = CV4ConverterPipeline(input_path=fname, output_path="test.h5", cluster_processes=8)
-    # pipeline=VMIConverterPipeline(input_path=r"D:\Data\xe002_s\xe000000.tpx3", output_path="test.h5")
-
-    # fname = r"C:\serval_test"
-    # outname=fname+'\out.h5'
-    # pipeline=TPXFileConverter(input_path=fname, output_path=outname)
-
-    pipeline=MonitorPipeline(r"D:\\Data\\xe002_s",cluster_processes=8)
+    fname = r"J:\ctgroup\Edward\DATA\VMI\20241120\n2o_p_7W"
+    pipeline=CV4ConverterPipeline(fname, fname+".cv4", cluster_processes=4)
     start = time.time()
     run_pipeline(pipeline)
     print(f"Time taken: {time.time() - start}")
