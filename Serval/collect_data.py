@@ -19,12 +19,12 @@ def dict_to_string_recursive(d):
 
 if __name__ == '__main__':
     server = 'http://localhost:8080'
-    bpc_file = r"C:\SoPhy\pixelconfig_20241120.bpc"
+    bpc_file = r"C:\SoPhy\pixelconfig_20240514.bpc"
     dacs_file = r"C:\SoPhy\pixelconfig_20240514.bpc.dacs"
     dest = 'C:/monitor'
 
     frame_time = 1
-    n_frames = 1
+    n_frames = sys.maxsize
 
     resp = requests.get(server + '/config/load?format=pixelconfig&file=' + bpc_file)
     print(resp.text)
@@ -48,9 +48,9 @@ if __name__ == '__main__':
     resp = requests.put(server + '/server/destination', data=json.dumps(destination))
     resp = requests.get(server + '/server/destination')
     print(resp.text)
-    while True:
-        try:
-            resp = requests.get(server + '/measurement/start')
-            time.sleep(1)
-        finally:
-            resp = requests.get(server + '/measurement/stop')
+    try:
+        resp = requests.get(server + '/measurement/start')
+        print(resp.text)
+    finally:
+        resp = requests.get(server + '/measurement/stop')
+        print(resp.text)

@@ -448,19 +448,21 @@ class QueueReducer(AnalysisStep):
         self.statuses=collections.deque(maxlen=record)
         self.record=record
         self.ratio=multiprocessing.Value('f',0)
+        self.name="QueueReducer"
 
     def action(self):
-        try:
-            data = self.input_queue.get(timeout=0.1)
+        delta=self.max_size-self.output_queue.qsize()
+        for i in range(self.max_size//2):
+            try:
+                data = self.input_queue.get(timeout=0.1)
+                if i<delta:
+                    self.output_queue.put(data, timeout=0)
+            except queue.Empty or queue.Full:
+                return
+        if self.input_queue.qsize()>self.max_size*5:
+            self.input_queue.make_empty()
 
-        except queue.Empty:
-            return
-        if self.output_queue.qsize() < self.max_size:
-            self.output_queue.put(data)
-            self.statuses.append(1)
-        else:
-            self.statuses.append(0)
-        self.ratio.value=self.statuses.count(1)/self.record
+        # self.ratio.value=self.statuses.count(1)/self.record
 
     def status(self):
         stat=super().status()
@@ -515,7 +517,10 @@ class Display(AnalysisStep):
     def __init__(
             self,
             grouped_queue,
-            n
+            n,
+            toa_range=None,
+            etof_range=None,
+            itof_range=None
     ):
         super().__init__()
         self.input_queues = (grouped_queue,)
@@ -539,18 +544,41 @@ class Display(AnalysisStep):
         self.itof_hist_data=np.zeros(400)
         self.update_interval=1
         self.last_update=0
+        self.toa_range=toa_range
+        self.etof_range=etof_range
+        self.itof_range=itof_range
 
     def initialize(self):
         self.figure, self.ax = plt.subplots(2,2)
-        self.xy_hist=self.ax[0,0].imshow(np.random.random(size=(256,256)), extent=[0,256,0,256], origin='lower')
+        self.xy_hist=self.ax[0,0].imshow(np.random.random(size=(256,256)), extent=[0,256,0,256], origin='lower', aspect='auto', cmap='jet', interpolation='nearest')
         self.ax[0,0].set_title("XY")
         self.toa_hist=self.ax[0,1].plot(np.linspace(0, 2000, 2000), np.linspace(0,1,num=2000))[0]
+        plt.sca(self.ax[0,1])
+        plt.xlim(0,2000)
+        plt.xlabel("ToA (ns)")
+        if self.toa_range is not None:
+            plt.axvline(self.toa_range[0], color='r', linestyle='--')
+            plt.axvline(self.toa_range[1], color='r', linestyle='--')
+
         self.ax[0,1].set_title("ToA")
         self.etof_hist=self.ax[1,0].plot(np.linspace(0, 2000, 2000), np.linspace(0,1,num=2000))[0]
+        plt.sca(self.ax[1,0])
+        plt.xlim(0,2000)
+        plt.xlabel("ToF (ns)")
+        if self.etof_range is not None:
+            plt.axvline(self.etof_range[0], color='r', linestyle='--')
+            plt.axvline(self.etof_range[1], color='r', linestyle='--')
 
         self.ax[1,0].set_title("eToF")
         self.itof_hist=self.ax[1,1].plot(np.linspace(0, 2e4, 400), np.linspace(0,1,num=400))[0]
         self.ax[1,1].set_title("iToF")
+        plt.sca(self.ax[1,1])
+        plt.xlim(0,2e4)
+        plt.xlabel("ToF (ns)")
+        if self.itof_range is not None:
+            plt.axvline(self.itof_range[0], color='r', linestyle='--')
+            plt.axvline(self.itof_range[1], color='r', linestyle='--')
+
         plt.suptitle("Processing Rate:")
         self.figure.tight_layout()
         self.figure.show()
@@ -569,9 +597,9 @@ class Display(AnalysisStep):
             t_rem,x_rem,y_rem= zip(*last) if (last:=self.current_data["cluster"].popleft()) else ([],[],[])
             last_timestamp=self.current_data["timestamps"].popleft()
 
-            for x,y in zip(x_rem,y_rem):
-
-                self.xy_hist_data[int(x),int(y)]-=1
+            for t, x,y in zip(t_rem,x_rem,y_rem):
+                if self.toa_range is None or (self.toa_range[0]<t<self.toa_range[1]):
+                    self.xy_hist_data[int(x),int(y)]-=1
             for t in t_rem:
                 if 0<t<2e4:
                     self.toa_hist_data[int(t/10)]-=1
@@ -588,15 +616,25 @@ class Display(AnalysisStep):
 
 
         etof, itof, cluster = data
-        self.current_data["etof"].append(etof)
+
         self.current_data["itof"].append(itof)
+        if self.itof_range is not None:
+            if len(itof)!=1 or not (self.itof_range[0]<itof[0]<self.itof_range[1]):
+                etof=[]
+                cluster=[]
+
+        self.current_data["etof"].append(etof)
+        if self.etof_range is not None:
+            if len(etof)!=1 or not (self.etof_range[0]<etof[0]<self.etof_range[1]):
+                cluster=[]
+
         self.current_data["cluster"].append(cluster)
         self.current_data["timestamps"].append(time.time())
+
         if cluster:
-            clust=list(zip(*cluster))
-            for x,y in zip(clust[1],clust[2]):
-                self.xy_hist_data[int(x),int(y)]+=1 if x<256 and y<256 else 0
-            for t in clust[0]:
+            for t,x,y in cluster:
+                if self.toa_range is None or (self.toa_range[0]<t<self.toa_range[1]):
+                    self.xy_hist_data[int(x),int(y)]+=1 if x<256 and y<256 else 0
                 if 0<t<2000:
                     self.toa_hist_data[int(t)]+=1
 
@@ -608,10 +646,10 @@ class Display(AnalysisStep):
                 self.itof_hist_data[int(t/50)]+=1
 
         if time.time()-self.last_update>self.update_interval:
-            self.xy_hist.set_data(self.xy_hist_data/np.max(self.xy_hist_data))
-            self.toa_hist.set_ydata(self.toa_hist_data/np.max(self.toa_hist_data))
-            self.etof_hist.set_ydata(self.etof_hist_data/np.max(self.etof_hist_data))
-            self.itof_hist.set_ydata(self.itof_hist_data/np.max(self.itof_hist_data))
+            self.xy_hist.set_data(np.log(self.xy_hist_data+1)/np.log(np.max(self.xy_hist_data+1)))
+            self.toa_hist.set_ydata(np.log(self.toa_hist_data+1)/np.log(np.max(self.toa_hist_data+1)))
+            self.etof_hist.set_ydata(np.log(self.etof_hist_data+1)/np.log(np.max(self.etof_hist_data+1)))
+            self.itof_hist.set_ydata(np.log(self.itof_hist_data+1)/np.log(np.max(self.itof_hist_data+1)))
 
             cluster_count_rate=np.mean([len(c) for c in self.current_data["cluster"]])
             etof_count_rate=np.mean([len(c) for c in self.current_data["etof"]])
@@ -625,6 +663,10 @@ class Display(AnalysisStep):
             self.figure.canvas.draw()
             self.figure.canvas.flush_events()
             self.last_update=time.time()
+
+    def shutdown(self, **kwargs):
+        plt.close(self.figure)
+        super().shutdown(**kwargs)
 
 class DummyStream(TPXFileReader):
     def __init__(self, path, chunk_queue, delay, **kwargs):
@@ -665,6 +707,7 @@ class FolderStream(TPXFileReader):
             return
         most_recent_file=sorted(os.listdir(self.path), key=lambda x: os.path.getmtime(os.path.join(self.path, x)))[-1]
         if self.max_age and time.time()-os.path.getmtime(os.path.join(self.path, most_recent_file))>self.max_age:
+            self.shutdown()
             return
         self.file.close() if self.file else None
         self.file = open(os.path.join(self.path, most_recent_file), 'rb')
