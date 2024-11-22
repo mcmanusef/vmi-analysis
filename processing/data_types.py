@@ -188,3 +188,11 @@ class ExtendedQueue(Generic[T]):
             self.input_buffer = []
         time.sleep(1)
         self.closed.value = True
+
+    def make_empty(self):
+        while not self.queue.empty():
+            self.queue.get()
+        self.input_buffer = []
+        if self.output_queue:
+            while not self.output_queue.empty():
+                self.output_queue.get()
