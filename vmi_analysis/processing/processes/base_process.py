@@ -3,11 +3,10 @@ import logging
 import multiprocessing
 import os
 import signal
-import sys
 import threading
 import time
 
-from processing.data_types import ExtendedQueue
+from ..data_types import ExtendedQueue
 
 
 class AnalysisStep:
