@@ -52,7 +52,7 @@ class MonitorPipeline(AnalysisPipeline):
 
 
 class RunMonitorPipeline(AnalysisPipeline):
-    def __init__(self, saving_path, cluster_processes=1, timeout=0, toa_range=None, etof_range=None, itof_range=None, **kwargs):
+    def __init__(self, saving_path, cluster_processes=1, toa_range=None, etof_range=None, itof_range=None, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
             "chunk": data_types.ExtendedQueue(maxsize=1000),
