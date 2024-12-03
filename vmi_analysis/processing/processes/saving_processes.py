@@ -13,7 +13,7 @@ class SaveToH5(AnalysisStep):
     output_queues = ()
     h5_file: h5py.File | None
 
-    def __init__(self, file_path, input_queues, chunk_size=1000, flat: bool | tuple[bool] | dict[str, bool] = True, **kwargs):
+    def __init__(self, file_path, input_queues, chunk_size=1000, flat: bool | tuple[bool] | dict[str, bool] = True, loud=False, **kwargs):
         super().__init__(**kwargs)
         self.name = "SaveToH5"
         self.file_path = file_path
@@ -23,6 +23,7 @@ class SaveToH5(AnalysisStep):
         self.flat = flat if isinstance(flat, dict) else {k: flat for k in input_queues.keys()} if isinstance(flat, bool) else {k: f for k, f in flat}
         self.h5_file = None
         self.n = 0
+        self.loud = loud
 
     def initialize(self):
         f = h5py.File(self.file_path, 'w')
@@ -35,6 +36,7 @@ class SaveToH5(AnalysisStep):
                 for name, dtype in zip(unstructure(q.names), unstructure(q.dtypes)):
                     g.create_dataset(name, (self.chunk_size,), dtype=dtype, maxshape=(None,))
         self.h5_file = f
+        print(f"Loud={self.loud}")
         super().initialize()
 
     def action(self):
@@ -58,31 +60,55 @@ class SaveToH5(AnalysisStep):
 
         self.n = 0
         to_write = []
+        if self.loud:
+            print(f"Gathering {save_size} from {max_name}")
+
         for i in range(save_size):
             try:
                 data = max_queue.get(timeout=0.1)
                 to_write.append(list(unstructure(data)))
             except queue.Empty or InterruptedError:
+                if self.loud:
+                    print(f"Queue {max_name} empty")
                 break
 
         data_lists = tuple(zip(*to_write))
+        if self.loud:
+            print(f"Data gathered:{data_lists}")
         for name, data in zip(unstructure(max_queue.names), data_lists):
+
+            if self.loud:
+                print(f"Writing {len(data)} to {name}")
+                print(data)
+
             if f[name].shape[0] != self.chunk_size:
                 if self.flat[max_name]:
                     f[name].resize(f[name].shape[0] + len(data), axis=0)
                     f[name][-len(data):] = data
+                    if self.loud:
+                        print(f"Resizing {name} to {f[name].shape[0]}")
+                        print(f[name][-len(data):])
                 else:
                     g = f[max_name]
                     g[name].resize(g[name].shape[0] + len(data), axis=0)
                     g[name][-len(data):] = data
+                    if self.loud:
+                        print(f"Resizing {name} to {g[name].shape[0]}")
+                        print(g[name][-len(data):])
             else:
                 if self.flat[max_name]:
                     f[name].resize(len(data), axis=0)
                     f[name][:] = data
+                    if self.loud:
+                        print(f"Writing {f[name].shape[0]} to {name}")
+                        print(f[name][:])
                 else:
                     g = f[max_name]
                     g[name].resize(len(data), axis=0)
                     g[name][:] = data
+                    if self.loud:
+                        print(f"Writing {g[name].shape[0]} to {name}")
+                        print(g[name][:])
 
     def shutdown(self, **kwargs):
         self.h5_file.close() if self.h5_file else None

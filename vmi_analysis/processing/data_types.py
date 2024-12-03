@@ -87,6 +87,7 @@ class ExtendedQueue(Generic[T]):
                  max_back=1e9,
                  unwrap=False,
                  maxsize=0,
+                 loud=False,
                  **kwargs):
         self.buffer = CircularBuffer(buffer_size, dtypes) if buffer_size > 0 else None
 
@@ -109,6 +110,7 @@ class ExtendedQueue(Generic[T]):
         self.max_back = multiprocessing.Value('f', max_back)
         self.closed = multiprocessing.Value('b', False)
         self.unwrap = unwrap
+        self.loud = loud
 
     def put(self, obj: T, **kwargs):
         if self.unwrap:
@@ -138,6 +140,10 @@ class ExtendedQueue(Generic[T]):
 
         if self.buffer:
             self.buffer.put(output)
+
+        if self.loud:
+            print(output)
+
         return output
 
     def get(self, block=True, timeout=None) -> T:
