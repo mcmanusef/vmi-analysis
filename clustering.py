@@ -14,6 +14,6 @@ def bulk_convert_cv4(dirname):
         convert_cv4(fname)
 
 if __name__ == '__main__':
-    fname=r"J:\ctgroup\Edward\DATA\VMI\20241120\c2h4_p_1,5W"
+    fname=r"D:\Data\c2h4_p_1,5W"
     convert_cv4(fname)
 #%%
