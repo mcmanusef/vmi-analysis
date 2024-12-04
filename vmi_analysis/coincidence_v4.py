@@ -51,9 +51,11 @@ def load_file_nc(filename):
     x,y,t=zip(*c_data)
     return tuple(map(np.asarray,(x,y,t,etof)))
 
-def load_file(filename, ext=None, force_recalc=False):
+def load_file(filename, ext=None, force_recalc=False, coincidence=True):
     if ext is None:
         ext = lambda x: x.replace('.cv4','.mat')
+    if not coincidence:
+        return *load_file_nc(filename), np.array([])
     cache_file = ext(filename)
     if force_recalc or not os.path.exists(cache_file):
         print(f"Calculating {cache_file}")
