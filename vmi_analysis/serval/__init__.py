@@ -1,1 +1,1 @@
-from serval_commands import *
+from .serval_commands import *
