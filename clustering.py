@@ -2,7 +2,7 @@
 from vmi_analysis.processing.pipelines import CV4ConverterPipeline, run_pipeline
 import os
 def convert_cv4(fname):
-    pipeline = CV4ConverterPipeline(fname, fname + ".cv4", cluster_processes=8)
+    pipeline = CV4ConverterPipeline(fname, fname + ".cv4", cluster_processes=4)
     run_pipeline(pipeline)
 
 def bulk_convert_cv4(dirname):
@@ -14,6 +14,6 @@ def bulk_convert_cv4(dirname):
         convert_cv4(fname)
 
 if __name__ == '__main__':
-    fname=r"D:\Data\c2h4_p_1,5W"
+    fname=r"D:\Data\11_20\xe_s_5W"
     convert_cv4(fname)
 #%%
