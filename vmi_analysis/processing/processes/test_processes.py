@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from .base_process import AnalysisStep
 import matplotlib
 
-matplotlib.use('qt5agg')
+
 
 
 class Display(AnalysisStep):
