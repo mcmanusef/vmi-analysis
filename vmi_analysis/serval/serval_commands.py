@@ -7,12 +7,12 @@ import pathlib
 DEFAULT_IP= 'http://localhost:8080'
 
 
-def set_acquisition_parameters(destination, prefix, file_length, frame_time, serval_ip=DEFAULT_IP):
+def set_acquisition_parameters(destination, prefix, duration, frame_time, serval_ip=DEFAULT_IP):
     config=json.loads(requests.get(serval_ip + '/detector/config').text)
     config['BiasVoltage']=100
     config['TriggerMode']='CONTINUOUS'
-    config['ExposureTime']=config['TriggerPeriod']=frame_time
-    config['nTriggers']= file_length//frame_time
+    config['ExposureTime'] = config['TriggerPeriod'] = frame_time
+    config['nTriggers']= int(duration/frame_time)
     resp=requests.put(serval_ip + '/detector/config', data=json.dumps(config))
     assert resp.status_code == 200, f"Error setting acquisition parameters: {resp.text}"
 
@@ -34,27 +34,20 @@ def load_config_files(bpc_file, dacs_file, serval_ip=DEFAULT_IP):
 
 
 def test_connection(serval_ip=DEFAULT_IP):
-    try:
-        requests.get(serval_ip)
-        dashboard = requests.get(serval_ip + '/dashboard')
-        json.loads(dashboard.text)
-        return True
-    except requests.exceptions.ConnectionError:
-        return False
+    resp=requests.get(serval_ip+'/dashboard')
+    return resp.status_code == 200
 
 
-def start_acquisition(num_files=1, serval_ip=DEFAULT_IP, block=True):
-    if not block:
-        raise NotImplementedError("Non-blocking acquisition not implemented")
-
-    for i in range(num_files):
-        resp=requests.get(serval_ip+'/measurement/start')
-        assert resp.status_code == 200, f"Error starting acquisition {i}: {resp.text}"
-
-        while json.loads(requests.get(serval_ip+'/dashboard').text)['Measurement']['Status'] != "DA_IDLE":
+def start_acquisition(serval_ip=DEFAULT_IP, block=True):
+    resp=requests.get(serval_ip+'/measurement/start')
+    assert resp.status_code == 200, f"Error starting acquisition {i}: {resp.text}"
+    if block:
+        while is_busy(serval_ip):
             time.sleep(0.1)
 
 
 def stop_acquisition(serval_ip=DEFAULT_IP):
     resp=requests.get(serval_ip+'/measurement/stop')
-    assert resp.status_code == 200, f"Error stopping acquisition: {resp.text}"
+
+def is_busy(serval_ip=DEFAULT_IP):
+    return json.loads(requests.get(serval_ip+'/dashboard').text)['Measurement']['Status'] != "DA_IDLE"
