@@ -42,12 +42,13 @@ def start_acquisition(serval_ip=DEFAULT_IP, block=True):
     resp=requests.get(serval_ip+'/measurement/start')
     assert resp.status_code == 200, f"Error starting acquisition {i}: {resp.text}"
     if block:
-        while is_busy(serval_ip):
+        while get_dash(serval_ip)['Measurement']['Status'] != 'DA_IDLE':
             time.sleep(0.1)
 
 
 def stop_acquisition(serval_ip=DEFAULT_IP):
     resp=requests.get(serval_ip+'/measurement/stop')
 
-def is_busy(serval_ip=DEFAULT_IP):
-    return json.loads(requests.get(serval_ip+'/dashboard').text)['Measurement']['Status'] != "DA_IDLE"
+
+def get_dash(serval_ip=DEFAULT_IP):
+    return json.loads(requests.get(serval_ip+'/dashboard').text)

@@ -14,7 +14,7 @@ def acquire_data(folder: str, duration: int|float,
         os.makedirs(folder)
 
     assert serval.test_connection(), "Serval server not found"
-    if serval.is_busy():
+    if serval_busy():
         serval.stop_acquisition()
         time.sleep(1)
 
@@ -31,8 +31,19 @@ def acquire_data(folder: str, duration: int|float,
 
 def serval_busy():
     assert serval.test_connection(), "Serval server not found"
-    return serval.is_busy()
+    return serval.get_dash()['Measurement']['Status'] != "DA_IDLE"
+
 
 def stop_acquisition():
     assert serval.test_connection(), "Serval server not found"
     serval.stop_acquisition()
+
+
+def get_status():
+    assert serval.test_connection(), "Serval server not found"
+    return serval.get_dash()['Measurement']['Status']
+
+
+def get_dash():
+    assert serval.test_connection(), "Serval server not found"
+    return serval.get_dash()
