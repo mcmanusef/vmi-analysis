@@ -1,4 +1,5 @@
 from .. import data_types, processes
+from ... import serval
 from .base_pipeline import AnalysisPipeline
 
 
@@ -99,3 +100,81 @@ class RunMonitorPipeline(AnalysisPipeline):
             del self.processes["Clusterer"]
             self.processes.update({n: k.make_process() for n, k in proc.items()})
             self.processes["Weaver"] = weaver.make_process()
+
+class LiveMonitorPipeline(AnalysisPipeline):
+    def __init__(self, local_ip=("127.0.0.1", 1234),
+                 serval_ip=serval.DEFAULT_IP,
+                 toa_range=None,
+                 etof_range=None,
+                 itof_range=None,
+                 preview_ip_frame=("127.0.0.1", 1235),
+                 preview_ip_total=("127.0.0.1", 1236),
+                 ):
+
+        super().__init__()
+        self.serval_ip = serval_ip
+        self.local_ip = local_ip
+        self.preview_ip_frame = preview_ip_frame
+        self.preview_ip_total = preview_ip_total
+
+        self.queues = {
+            "chunk": data_types.ExtendedQueue(maxsize=1000),
+
+            "pixel": data_types.ExtendedQueue(),
+            "etof": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
+            "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
+            "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
+
+            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
+
+            "t_etof": data_types.ExtendedQueue(maxsize=1000),
+            "t_itof": data_types.ExtendedQueue(maxsize=1000),
+            "t_pulse": data_types.ExtendedQueue(maxsize=1000),
+            "t_cluster": data_types.ExtendedQueue(maxsize=1000),
+
+            "grouped": data_types.ExtendedQueue(maxsize=1000),
+        }
+
+        self.processes = {
+            "Listener": processes.TPXListener(self.local_ip, self.queues['chunk']).make_process(),
+            "printvoid": processes.QueueVoid((self.queues['chunk'],), loud=True).make_process(),
+        }
+
+    def start(self):
+        super().start()
+
+        serval_destination = {
+            "Raw": [{
+                "Base": f"tcp://{self.serval_ip[0]}:{self.serval_ip[1]}",
+                "FilePattern": "",
+            }],
+
+            "Preview": {
+                "Period": 0.1,
+                "SamplingMode": "skipOnFrame",
+                "ImageChannels": [{
+                    "Base": f"tcp://{self.preview_ip_frame[0]}:{self.preview_ip_frame[1]}",
+                    "Format": "jsonimage",
+                    "Mode": "count",
+                }, {
+                    "Base": f"tcp://{self.preview_ip_total[0]}:{self.preview_ip_total[1]}",
+                    "Format": "jsonimage",
+                    "Mode": "count",
+                    "IntegrationSize": -1,
+                    "IntegrationMode": "last"
+                }]
+            }
+        }
+
+        serval.set_acquisition_parameters(
+            serval_destination,
+            frame_time=1
+        )
+        serval.start_acquisition()
+
+    def stop(self):
+        serval.stop_acquisition()
+        super().stop()
+
+
+
