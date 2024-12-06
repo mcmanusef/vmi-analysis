@@ -19,6 +19,7 @@ STATUS_RECORDING = "DA_RECORDING"
 STATUS_PREFIX = "DA_"
 UPDATE_INTERVAL_MS = 100  # 100 milliseconds
 INFINITE_DURATION = 999999999
+FRAME_TIME=10
 
 COLOR_IDLE = "black"
 COLOR_BUSY = "green"
@@ -187,12 +188,13 @@ class AcquisitionUI(ttk.Frame):
 
     def _disable_server_dependent_widgets(self):
         # Disable widgets that depend on the server connection
+        self.folder_entry.config(state="disabled")
         self.start_button.config(state="disabled")
         self.stop_button.config(state="disabled")
         self.duration_entry.config(state="disabled")
         self.duration_unit_menu.config(state="disabled")
         self.infinite_check.config(state="disabled")
-        self.status.set("Seval connection failed. Acquisition disabled.")
+        self.status.set("Serval connection failed. Acquisition disabled.")
         self.draw_busy_indicator()
 
     def _enable_server_dependent_widgets(self):
@@ -293,7 +295,7 @@ class AcquisitionUI(ttk.Frame):
         framecount = meas.get("FrameCount")
 
         if elapsed is not None and timeleft is not None and framecount is not None:
-            predicted_offset = timeleft - (elapsed - (10 * framecount))
+            predicted_offset = timeleft - (elapsed - (FRAME_TIME * framecount))
             end_dt = datetime.datetime.now() + datetime.timedelta(seconds=predicted_offset)
             if start_dt.date() != end_dt.date():
                 return end_dt.strftime("%Y-%m-%d %I:%M:%S %p").replace(" 0", " ")
