@@ -10,7 +10,7 @@ from ..data_types import ExtendedQueue
 
 
 class AnalysisStep:
-    def __init__(self, input_queues=(), output_queues=(), profile=False, pipeline_active=None, **kwargs):
+    def __init__(self, input_queues=(), output_queues=(), profile=False, pipeline_active=None, logger=None, **kwargs):
         self.input_queues: tuple[ExtendedQueue, ...] = input_queues
         self.output_queues: tuple[ExtendedQueue, ...] = output_queues
         self.initialized = multiprocessing.Value('b', False)
@@ -21,6 +21,7 @@ class AnalysisStep:
         self.any_queue = True
         self.name = ""
         self.pipeline_active = pipeline_active
+        self.logger=logger if logger else logging.getLogger()
 
     def status(self):
         return {
