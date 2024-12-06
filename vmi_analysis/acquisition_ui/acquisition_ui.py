@@ -16,11 +16,13 @@ DEFAULT_DURATION_UNIT = "sec"
 DESTINATION_BASE_PATH = "C:\\DATA"
 STATUS_IDLE = "DA_IDLE"
 STATUS_RECORDING = "DA_RECORDING"
+STATUS_PREFIX = "DA_"
 UPDATE_INTERVAL_MS = 100  # 100 milliseconds
 INFINITE_DURATION = 999999999
 
 COLOR_IDLE = "black"
 COLOR_BUSY = "green"
+COLOR_ERROR = "red"
 
 class AcquisitionUI(ttk.Frame):
     def __init__(self, master):
@@ -80,9 +82,6 @@ class AcquisitionUI(ttk.Frame):
 
         duration_frame = ttk.Frame(param_frame)
         duration_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
-        duration_frame.columnconfigure(0, weight=1)
-        duration_frame.columnconfigure(1, weight=0)
-        duration_frame.columnconfigure(2, weight=0)
 
         ttk.Label(duration_frame, text="Duration:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
         self.duration_entry = ttk.Entry(duration_frame, textvariable=self.duration_value, width=8)
@@ -91,8 +90,8 @@ class AcquisitionUI(ttk.Frame):
         self.duration_unit_menu = OptionMenu(duration_frame, self.duration_unit, "sec", "min", "hr")
         self.duration_unit_menu.grid(row=0, column=2, sticky="w", padx=5, pady=5)
 
-        self.infinite_check = ttk.Checkbutton(param_frame, text="Run Infinitely", variable=self.infinite, command=self.toggle_infinite_mode)
-        self.infinite_check.grid(row=3, column=1, sticky="w", padx=5, pady=5)
+        self.infinite_check = ttk.Checkbutton(duration_frame, text="Run Infinitely", variable=self.infinite, command=self.toggle_infinite_mode)
+        self.infinite_check.grid(row=0, column=3, sticky="w", padx=5, pady=5)
 
         busy_frame = ttk.Frame(status_frame)
         busy_frame.grid(row=0, column=0, columnspan=2, sticky="ew")
@@ -131,9 +130,6 @@ class AcquisitionUI(ttk.Frame):
         self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop_acquisition)
         self.stop_button.grid(row=0, column=1, sticky="ew", padx=5)
 
-    def bind_events(self):
-        pass  # Deprecated, using _bind_events method below
-
     def _bind_events(self):
         self.folder_name.trace_add('write', lambda *args: self.update_destination())
 
@@ -145,7 +141,14 @@ class AcquisitionUI(ttk.Frame):
 
     def draw_busy_indicator(self):
         self.busy_canvas.delete("all")
-        color = COLOR_IDLE if self.status.get() == STATUS_IDLE else COLOR_BUSY
+        match self.status.get():
+            case status if status==STATUS_IDLE:
+                color = COLOR_IDLE
+            case status if status.startswith(STATUS_PREFIX):
+                color = COLOR_BUSY
+            case _:
+                color = COLOR_ERROR
+
         self.busy_canvas.create_oval(2, 2, 14, 14, fill=color, outline="")
 
     def convert_duration_to_seconds(self):
@@ -176,14 +179,21 @@ class AcquisitionUI(ttk.Frame):
             self._disable_server_dependent_widgets()
 
     def _connect_to_server(self):
-        # Placeholder: Attempt to connect to the server
-        # For demonstration, always raise ConnectionError
-        raise requests.exceptions.ConnectionError("Unable to reach the server.")
+        try:
+            lv.get_dash()
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"Failed to connect to the server: {e}")
+            raise e
 
     def _disable_server_dependent_widgets(self):
         # Disable widgets that depend on the server connection
+        self.start_button.config(state="disabled")
         self.stop_button.config(state="disabled")
-        self.status.set("Server connection failed. Some features are disabled.")
+        self.duration_entry.config(state="disabled")
+        self.duration_unit_menu.config(state="disabled")
+        self.infinite_check.config(state="disabled")
+        self.status.set("Seval connection failed. Acquisition disabled.")
+        self.draw_busy_indicator()
 
     def _enable_server_dependent_widgets(self):
         self.stop_button.config(state="normal")

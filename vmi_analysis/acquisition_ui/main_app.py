@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from .acquisition_ui import AcquisitionUI
-from .analysis_ui import AnalysisUI
+from .conversion_ui import ConversionUI
 
 class MainApp(tk.Tk):
     def __init__(self):
@@ -13,9 +13,9 @@ class MainApp(tk.Tk):
         self.notebook.pack(fill="both", expand=True)
 
         self._add_acquisition_tab()
-        self._add_analysis_tab()
+        self._add_conversion_tab()
 
-        self.after(1000, self._update_analysis_monitor)
+        self.after(1000, self._update_conversion_monitor)
 
     def _add_acquisition_tab(self):
         acquisition_tab = ttk.Frame(self.notebook)
@@ -23,18 +23,18 @@ class MainApp(tk.Tk):
         self.acquisition_ui = AcquisitionUI(acquisition_tab)
         self.acquisition_ui.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def _add_analysis_tab(self):
-        analysis_tab = ttk.Frame(self.notebook)
-        self.notebook.add(analysis_tab, text="Analysis")
-        self.analysis_ui = AnalysisUI(analysis_tab, self.acquisition_ui)
-        self.analysis_ui.pack(fill="both", expand=True, padx=10, pady=10)
+    def _add_conversion_tab(self):
+        conversion_tab = ttk.Frame(self.notebook)
+        self.notebook.add(conversion_tab, text="File Conversion")
+        self.conversion_ui = ConversionUI(conversion_tab, self.acquisition_ui)
+        self.conversion_ui.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def _update_analysis_monitor(self):
-        self.analysis_ui.update_process_queue_status()
-        self.after(1000, self._update_analysis_monitor)
+    def _update_conversion_monitor(self):
+        self.conversion_ui.update_process_queue_status()
+        self.after(1000, self._update_conversion_monitor)
 
     def on_closing(self):
-        self.analysis_ui.on_destroy()
+        self.conversion_ui.on_destroy()
         self.destroy()
 
 def main():

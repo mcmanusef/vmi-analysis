@@ -1,4 +1,4 @@
-# analysis_ui.py
+# conversion_ui.py
 
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
@@ -20,7 +20,7 @@ import multiprocessing
 import requests
 import time
 
-class AnalysisUI(ttk.Frame):
+class ConversionUI(ttk.Frame):
     def __init__(self, parent, acquisition_ui: AcquisitionUI, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.acquisition_ui = acquisition_ui  # Reference to AcquisitionUI for default paths
@@ -49,24 +49,24 @@ class AnalysisUI(ttk.Frame):
 
     def _initialize_variables(self):
         self.pipeline_options = {
-            "TPX File Converter": TPXFileConverter,
-            "Raw VMI Converter Pipeline": RawVMIConverterPipeline,
-            "VMI Converter Pipeline": VMIConverterPipeline,
-            "Cluster Save Pipeline": ClusterSavePipeline,
-            "CV4 Converter Pipeline": CV4ConverterPipeline
+            "Direct HDF5 Converter": TPXFileConverter,
+            "Uncorrelated VMI Converter": RawVMIConverterPipeline,
+            "Uncorrelated VMI Converter (Clustered)": ClusterSavePipeline,
+            "UV4 Converter (Unclustered VMI Data)": VMIConverterPipeline,
+            "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline
         }
 
         # Extension map for pipelines
         self.pipeline_extension_map = {
-            "TPX File Converter": ".h5",
-            "Raw VMI Converter Pipeline": ".h5",
-            "VMI Converter Pipeline": ".h5",
-            "Cluster Save Pipeline": ".h5",
-            "CV4 Converter Pipeline": ".cv4"
+            "Direct HDF5 Converter": ".h5",
+            "Uncorrelated VMI Converter": ".h5",
+            "Uncorrelated VMI Converter (Clustered)": ".h5",
+            "UV4 Converter (Unclustered VMI Data)": ".uv4",
+            "CV4 Converter (Clustered VMI Data)": ".cv4"
         }
 
         self.selected_pipeline = tk.StringVar()
-        self.selected_pipeline.set("TPX File Converter")  # Default selection
+        self.selected_pipeline.set("Direct HDF5 Converter")  # Default selection
 
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
@@ -154,18 +154,6 @@ class AnalysisUI(ttk.Frame):
         # Setup logging for stderr
         self.logger_stderr = logging.getLogger('stderr')
         self.logger_stderr.setLevel(logging.ERROR)
-
-    # def _poll_logs(self):
-    #     # Poll stdout logs
-    #     while not self.log_queue_stdout.empty():
-    #         msg = self.log_queue_stdout.get_nowait()
-    #         self._append_text(self.stdout_text, msg + '\n')
-    #     # Poll stderr logs
-    #     while not self.log_queue_stderr.empty():
-    #         msg = self.log_queue_stderr.get_nowait()
-    #         self._append_text(self.stderr_text, msg + '\n')
-    #     # Schedule next poll
-    #     self.after(100, self._poll_logs)
 
     def _append_text(self, text_widget: scrolledtext.ScrolledText, text: str):
         text_widget.configure(state='normal')
