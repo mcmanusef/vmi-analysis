@@ -46,6 +46,7 @@ class ConversionUI(ttk.Frame):
         # Start periodic log checking and process monitoring
         # self._poll_logs()
         self._monitor_pipeline()
+        self._update_default_paths()
 
     def _initialize_variables(self):
         self.pipeline_options = {
@@ -127,7 +128,7 @@ class ConversionUI(ttk.Frame):
     def _browse_input(self):
         folder_selected = filedialog.askdirectory()
         if folder_selected:
-            self.input_path.set(folder_selected)
+            self.input_path.set(folder_selected.replace("/", "\\"))
 
     def _browse_output(self):
         pipeline_name = self.selected_pipeline.get()
@@ -273,7 +274,7 @@ class ConversionUI(ttk.Frame):
     def _monitor_pipeline(self):
         if self.pipeline and self.pipeline.is_running():
             self.update_process_queue_status()
-        self.after(1000, self._monitor_pipeline)  # Update every second
+        self.after(100, self._monitor_pipeline)
 
     def on_destroy(self):
         if self.pipeline and self.pipeline.is_running():
