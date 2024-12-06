@@ -7,7 +7,7 @@ class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Data Acquisition and Analysis")
-        self.geometry("1000x700")
+        self.geometry("500x700")
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True)
