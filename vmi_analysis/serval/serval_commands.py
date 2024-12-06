@@ -1,5 +1,5 @@
 import time
-
+import os
 import requests
 import json
 import pathlib
@@ -7,7 +7,7 @@ import pathlib
 DEFAULT_IP = 'http://localhost:8080'
 
 
-def set_acquisition_parameters(destination, prefix, duration, frame_time, serval_ip=DEFAULT_IP):
+def set_acquisition_parameters(destination, duration=999999, frame_time=1, prefix='tpx', serval_ip=DEFAULT_IP):
     config = json.loads(requests.get(serval_ip + '/detector/config').text)
     config['BiasVoltage'] = 100
     config['TriggerMode'] = 'CONTINUOUS'
@@ -15,12 +15,19 @@ def set_acquisition_parameters(destination, prefix, duration, frame_time, serval
     config['nTriggers'] = int(duration / frame_time)
     resp = requests.put(serval_ip + '/detector/config', data=json.dumps(config))
     assert resp.status_code == 200, f"Error setting acquisition parameters: {resp.text}"
-
-    destination = {
-        "Raw": [{"Base": pathlib.Path(destination).as_uri(),
-                 "FilePattern": prefix,
-                 }],
-    }
+    if not isinstance(destination, dict):
+        if os.path.exists(destination) or os.path.sep in destination or destination.startswith("."):
+            destination = {
+                "Raw": [{"Base": pathlib.Path(destination).as_uri(),
+                         "FilePattern": prefix,
+                         }],
+            }
+        else:
+            destination = {
+                "Raw": [{"Base": destination,
+                         "FilePattern": prefix,
+                         }],
+            }
 
     resp = requests.put(serval_ip + '/server/destination', data=json.dumps(destination))
     assert resp.status_code == 200, f"Error setting destination: {resp.text}"
