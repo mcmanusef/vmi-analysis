@@ -3,6 +3,16 @@ from .base_pipeline import AnalysisPipeline
 
 
 class TPXFileConverter(AnalysisPipeline):
+    """
+    Pipeline for converting TPX3 files to h5 files.
+    Not specific to our VMI setup.
+    Directly reads the TPX3 files and converts them to h5 files, saving the pixel data and the TDC data with minimal processing.
+    Output Format:
+    - pixel: toa, x, y, tot
+    - tdc: tdc_time, tdc_type
+    tdc_types:
+    1: tdc1 rising, 2: tdc1 falling, 3: tdc2 rising, 4: tdc2 falling
+    """
     def __init__(self, input_path: str, output_path: str, buffer_size: int = 0, single_process=False, **kwargs):
         super().__init__(**kwargs)
         if not single_process:
@@ -46,6 +56,17 @@ class TPXFileConverter(AnalysisPipeline):
 
 
 class RawVMIConverterPipeline(AnalysisPipeline):
+    """
+    Pipeline for converting raw VMI data to h5 files.
+    Specific to our VMI setup.
+    Converts raw data to pixel data, etof, itof, and pulse data.
+    Data are uncorrelated with laser pulses.
+    Output Format:
+    - pixel: toa, x, y, tot
+    - etof: etof
+    - itof: itof
+    - pulses: pulses
+    """
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
@@ -71,6 +92,17 @@ class RawVMIConverterPipeline(AnalysisPipeline):
 
 
 class VMIConverterPipeline(AnalysisPipeline):
+    """
+    Pipeline for converting raw VMI data to UV4 files (H5 file with specific internal format).
+    Specific to our VMI setup.
+    Converts raw data to pixel data, etof, itof, and pulse data.
+    Data are correlated with laser pulses.
+    Output Format:
+    - pixel: pixel_corr, t, x, y, tot
+    - etof: etof_corr, t_etof
+    - itof: itof_corr, t_itof
+    - pulses: t_pulse
+    """
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
@@ -107,6 +139,17 @@ class VMIConverterPipeline(AnalysisPipeline):
 
 
 class ClusterSavePipeline(AnalysisPipeline):
+    """
+    Pipeline for clustering and saving raw VMI data to h5 files.
+    Specific to our VMI setup.
+    Converts raw data to clustered pixel data, etof, itof, and pulse data.
+    Data are not correlated with laser pulses.
+    Output Format:
+    - clusters: toa, x, y
+    - etof: etof
+    - itof: itof
+    - pulses: pulses
+    """
     def __init__(self, input_path, output_path, monotone=False, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
@@ -146,6 +189,17 @@ class ClusterSavePipeline(AnalysisPipeline):
 
 
 class CV4ConverterPipeline(AnalysisPipeline):
+    """
+    Pipeline for converting raw VMI data to CV4 files (H5 file with specific internal format).
+    Specific to our VMI setup.
+    Converts raw data to clustered pixel data, etof, itof, and pulse data.
+    Data are correlated with laser pulses.
+    Output Format:
+    - clusters: cluster_corr, t, x, y
+    - etof: etof_corr, t_etof
+    - itof: itof_corr, t_itof
+    - pulses: t_pulse
+    """
     def __init__(self, input_path, output_path, save_pixels=False, cluster_processes=1, **kwargs):
         super().__init__(**kwargs)
 
