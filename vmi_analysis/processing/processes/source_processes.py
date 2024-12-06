@@ -6,14 +6,6 @@ from ..data_types import ExtendedQueue, Chunk
 from .base_process import AnalysisStep
 
 
-class TPXListener(AnalysisStep):
-    # TODO: Implement TPXListener class to listen to TPX data over TCP/IP
-    host: str
-    port: int
-    input_queues = ()
-    output_queues: (ExtendedQueue[Chunk],)
-
-
 class TPXFileReader(AnalysisStep):
     path: str
     input_queues = ()
@@ -27,8 +19,8 @@ class TPXFileReader(AnalysisStep):
         self.chunk_queue = chunk_queue
         self.output_queues = (chunk_queue,)
         self.file = None
-        self.folder: bool= os.path.isdir(path)
-        self.files = [os.path.join(path,f) for f in os.listdir(path) if f.endswith('.tpx3')] if self.folder else [path]
+        self.folder: bool = os.path.isdir(path)
+        self.files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.tpx3')] if self.folder else [path]
         self.curr_file_idx = 0
         self.holding.value = True
 
@@ -93,8 +85,8 @@ class FolderStream(TPXFileReader):
         super().action()
         if self.curr_file_idx == 0:
             return
-        most_recent_file=sorted(os.listdir(self.path), key=lambda x: os.path.getmtime(os.path.join(self.path, x)))[-1]
-        if self.max_age and time.time()-os.path.getmtime(os.path.join(self.path, most_recent_file))>self.max_age:
+        most_recent_file = sorted(os.listdir(self.path), key=lambda x: os.path.getmtime(os.path.join(self.path, x)))[-1]
+        if self.max_age and time.time() - os.path.getmtime(os.path.join(self.path, most_recent_file)) > self.max_age:
             self.shutdown()
             return
         self.file.close() if self.file else None

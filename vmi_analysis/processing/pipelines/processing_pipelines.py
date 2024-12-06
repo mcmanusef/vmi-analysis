@@ -17,9 +17,9 @@ class TPXFileConverter(AnalysisPipeline):
             self.processes = {
                 'reader': processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
                 'converter': processes.TPXConverter(self.queues['chunk'], self.queues['pixel'],
-                                                                                  self.queues['tdc']).make_process(),
+                                                    self.queues['tdc']).make_process(),
                 'save': processes.SaveToH5(output_path,
-                                                                       {"pixel": self.queues['pixel'], "tdc": self.queues['tdc']}).make_process(),
+                                           {"pixel": self.queues['pixel'], "tdc": self.queues['tdc']}).make_process(),
             }
 
         if single_process:
@@ -35,10 +35,10 @@ class TPXFileConverter(AnalysisPipeline):
                 "Combined": processes.CombinedStep(steps=(
                     processes.TPXFileReader(input_path, chunk_queue=self.queues['chunk']),
                     processes.TPXConverter(chunk_queue=self.queues['chunk'],
-                                                                         pixel_queue=self.queues['pixel'],
-                                                                         tdc_queue=self.queues['tdc']),
+                                           pixel_queue=self.queues['pixel'],
+                                           tdc_queue=self.queues['tdc']),
                     processes.SaveToH5(output_path,
-                                                                   {"pixel": self.queues['pixel'], "tdc": self.queues['tdc']}),
+                                       {"pixel": self.queues['pixel'], "tdc": self.queues['tdc']}),
                 ), intermediate_queues=(self.queues["pixel"], self.queues['tdc']),
                         output_queues=(self.queues["chunk"],),
                 ).make_process(),
@@ -60,7 +60,7 @@ class RawVMIConverterPipeline(AnalysisPipeline):
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
             "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
-                                                                              self.queues['itof']).make_process(),
+                                                self.queues['itof']).make_process(),
             "Saver": processes.SaveToH5(output_path, {
                 "pixel": self.queues['pixel'],
                 "etof": self.queues['etof'],
@@ -91,12 +91,12 @@ class VMIConverterPipeline(AnalysisPipeline):
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
             "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
-                                                                              self.queues['itof']).make_process(),
+                                                self.queues['itof']).make_process(),
             "Correlator": processes.TriggerAnalyzer(self.queues['pulses'],
-                                                                                  (self.queues['etof'], self.queues['itof'], self.queues['pixel']),
-                                                                                  self.queues['t_pulse'],
-                                                                                  (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_pixel'])
-                                                                                  ).make_process(),
+                                                    (self.queues['etof'], self.queues['itof'], self.queues['pixel']),
+                                                    self.queues['t_pulse'],
+                                                    (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_pixel'])
+                                                    ).make_process(),
             "Saver": processes.SaveToH5(output_path, {
                 "pixel": self.queues['t_pixel'],
                 "etof": self.queues['t_etof'],
@@ -126,14 +126,14 @@ class ClusterSavePipeline(AnalysisPipeline):
             "Reader": processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
 
             "Converter": processes.VMIConverter(self.queues['chunk'],
-                                                                              self.queues['pixel'],
-                                                                              self.queues['pulses'],
-                                                                              self.queues['etof'],
-                                                                              self.queues['itof']).make_process(),
+                                                self.queues['pixel'],
+                                                self.queues['pulses'],
+                                                self.queues['etof'],
+                                                self.queues['itof']).make_process(),
 
             "Clusterer": processes.DBSCANClusterer(pixel_queue=self.queues['pixel'],
-                                                                                 cluster_queue=self.queues['clusters'],
-                                                                                 output_pixel_queue=self.queues['clustered']).make_process(),
+                                                   cluster_queue=self.queues['clusters'],
+                                                   output_pixel_queue=self.queues['clustered']).make_process(),
 
             "Saver": processes.SaveToH5(output_path, {
                 "clusters": self.queues['clusters'],
@@ -167,17 +167,17 @@ class CV4ConverterPipeline(AnalysisPipeline):
             }
 
             queues, proc, weaver = processes.create_process_instances(
-                processes.DBSCANClusterer, cluster_processes, self.queues["Clusters"],
-                process_args={"pixel_queue": self.queues['Pixel'],"cluster_queue": None},
-                queue_args={
-                                                                          "buffer_size": 0,
-                                                                          "dtypes": ('f', 'f', 'f'),
-                                                                          "names": ("toa", "x", "y"),
-                                                                          "force_monotone": True,
-                                                                          "chunk_size": 2000,
-                                                                          "maxsize": 10,
-                                                                      },
-                queue_name="clust", process_name="clusterer")
+                    processes.DBSCANClusterer, cluster_processes, self.queues["Clusters"],
+                    process_args={"pixel_queue": self.queues['Pixel'], "cluster_queue": None},
+                    queue_args={
+                        "buffer_size": 0,
+                        "dtypes": ('f', 'f', 'f'),
+                        "names": ("toa", "x", "y"),
+                        "force_monotone": True,
+                        "chunk_size": 2000,
+                        "maxsize": 10,
+                    },
+                    queue_name="clust", process_name="clusterer")
             self.queues.update(queues)
             self.processes = {"Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
 

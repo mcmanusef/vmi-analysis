@@ -21,6 +21,7 @@ INFINITE_DURATION = 999999999
 COLOR_IDLE = "black"
 COLOR_BUSY = "green"
 
+
 class AcquisitionUI:
     def __init__(self, master):
         self.master = master
@@ -84,10 +85,10 @@ class AcquisitionUI:
 
         # Infinite Mode Checkbox
         self.infinite_check = ttk.Checkbutton(
-            param_frame,
-            text="Run Infinitely",
-            variable=self.infinite,
-            command=self._toggle_infinite_mode
+                param_frame,
+                text="Run Infinitely",
+                variable=self.infinite,
+                command=self._toggle_infinite_mode
         )
         self.infinite_check.grid(row=3, column=1, sticky="w", padx=5, pady=5)
 
@@ -127,10 +128,10 @@ class AcquisitionUI:
 
         # Progress Bar
         self.progress_bar = ttk.Progressbar(
-            status_frame,
-            orient="horizontal",
-            mode="determinate",
-            variable=self.progress_var
+                status_frame,
+                orient="horizontal",
+                mode="determinate",
+                variable=self.progress_var
         )
         self.progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
@@ -258,7 +259,9 @@ class AcquisitionUI:
             self.end_str.set(self._calculate_end_time(meas, start_dt) if start_ms else "")
 
     def _format_start_time(self, start_dt):
-        return start_dt.strftime("%Y-%m-%d %I:%M:%S %p").replace(" 0", " ") if start_dt.date() != datetime.datetime.now().date() else start_dt.strftime("%I:%M:%S %p").lstrip("0")
+        return start_dt.strftime("%Y-%m-%d %I:%M:%S %p").replace(" 0",
+                                                                 " ") if start_dt.date() != datetime.datetime.now().date() else start_dt.strftime(
+                "%I:%M:%S %p").lstrip("0")
 
     def _format_elapsed_time(self, elapsed):
         elapsed_seconds = int(elapsed)
@@ -287,7 +290,8 @@ class AcquisitionUI:
         if elapsed is not None and timeleft is not None and framecount is not None:
             predicted_offset = timeleft - (elapsed - (10 * framecount))
             end_dt = datetime.datetime.now() + datetime.timedelta(seconds=predicted_offset)
-            return end_dt.strftime("%Y-%m-%d %I:%M:%S %p").replace(" 0", " ") if start_dt.date() != end_dt.date() else end_dt.strftime("%I:%M:%S %p").lstrip("0")
+            return end_dt.strftime("%Y-%m-%d %I:%M:%S %p").replace(" 0", " ") if start_dt.date() != end_dt.date() else end_dt.strftime(
+                    "%I:%M:%S %p").lstrip("0")
         return ""
 
     def _update_progress_bar(self, meas):
@@ -318,10 +322,12 @@ class AcquisitionUI:
         self.infinite_check.config(state="normal")
         self._toggle_infinite_mode()
 
+
 def main():
     root = tk.Tk()
     app = AcquisitionUI(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

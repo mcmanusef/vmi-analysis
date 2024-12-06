@@ -4,12 +4,11 @@ from vmi_analysis import serval
 import os
 
 
-def acquire_data(folder: str, duration: int|float,
+def acquire_data(folder: str, duration: int | float,
                  prefix: str = "tpx_",
                  bpc_file: str = r"C:\SoPhy\pixelconfig_20240514.bpc",
                  dacs_file: str = r"C:\SoPhy\pixelconfig_20240514.bpc.dacs",
-                 frame_time: int|float = 10):
-
+                 frame_time: int | float = 10):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
