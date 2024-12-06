@@ -47,13 +47,26 @@ class AnalysisPipeline:
         [logging.debug(f"{n} - {p.status()}") for n, p in self.processes.items()]
         [logging.debug(f"{n} - {p.status()}\n\t{p.exitcode}") for n, p in self.processes.items()]
         for name, process in self.processes.items():
+            print(f"Process {name} status: {process.status()}")
 
             if not process.stopped.value:
                 logging.debug(f"Stopping process {name}")
                 process.shutdown()
             else:
                 logging.debug(f"Process {name} already stopped")
-            process.join()
+            print(f"Process {name} stopped, joining")
+            try:
+                process.join(timeout=5)
+                print(f"Process {name} joined")
+            except TimeoutError:
+                logging.error(f"Process {name} failed to join")
+                process.terminate()
+                process.join()
+                logging.error(f"Process {name} terminated")
+
+
+    def is_running(self):
+        return any([p.status()["running"] for p in self.processes.values()])
 
     def wait_for_completion(self):
         while any([p.is_holding for p in self.processes.values()]):
