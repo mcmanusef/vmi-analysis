@@ -174,15 +174,16 @@ def create_process_instances(process_class, n_instances, output_queue, process_a
 
 
 class QueueVoid(AnalysisStep):
-    def __init__(self, input_queues, **kwargs):
+    def __init__(self, input_queues, loud=False, **kwargs):
         super().__init__(**kwargs)
         self.input_queues = input_queues
         self.name = "Void"
+        self.loud = loud
 
     def action(self):
         for q in self.input_queues:
             try:
                 for _ in range(q.qsize()):
-                    q.get(timeout=0.1)
+                    print(q.get(timeout=0.1)) if self.loud else q.get(timeout=0.1)
             except queue.Empty or InterruptedError:
                 continue
