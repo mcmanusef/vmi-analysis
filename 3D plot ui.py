@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
         fname_layout = QHBoxLayout()
         fname_label = QLabel("Filename:")
         self.fname_edit = QLineEdit()
-        self.fname_edit.editingFinished.connect(self.load_data)
+        self.fname_edit.editingFinished.connect(lambda: self.fname_edit.setText(self.fname_edit.text().strip("\"")))
         fname_layout.addWidget(fname_label)
         fname_layout.addWidget(self.fname_edit)
         controls_layout.addLayout(fname_layout)
@@ -183,7 +183,7 @@ class MainWindow(QMainWindow):
 
     def load_data(self):
         logging.debug("Loading data")
-        fname = self.fname_edit.text()
+        fname = self.fname_edit.text().strip("\"")
         if fname == "":
             logging.warning("Filename is empty")
             return
@@ -233,7 +233,7 @@ class MainWindow(QMainWindow):
         logging.debug(f"Levels for contours: {levels}")
         for level in levels:
             logging.debug(f"Processing level {level}")
-            if level > np.max(hist_mod):
+            if level >= np.max(hist_mod):
                 logging.debug(f"Level {level} is greater than maximum value in histogram")
                 continue
             verts, faces, _, _ = measure.marching_cubes(hist_mod, level,
@@ -275,14 +275,13 @@ class MainWindow(QMainWindow):
 
         logging.debug("Starting video capture")
         # Set the camera elevation to 5 degrees above xy-plane
-        self.plotter.camera.elevation = 5
-        self.plotter.camera.focal_point=(0,0,0)
-        self.plotter.camera.distance=0.5
-        self.plotter.camera.azimuth = 0
-        self.plotter.camera.tight()
+
         self.plotter.camera.enable_parallel_projection()
+        self.plotter.camera.tight()
+        self.plotter.camera.elevation = 30
+        self.plotter.camera.azimuth = 0
         self.plotter.show()
-        self.plotter.reset_camera()
+        # self.plotter.reset_camera(bounds=(-self.pmax, self.pmax, -self.pmax, self.pmax, -self.pmax, self.pmax))
 
         self.plotter.open_movie(output_filename, quality=9)
         logging.debug("Video file opened")

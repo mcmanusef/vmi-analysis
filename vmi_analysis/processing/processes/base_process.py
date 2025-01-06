@@ -35,7 +35,7 @@ class AnalysisStep:
         self.initialized.value = True
 
     def action(self):
-        pass
+        raise NotImplemented
 
     def begin(self):
         self.running.value = True
