@@ -40,7 +40,6 @@ class TPXConverter(AnalysisStep):
                 tdc_type = 1 if tdc_type == 10 else 2 if tdc_type == 15 else 3 if tdc_type == 14 else 4 if tdc_type == 11 else 0
                 self.tdc_queue.put((tdc_time, tdc_type))
 
-
 class VMIConverter(AnalysisStep):
     cutoff: float
     chunk_queue: ExtendedQueue[Chunk]
@@ -213,3 +212,25 @@ class TriggerAnalyzer(AnalysisStep):
             self.current_trigger_time = None
         # print(self.current_trigger_time, self.last_trigger_time, self.current_trigger_idx, self.current)
         self.current_trigger_idx += 1
+
+
+class TDCFilter(AnalysisStep):
+    def __init__(self, tdc_queue, tdc1_queue, tdc2_queue, **kwargs):
+        super().__init__(**kwargs)
+        self.tdc_queue = tdc_queue
+        self.tdc1_queue = tdc1_queue
+        self.tdc2_queue = tdc2_queue
+        self.input_queues = (tdc_queue,)
+        self.output_queues = (tdc1_queue, tdc2_queue)
+        self.name = "TDCFilter"
+
+    def action(self):
+        try:
+            tdc = self.tdc_queue.get(timeout=0.1)
+        except queue.Empty:
+            time.sleep(0.1)
+            return
+        if tdc[1] == 1:
+            self.tdc1_queue.put(tdc[0])
+        elif tdc[1] == 3:
+            self.tdc2_queue.put(tdc[0])

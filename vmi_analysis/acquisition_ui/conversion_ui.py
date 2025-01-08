@@ -14,7 +14,8 @@ from ..processing.pipelines import (
     RawVMIConverterPipeline,
     VMIConverterPipeline,
     ClusterSavePipeline,
-    CV4ConverterPipeline
+    CV4ConverterPipeline,
+    StonyBrookClusterPipeline
 )
 import multiprocessing
 import requests
@@ -54,7 +55,8 @@ class ConversionUI(ttk.Frame):
             "Uncorrelated VMI Converter": RawVMIConverterPipeline,
             "Uncorrelated VMI Converter (Clustered)": ClusterSavePipeline,
             "UV4 Converter (Unclustered VMI Data)": VMIConverterPipeline,
-            "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline
+            "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline,
+            "Stony Brook Converter": StonyBrookClusterPipeline
         }
 
         # Extension map for pipelines
@@ -63,7 +65,8 @@ class ConversionUI(ttk.Frame):
             "Uncorrelated VMI Converter": ".h5",
             "Uncorrelated VMI Converter (Clustered)": ".h5",
             "UV4 Converter (Unclustered VMI Data)": ".uv4",
-            "CV4 Converter (Clustered VMI Data)": ".cv4"
+            "CV4 Converter (Clustered VMI Data)": ".cv4",
+            "Stony Brook Converter": ".h5"
         }
 
         self.selected_pipeline = tk.StringVar()

@@ -335,3 +335,28 @@ class CV4ConverterPipeline(AnalysisPipeline):
                 self.processes["Correlator"].astep.current.append(None)
                 self.processes["Correlator"].astep.current_samples.append(None)
                 self.processes["Clusterer"].astep.output_pixel_queue = self.queues["pixels"]
+
+
+class StonyBrookClusterPipeline(AnalysisPipeline):
+    def __init__(self, input_path, output_path, **kwargs):
+        super().__init__(**kwargs)
+        self.queues = {
+            "chunk": data_types.ExtendedQueue(),
+            "pixel": data_types.ExtendedQueue(),
+            "tdc": data_types.ExtendedQueue(),
+            "pulse": data_types.ExtendedQueue(),
+            "tof": data_types.ExtendedQueue(),
+            "clusters": data_types.ExtendedQueue(),
+            "t_tof": data_types.ExtendedQueue(dtypes=('i', ('f',)), names=('tof_corr', ('t_tof',))),
+            "t_cluster": data_types.ExtendedQueue(dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ('t', 'x', 'y'))),
+            "t_pulse": data_types.ExtendedQueue(dtypes=('f',), names=('t_pulse',)),
+        }
+
+        self.processes = {
+            "Reader": processes.TPXFileReader(input_path, self.queues['chunk']).make_process(),
+            "Converter": processes.TPXConverter(self.queues['chunk'], self.queues['pixel'], self.queues['tdc']).make_process(),
+            "Filter": processes.TDCFilter(self.queues['tdc'], self.queues['pulse'], self.queues['tof']).make_process(),
+            "Clusterer": processes.DBSCANClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
+            "Correlator": processes.TriggerAnalyzer(self.queues['pulse'], (self.queues['tof'], self.queues['clusters']), self.queues['t_pulse'], (self.queues['t_tof'], self.queues['t_cluster'])).make_process(),
+            "Saver": processes.SaveToH5(output_path, {"t_tof": self.queues['t_tof'], "t_cluster": self.queues['t_cluster'], "t_pulse": self.queues['t_pulse']}).make_process(),
+        }
