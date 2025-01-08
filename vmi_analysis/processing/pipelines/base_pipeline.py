@@ -5,6 +5,31 @@ import logging
 
 
 class AnalysisPipeline:
+    """
+    A class to represent an analysis pipeline. This class is responsible for managing the processes and queues that
+    make up the pipeline, and for starting and stopping the pipeline.
+
+    To use this class, create a new instance and add processes and queues to it. Then call the initialize() method to
+    initialize the pipeline, the start() method to start it, the wait_for_completion() method to wait for all processes to finish,
+    the pipeline, and the stop() method to stop it. The pipeline can also be used as a context manager, in which case it
+    will automatically be initialized when entering the context and stopped when exiting it.
+
+    Attributes:
+    - queues: A dictionary of queues used by the pipeline. The keys are the names of the queues and the values are the queues themselves.
+    - processes: A dictionary of processes used by the pipeline. The keys are the names of the processes and the values are the processes themselves.
+    - initialized: A boolean indicating whether the pipeline has been initialized.
+    - profile: A boolean indicating whether profiling is enabled for the pipeline.
+
+    Methods:
+    - set_profile(profile: bool): Enables or disables profiling for the pipeline, propagating the change to all processes.
+    - initialize(): Initializes the pipeline by calling the start() method of all processes.
+    - start(): Starts the pipeline by calling the begin() method of all processes.
+    - stop(): Stops the pipeline by calling the shutdown() method of all processes.
+    - is_running(): Returns True if any of the processes in the pipeline are running, False otherwise.
+    - wait_for_completion(): Waits for all processes in the pipeline to finish.
+    """
+
+
     queues: dict[str, data_types.ExtendedQueue]
     processes: dict[str, processes.AnalysisProcess]
     initialized: bool

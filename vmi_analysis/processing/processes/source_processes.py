@@ -7,6 +7,14 @@ import socket
 
 
 class TPXFileReader(AnalysisStep):
+    """
+    Reads TPX3 files and puts the data into a queue. The path can be a file or a folder. If it is a folder, the reader
+    will read all the files in the folder in alphabetical order.
+
+    Args:
+        path (str): Path to the file or folder containing the files.
+        chunk_queue (ExtendedQueue[Chunk]): Queue to put the data into.
+    """
     path: str
     input_queues = ()
     chunk_queue: ExtendedQueue[Chunk]
@@ -49,6 +57,9 @@ class TPXFileReader(AnalysisStep):
 
 
 class DummyStream(TPXFileReader):
+    """
+    Test Item Please Ignore
+    """
     def __init__(self, path, chunk_queue, delay, **kwargs):
         super().__init__(path, chunk_queue, **kwargs)
         self.delay = delay
@@ -76,6 +87,15 @@ class DummyStream(TPXFileReader):
 
 
 class FolderStream(TPXFileReader):
+    """
+    Reads the most recent file in a folder and puts the data into a queue. The reader will repeatedly
+    read the most recent file in the folder until it is older than max_age.
+
+    Args:
+        path (str): Path to the folder containing the files.
+        chunk_queue (ExtendedQueue[Chunk]): Queue to put the data into.
+        max_age (int): Maximum age of the file in seconds. If the most recent file is older than this, the reader will shut down.
+    """
     def __init__(self, path, chunk_queue, max_age=0, **kwargs):
         super().__init__(path, chunk_queue, **kwargs)
         self.max_age = max_age
@@ -95,6 +115,14 @@ class FolderStream(TPXFileReader):
 
 
 class TPXListener(AnalysisStep):
+    """
+    Listens for incoming TPX3 data over TCP/IP and puts the data into a queue.
+
+    Args:
+        local_ip (tuple[str, int]): Tuple containing the local IP address and port to listen on.
+        chunk_queue (ExtendedQueue[Chunk]): Queue to put the data into.
+
+    """
     def __init__(self, local_ip: tuple[str,int], chunk_queue, **kwargs):
         super().__init__(**kwargs)
         self.name = "TPXListener"

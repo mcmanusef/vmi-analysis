@@ -7,6 +7,29 @@ from .base_process import AnalysisStep
 
 
 class SaveToH5(AnalysisStep):
+    """
+    Saves data from queues to an H5 file. The data is saved in chunks of size chunk_size.
+    The structure of the data is determined by the structure of the queues. The data is saved in the same order as it
+    is received from the queues.
+
+    If flat is True, all data is saved in the root of the H5 file, with the names of datasets given by the
+    names attribute of the queues.
+    If flat is False, the data is saved in groups, with the names of the queues as the group names, and the
+    names of the datasets given by the names attribute of the queues.
+    If flat is a tuple, it should be the same length as the number of queues, and each element should be a boolean,
+    in which case the data from the corresponding queue is saved according to the corresponding boolean.
+    In flat is a dictionary, the keys should be the names of the queues, and the values should be booleans, in which case
+    the data from the corresponding queue is saved according to the corresponding boolean.
+
+    Parameters:
+    - file_path (str): Path to the H5 file.
+    - input_queues (tuple[ExtendedQueue]): Queues to save data from.
+    - chunk_size (int): Size of the chunks to save.
+    - flat (bool | tuple[bool] | dict[str, bool]): Determines the structure of the saved data.
+    - loud (bool): If True, print debug information.
+    - **kwargs: Additional keyword arguments.
+    """
+
     file_path: str
     input_queues: tuple[ExtendedQueue, ...]
     in_queues: dict[str, ExtendedQueue]

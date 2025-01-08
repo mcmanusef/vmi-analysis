@@ -10,6 +10,18 @@ PERIOD = 25 * 2 ** 30
 
 
 class TPXConverter(AnalysisStep):
+    """
+    Converts TPX3 data into PixelData and TDCData
+    Useful for direct conversion of binary TPX3 data into a format that can be used by the rest of the pipeline
+    Not specific to any particular experiment
+
+    Parameters:
+    - chunk_queue: The queue containing the binary data chunks
+    - pixel_queue: The queue to put PixelData into (Chunked [[(time, x, y, tot), ...],...])
+    - tdc_queue: The queue to put TDCData into (Unchunked [(time, type),...]). Type is 1 for TDC1R, 2 for TDC1F, 3 for TDC2R, 4 for TDC2F
+    - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
+    """
+
     chunk_queue: ExtendedQueue[Chunk]
     pixel_queue: ExtendedQueue[PixelData]
     tdc_queue: ExtendedQueue[TDCData]
@@ -41,6 +53,26 @@ class TPXConverter(AnalysisStep):
                 self.tdc_queue.put((tdc_time, tdc_type))
 
 class VMIConverter(AnalysisStep):
+    """
+    Converts binary data from the VMI into PixelData, TriggerTime, electron ToF, and ion ToF, and puts them into the appropriate queues.
+    Experiment specific, but can be used as a template for other experiments
+
+    Parameters:
+    - chunk_queue: The queue containing the binary data chunks
+    - pixel_queue: The queue to put PixelData into (Chunked [[(time, x, y, tot), ...], ...])
+    - laser_queue: The queue to put TriggerTime into (Unchunked [time, ...])
+    - etof_queue: The queue to put electron ToF into (Unchunked [time, ...])
+    - itof_queue: The queue to put ion ToF into (Unchunked [time, ...])
+
+    - cutoff: The cutoff for distinguishing between ion tof and laser pulses, where a TDC1 event with length greater than the cutoff
+    is considered a laser pulse, and a TDC1 event with length less than the cutoff is considered an ion pulse.
+
+    - timewalk_file: The file containing the timewalk correction data. Not well tested, but should work.
+    - toa_corr: The time of arrival correction to apply to the data. Specific to our experiment, as there is an area of
+    artificially high toa values that need to be corrected
+
+    - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
+    """
     cutoff: float
     chunk_queue: ExtendedQueue[Chunk]
     pixel_queue: ExtendedQueue[list[PixelData]]
@@ -94,6 +126,18 @@ class VMIConverter(AnalysisStep):
 
 
 class DBSCANClusterer(AnalysisStep):
+    """
+    Clusters data using DBSCAN, and puts the clusters into the cluster_queue.
+    Optionally, can also put the clustered pixels into the output_pixel_queue.
+
+    Parameters:
+    - pixel_queue: The queue containing the pixel data to cluster (Chunked [[(toa, x, y, tot), ...], ...])
+    - cluster_queue: The queue to put the clustered data into. (Unchunked [(toa, x, y),...])
+    - output_pixel_queue: The queue to put the clustered pixel data into. If None, the pixel data is not put into a queue.
+    - dbscan_params: The parameters to pass to the DBSCAN algorithm. Default is {"eps": 1.5, "min_samples": 8}
+
+    - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
+    """
     pixel_queue: ExtendedQueue[list[PixelData]]
     cluster_queue: ExtendedQueue[ClusterData]
 
@@ -141,6 +185,20 @@ class DBSCANClusterer(AnalysisStep):
 
 
 class TriggerAnalyzer(AnalysisStep):
+    """
+    Indexes data based on trigger times, and puts the indexed data into the indexed_queues. Subtracts the trigger time from the
+    time of each data point. This is used to synchronize the data with the trigger times, converting the data into a format that
+    gives the time since the last trigger.
+
+    Parameters:
+    - input_trigger_queue: The queue containing the trigger times.
+    - queues_to_index: A tuple of queues containing the data to index. The data should be in some nested tuple format, where the
+    first element is the time of the data point, and the rest of the elements are the data associated with that time.
+    - output_trigger_queue: A passthrough queue for the trigger times.
+    - indexed_queues: A tuple of queues to put the indexed data into. The indexed data is in the format (trigger_index, data) where
+    trigger_index is the index of the trigger time associated with the data point, and data is as in the input queues, but with the
+    time relative to the trigger time.
+    """
     input_trigger_queue: ExtendedQueue[TriggerTime]
     queues_to_index: tuple[ExtendedQueue, ...]
     output_trigger_queue: ExtendedQueue[TriggerTime]

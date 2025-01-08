@@ -36,7 +36,7 @@ def set_acquisition_parameters(destination, duration=999999, frame_time=1, prefi
 def load_config_files(bpc_file, dacs_file, serval_ip=DEFAULT_IP):
     resp = requests.get(serval_ip + '/config/load?format=pixelconfig&file=' + bpc_file)
     assert resp.status_code == 200, f"Error loading bpc file: {resp.text}"
-    resp = requests.get(serval_ip + '/config/load?format=dacs&file=' + dacs_file)
+    resp = requests.get(serval_ip + '/config/load?format=dacs&file=' + dacs_file).ra
     assert resp.status_code == 200, f"Error loading dacs file: {resp.text}"
 
 
@@ -47,7 +47,7 @@ def test_connection(serval_ip=DEFAULT_IP):
 
 def start_acquisition(serval_ip=DEFAULT_IP, block=True):
     resp = requests.get(serval_ip + '/measurement/start')
-    assert resp.status_code == 200, f"Error starting acquisition {i}: {resp.text}"
+    assert resp.status_code == 200, f"Error starting acquisition: {resp.text}"
     if block:
         while get_dash(serval_ip)['Measurement']['Status'] != 'DA_IDLE':
             time.sleep(0.1)

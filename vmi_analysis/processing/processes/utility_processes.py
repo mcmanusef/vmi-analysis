@@ -10,6 +10,13 @@ from .base_process import AnalysisStep
 
 
 class QueueTee(AnalysisStep):
+    """
+    Copies data from one queue to multiple queues.
+
+    Parameters:
+    - input_queue (ExtendedQueue): Queue to copy data from.
+    - output_queues (tuple[ExtendedQueue]): Queues to copy data to.
+    """
     def __init__(self, input_queue, output_queues):
         super().__init__()
         self.input_queue = input_queue
@@ -26,6 +33,13 @@ class QueueTee(AnalysisStep):
 
 
 class Weaver(AnalysisStep):
+    """
+    Combines data from multiple sorted queues into a single sorted queue.
+
+    Parameters:
+    - input_queues (tuple[ExtendedQueue]): Queues to combine data from.
+    - output_queue (ExtendedQueue): Queue to put combined data into.
+    """
     input_queues: tuple[ExtendedQueue[T]]
     output_queue: ExtendedQueue[T]
 
@@ -58,6 +72,9 @@ class Weaver(AnalysisStep):
 
 
 class QueueDecimator(AnalysisStep):
+    """
+    Puts every n-th item from the input queue into the output queue.
+    """
     def __init__(self, input_queue, output_queue, n, **kwargs):
         super().__init__(**kwargs)
         self.n = n
@@ -78,15 +95,17 @@ class QueueDecimator(AnalysisStep):
 
 
 class QueueReducer(AnalysisStep):
-    def __init__(self, input_queue, output_queue, max_size, record=10000, **kwargs):
+    """
+    Reduces the size of the input queue by moving data to the output queue until the output queue is full.
+
+    """
+    def __init__(self, input_queue, output_queue, max_size, **kwargs):
         super().__init__(**kwargs)
         self.input_queue = input_queue
         self.input_queues = (input_queue,)
         self.output_queue = output_queue
         self.output_queues = (output_queue,)
         self.max_size = max_size
-        self.statuses = collections.deque(maxlen=record)
-        self.record = record
         self.ratio = multiprocessing.Value('f', 0)
         self.name = "QueueReducer"
 
@@ -101,8 +120,6 @@ class QueueReducer(AnalysisStep):
                 return
         if self.input_queue.qsize() > self.max_size * 5:
             self.input_queue.make_empty()
-
-        # self.ratio.value=self.statuses.count(1)/self.record
 
     def status(self):
         stat = super().status()
@@ -174,6 +191,9 @@ def create_process_instances(process_class, n_instances, output_queue, process_a
 
 
 class QueueVoid(AnalysisStep):
+    """
+    Empties the input queues.
+    """
     def __init__(self, input_queues, loud=False, **kwargs):
         super().__init__(**kwargs)
         self.input_queues = input_queues

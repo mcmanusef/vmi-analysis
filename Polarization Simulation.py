@@ -423,15 +423,16 @@ if __name__ == "__main__":
             wl_long_nm=1030.0,
             wl_short_nm=515,
             duration_fs=130.0,  # 130 fs
-            time_window_fs=2500.0,
-            num_points=2**22
+            time_window_fs=2000.0,
+            num_points=2**20
     )
 
     # Initialize simulation
     sim = Simulation(pulse)
 
     # Apply a GVD plate
-    sim.apply_optical_element_gvd_plate(delay_fs=339.8668,dispersive=True)
+    sim.apply_optical_element_gvd_plate(delay_fs=170,dispersive=True)
+    sim.apply_optical_element_gvd_plate(delay_fs=170,dispersive=True)
 
     # Apply a super-achromatic quarter wave plate at 45 degrees
     sim.apply_optical_element_quarter_wave(orientation_deg=45)
@@ -439,11 +440,16 @@ if __name__ == "__main__":
     # Apply a zero-order half-wave plate at 0 degrees
     sim.apply_optical_element_half_wave(orientation_deg=0.0)
 
+    # sim.apply_optical_element_glass_window(thickness_m=.038, material='BK7')
+
     # Apply a glass window of thickness 2 mm
     sim.apply_optical_element_glass_window(thickness_m=.004, material='Fused Silica')
 
     # Retrieve final time-domain fields
     t, Ex_t_final, Ey_t_final = sim.get_time_domain_fields()
+    with open("counter.txt", mode='w') as f:
+        for i in range(len(t)):
+            f.write(f"{t[i]},{np.real(Ex_t_final[i])},{np.imag(Ex_t_final[i])},{np.real(Ey_t_final[i])},{np.imag(Ey_t_final[i])}\n")
 
     # Retrieve final wavelength-domain fields (positive freq region)
     wl, Ex_w_final, Ey_w_final = sim.get_wavelength_domain_fields()
@@ -491,7 +497,7 @@ if __name__ == "__main__":
     plt.scatter(wl[x_nonzero], chirp_x[x_nonzero], label='Phase(Ex)', s=1)
     plt.scatter(wl[y_nonzero], chirp_y[y_nonzero], label='Phase(Ey)', s=1)
     plt.ylabel('Chirp (fs^2)')
-    plt.ylim(0, 500)
+    plt.ylim(0, 10000)
     plt.tight_layout()
 
     plt.figure(figsize=(8,8)).add_subplot(projection='3d')
@@ -507,12 +513,17 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(8,8))
     plt.title('Polarization Path')
-    plt.plot(np.real(Ex_t_final),np.real(Ey_t_final), lw=0.3)
+    plt.plot(np.real(Ex_t_final),np.real(Ey_t_final), lw=1)
     plt.xlabel('Ex(t)')
     plt.ylabel('Ey(t)')
     plt.xlim(-1,1)
     plt.ylim(-1,1)
     plt.tight_layout()
+
+    plt.figure(figsize=(8,8))
+    plt.subplot(1,1,1,projection='polar')
+    plt.title('Polarization Path')
+    l=plt.plot(np.arctan2(np.real(Ey_t_final),np.real(Ex_t_final)),np.sqrt(np.real(Ex_t_final)**2+np.real(Ey_t_final)**2), lw=1)
 
     # Plot Stokes parameters
     plot_stokes_parameters(t, Ex_t_final, Ey_t_final)

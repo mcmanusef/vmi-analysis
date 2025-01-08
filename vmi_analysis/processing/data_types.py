@@ -76,6 +76,14 @@ class CircularBuffer(Sequence):
 
 
 class ExtendedQueue(Generic[T]):
+    """
+    A queue that can be used in a multi-process environment. It has several additional features:
+    - It can be chunked, meaning that it will put multiple items into the queue at once.
+    - It can be bound to a process, meaning that it will only be used in a single process.
+    - It can be forced to be monotonic, meaning that it will force the output to be monotonically increasing.
+    - It can have a buffer, meaning that it will store the last n items that were put into it.
+    This is currently an overly complex class, and should be simplified in the future.
+    """
     def __init__(self, *args,
                  dtypes=(), names=(),
                  buffer_size=0,
