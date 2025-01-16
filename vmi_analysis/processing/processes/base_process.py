@@ -80,6 +80,8 @@ class AnalysisStep:
         self.name = ""
         self.pipeline_active = pipeline_active
         self.logger=logger if logger else logging.getLogger()
+        self.last_check = time.time()
+        self.check_interval = 5
 
     def status(self):
         return {
@@ -107,43 +109,21 @@ class AnalysisStep:
     def run_loop(self):
         while not self.running.value and not self.stopped.value:
             time.sleep(0.1)
-
         if self.profile:
             pr = cProfile.Profile()
 
-        while self.running.value:
+        while True:
+            if self.profile:
+                pr.enable()
 
-            if not self.pipeline_active.value:
-                self.shutdown()
-                return
+            self.action()
 
-            try:
+            if self.profile:
+                pr.disable()
 
-                if self.profile:
-                    pr.enable()
-
-                self.action()
-
-                if self.profile:
-                    pr.disable()
-            except Exception as e:
-                print(f"Error in {self.name}: {e}")
-                print(f"Shutting down {self.name}")
-
+            if self.check_queues():
                 if self.profile:
                     pr.dump_stats(f"{self.name}.prof")
-
-                self.shutdown()
-                self.pipeline_active.value = False
-                raise e
-
-            if ((all(q.closed.value and q.empty() for q in self.input_queues) and self.any_queue)
-                or (any(q.closed.value and q.empty() for q in self.input_queues) and not self.any_queue)
-            ) and not self.is_holding:
-
-                if self.profile:
-                    pr.dump_stats(f"{self.name}.prof")
-
                 self.shutdown(gentle=True)
                 return
 
@@ -156,6 +136,15 @@ class AnalysisStep:
 
     def make_thread(self, **kwargs):
         return AnalysisThread(self, **kwargs)
+
+    def check_queues(self):
+        if time.time() - self.last_check > self.check_interval:
+            self.last_check = time.time()
+            return (self.any_queue and (all(q.closed.value and q.empty() for q in self.input_queues))
+                or (not self.any_queue and any(q.closed.value and q.empty() for q in self.input_queues))
+            ) and not self.is_holding
+        return False
+
 
 
 class AnalysisProcess(multiprocessing.Process):
@@ -230,7 +219,6 @@ class AnalysisProcess(multiprocessing.Process):
         self.initialize()
         while not self.astep.initialized.value:
             time.sleep(0.1)
-
         while not self.astep.stopped.value:
             self.astep.run_loop()
         print(f"{self.name} Finished")

@@ -37,7 +37,12 @@ class TPXFileReader(AnalysisStep):
         super().initialize()
 
     def action(self):
-        packet = self.file.read(8)
+        try:
+            packet = self.file.read(8)
+        except ValueError:
+            time.sleep(1)
+            return
+
         if len(packet) < 8:
             self.curr_file_idx += 1
             if self.curr_file_idx >= len(self.files):

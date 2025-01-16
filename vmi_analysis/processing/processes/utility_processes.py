@@ -5,7 +5,7 @@ import time
 import typing
 import numpy as np
 
-from ..data_types import ExtendedQueue, T
+from ..data_types import ExtendedQueue, T, structure_map
 from .base_process import AnalysisStep
 
 
@@ -49,6 +49,7 @@ class Weaver(AnalysisStep):
         self.output_queue = output_queue
         self.output_queues = (output_queue,)
         self.current: list[int | float | None] = [None for _ in input_queues]
+        self.name = "Weaver"
 
     def action(self):
         if any(cur is None for cur in self.current):
@@ -207,3 +208,61 @@ class QueueVoid(AnalysisStep):
                     print(q.get(timeout=0.1)) if self.loud else q.get(timeout=0.1)
             except queue.Empty or InterruptedError:
                 continue
+
+
+class QueueDistributor(AnalysisStep):
+    def __init__(self, input_queue, output_queues, **kwargs):
+        super().__init__(**kwargs)
+        self.input_queue = input_queue
+        self.output_queues = output_queues
+        self.input_queues = (input_queue,)
+        self.i=0
+        self.name="Distributor"
+
+    def action(self):
+        try:
+            data = self.input_queue.get(timeout=0.1)
+        except queue.Empty or InterruptedError:
+            return
+        self.output_queues[self.i].put(data)
+        self.i = (self.i + 1) % len(self.output_queues)
+
+def multithread_process(astep_class, input_queues_dict, output_queues_dict, n_threads, astep_kw_args=None, in_queue_kw_args=None, out_queue_kw_args=None, name=""):
+    if astep_kw_args is None:
+        astep_kw_args = {}
+    if in_queue_kw_args is None:
+        in_queue_kw_args = {}
+    if out_queue_kw_args is None:
+        out_queue_kw_args = {}
+    sample_process=astep_class(**input_queues_dict, **output_queues_dict, **astep_kw_args)
+
+    individual_in_queue_kw_args=in_queue_kw_args.keys() == input_queues_dict.keys()
+    individual_out_queue_kw_args=out_queue_kw_args.keys() == output_queues_dict.keys()
+
+    def make_in_queue(k):
+        def maker(a):
+            return ExtendedQueue(**in_queue_kw_args) if not individual_in_queue_kw_args else ExtendedQueue(**in_queue_kw_args[k])
+        return maker
+
+    def make_out_queue(k):
+        def maker(a):
+            return ExtendedQueue(**out_queue_kw_args) if not individual_out_queue_kw_args else ExtendedQueue(**out_queue_kw_args[k])
+        return maker
+
+    split_in_queues = [{k: structure_map(make_in_queue(k),input_queues_dict[k]) for k in input_queues_dict} for _ in range(n_threads)]
+    split_out_queues = [{k: structure_map(make_out_queue(k),output_queues_dict[k]) for k in output_queues_dict} for _ in range(n_threads)]
+
+    active_processes = {f"{name}_{i}": astep_class(**split_in_queues[i], **split_out_queues[i], **astep_kw_args) for i in range(n_threads)}
+
+    distributors={f"{name}_distributor_{i}": QueueDistributor(sample_process.input_queues[i], [proc.input_queues[i] for proc in active_processes.values()])
+                  for i in range(len(sample_process.input_queues))}
+    weavers={f"{name}_weaver_{i}": Weaver([proc.output_queues[i] for proc in active_processes.values()], sample_process.output_queues[i])
+            for i in range(len(sample_process.output_queues))}
+    del sample_process
+
+    input_queues={f"input_queue_{i}_{j}": distributors[i].output_queues[j] for i in distributors for j in range(len(distributors[i].output_queues))}
+    output_queues={f"output_queue_{i}_{j}": weavers[i].input_queues[j] for i in weavers for j in range(len(weavers[i].input_queues))}
+    queues={**input_queues, **output_queues}
+    processes={**distributors, **active_processes, **weavers}
+    return queues, processes
+

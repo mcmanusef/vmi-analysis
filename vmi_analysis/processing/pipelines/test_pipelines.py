@@ -177,4 +177,120 @@ class LiveMonitorPipeline(AnalysisPipeline):
         super().stop()
 
 
+class CorrelatorTestDataPipeline(AnalysisPipeline):
+    def __init__(self, input_path, **kwargs):
+        super().__init__(**kwargs)
+        self.queues={
+            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
+            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
+            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+            "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
+                                                 chunk_size=2000),
+        }
+        self.processes = {
+            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
 
+            "Converter": processes.VMIConverter(
+                    chunk_queue=self.queues['Chunk'],
+                    pixel_queue=self.queues['Pixel'],
+                    laser_queue=self.queues['Pulses'],
+                    etof_queue=self.queues['Etof'],
+                    itof_queue=self.queues['Itof']
+            ).make_process(),
+
+            "Clusterer": processes.DBSCANClusterer(
+                    pixel_queue=self.queues['Pixel'],
+                    cluster_queue=self.queues['Clusters']
+            ).make_process(),
+
+            "Pulse Cache": processes.QueueCacheWriter("pulse_cache.pk", self.queues['Pulses']).make_process(),
+            "Cluster Cache": processes.QueueCacheWriter("cluster_cache.pk", self.queues['Clusters']).make_process(),
+            "Etof Cache": processes.QueueCacheWriter("etof_cache.pk", self.queues['Etof']).make_process(),
+            "Itof Cache": processes.QueueCacheWriter("itof_cache.pk", self.queues['Itof']).make_process(),
+        }
+
+class CorrelatorTestPipeline(AnalysisPipeline):
+    def __init__(self, chunksize=10000, **kwargs):
+        super().__init__(**kwargs)
+        self.queues = {
+            "Pulses": data_types.ExtendedQueue(chunk_size=chunksize),
+            "Clusters": data_types.ExtendedQueue(chunk_size=chunksize),
+            "Etof": data_types.ExtendedQueue(chunk_size=chunksize),
+            "Itof": data_types.ExtendedQueue(chunk_size=chunksize),
+            "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('i',), names=("t_pulse",), chunk_size=10000),
+            "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=("etof_corr", ("t_etof",)), chunk_size=2000),
+            "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=("itof_corr", ("t_itof",)), chunk_size=2000),
+            "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=("clust_corr", ("t", "x", "y")), chunk_size=2000),
+        }
+
+        self.processes = {
+            "pulse_cache": processes.QueueCacheReader("pulse_cache.pk", self.queues['Pulses']).make_process(),
+            "cluster_cache": processes.QueueCacheReader("cluster_cache.pk", self.queues['Clusters']).make_process(),
+            "etof_cache": processes.QueueCacheReader("etof_cache.pk", self.queues['Etof']).make_process(),
+            "itof_cache": processes.QueueCacheReader("itof_cache.pk", self.queues['Itof']).make_process(),
+
+            "Correlator": processes.TriggerAnalyzer(
+                    input_trigger_queue=self.queues['Pulses'],
+                    queues_to_index=(self.queues['Etof'], self.queues['Itof'], self.queues['Clusters']),
+                    output_trigger_queue=self.queues['t_pulse'],
+                    indexed_queues=(self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])
+            ).make_process(),
+        }
+
+class ClusterTestDataPipeline(AnalysisPipeline):
+    def __init__(self, input_path, **kwargs):
+        super().__init__(**kwargs)
+        self.queues={
+            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
+            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
+            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+        }
+        self.processes = {
+            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
+
+            "Converter": processes.VMIConverter(
+                    chunk_queue=self.queues['Chunk'],
+                    pixel_queue=self.queues['Pixel'],
+                    laser_queue=self.queues['Pulses'],
+                    etof_queue=self.queues['Etof'],
+                    itof_queue=self.queues['Itof']
+            ).make_process(),
+
+            "Pixel Cache": processes.QueueCacheWriter("pixel_cache.pk", self.queues['Pixel']).make_process(),
+        }
+
+class MultiprocessTestPipeline(AnalysisPipeline):
+    def __init__(self, n=4, **kwargs):
+        super().__init__(**kwargs)
+
+
+        self.queues = {
+            "pixel": data_types.ExtendedQueue(chunk_size=2000),
+            "cluster": data_types.ExtendedQueue(chunk_size=2000),
+        }
+        self.processes={
+            "reader": processes.QueueCacheReader("pixel_cache.pk", self.queues['pixel']),
+            "writer": processes.QueueCacheWriter("cluster_cache.pk", self.queues['cluster']),
+        }
+
+        mp_queues,mp_processes = processes.multithread_process(
+                # processes.CuMLDBSCANClusterer,
+                processes.DBSCANClusterer,
+                # processes.DBSCANClustererPrecomputed,
+                {"pixel_queue": self.queues['pixel']},
+                {"cluster_queue": self.queues['cluster']},
+                n,
+                in_queue_kw_args={"chunk_size": 2000},
+                out_queue_kw_args={"force_monotone": True, "chunk_size": 2000},
+                astep_kw_args={"dbscan_params": {"eps": 1.5, "min_samples": 8}},
+                name="clusterer"
+        )
+
+        self.processes.update(mp_processes)
+        self.queues.update(mp_queues)
+        for k,v in self.processes.items():
+            self.processes[k] = v.make_process()

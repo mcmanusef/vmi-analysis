@@ -2,6 +2,7 @@ import multiprocessing
 import queue
 import time
 from collections.abc import Sequence
+import collections
 from contextlib import contextmanager, ExitStack
 from typing import TypeVar, Generic, NamedTuple
 
@@ -33,7 +34,21 @@ def unstructure(t):
     else:
         yield t
 
+class DequeQueue:
+    def __init__(self, maxlen):
+        self.deque = collections.deque(maxlen=maxlen)
 
+    def put(self, data):
+        self.deque.append(data)
+
+    def get(self):
+        return self.deque.popleft()
+
+    def empty(self):
+        return not self.deque
+
+    def qsize(self):
+        return len(self.deque)
 class CircularBuffer(Sequence):
     def __init__(self, max_size, dtypes):
         self.max_size = max_size
@@ -113,9 +128,9 @@ class ExtendedQueue(Generic[T]):
         self.multi_process = multi_process
         self.last = None
         self.current_sum = 0
-        self.force_monotone = multiprocessing.Value('b', force_monotone)
-        self.period = multiprocessing.Value('f', period)
-        self.max_back = multiprocessing.Value('f', max_back)
+        self.force_monotone = force_monotone
+        self.period = period
+        self.max_back = max_back
         self.closed = multiprocessing.Value('b', False)
         self.unwrap = unwrap
         self.loud = loud
@@ -126,8 +141,6 @@ class ExtendedQueue(Generic[T]):
         return self._put(obj, **kwargs)
 
     def _put(self, obj: T, **kwargs):
-        if self.closed.value:
-            raise ValueError("Queue is closed")
         if self.chunked:
             self.input_buffer.append(obj)
             if len(self.input_buffer) >= self.chunk_size:
@@ -139,10 +152,10 @@ class ExtendedQueue(Generic[T]):
     def _get(self, block=True, timeout=None) -> T:
         if self.chunked:
             if self.output_queue is None:
-                self.output_queue = queue.Queue()
+                self.output_queue = DequeQueue(self.chunk_size)
             if self.output_queue.empty():
                 [self.output_queue.put(datum) for datum in self.queue.get(block=block, timeout=timeout)]
-            output = self.output_queue.get(block=block, timeout=timeout)
+            output = self.output_queue.get()
         else:
             output = self.queue.get(block=block, timeout=timeout)
 
@@ -155,8 +168,8 @@ class ExtendedQueue(Generic[T]):
         return output
 
     def get(self, block=True, timeout=None) -> T:
-        if self.force_monotone.value:
-            return self.get_monotonic(block=block, timeout=timeout, max_back=self.max_back.value, period=self.period.value)
+        if self.force_monotone:
+            return self.get_monotonic(block=block, timeout=timeout, max_back=self.max_back, period=self.period)
         return self._get(block=block, timeout=timeout)
 
     def qsize(self) -> int:
@@ -180,7 +193,7 @@ class ExtendedQueue(Generic[T]):
             self.multi_process = False
         return self
 
-    def get_monotonic(self, period=25 * 2 ** 30, max_back=0, **kwargs) -> T:
+    def get_monotonic(self, period=25 * 2 ** 30, max_back=0., **kwargs) -> T:
         if self.last is None:
             out = self._get(**kwargs)
             self.last = list(unstructure(out))[0]
@@ -200,6 +213,8 @@ class ExtendedQueue(Generic[T]):
         if self.input_buffer:
             self.queue.put(self.input_buffer)
             self.input_buffer = []
+            # if self.multi_process:
+                # self.queue.close()
         time.sleep(1)
         self.closed.value = True
 

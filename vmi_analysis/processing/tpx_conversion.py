@@ -1,3 +1,4 @@
+import itertools
 import os
 
 os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
@@ -164,3 +165,20 @@ def toa_correction(pixels, correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
         pixels[i] = (toa - correction, x, y, tot)
     return pixels
+
+
+def precompute_distance_matrix():
+    x_range = np.arange(256)
+    y_range = np.arange(256)
+
+    x1 = x_range.reshape((256, 1, 1, 1))
+    y1 = y_range.reshape((1, 256, 1, 1))
+    x2 = x_range.reshape((1, 1, 256, 1))
+    y2 = y_range.reshape((1, 1, 1, 256))
+
+    d = np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+    return d
+
+
+def find_distance_matrix(xs,ys,precomputed_dist_matrix):
+    return precomputed_dist_matrix[xs[:, np.newaxis], ys[:, np.newaxis], xs, ys]

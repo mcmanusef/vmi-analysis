@@ -1,6 +1,5 @@
 import typing
 import sklearn.cluster
-
 from .base_process import AnalysisStep
 from ..data_types import *
 from ..tpx_conversion import *
@@ -158,6 +157,9 @@ class DBSCANClusterer(AnalysisStep):
         self.dbscan = sklearn.cluster.DBSCAN(**self.dbscan_params)
         super().initialize()
 
+    def fit(self,x,y):
+        return self.dbscan.fit(np.column_stack((x, y))).labels_
+
     def action(self):
         try:
             pixels = self.pixel_queue.get(timeout=0.1)
@@ -170,7 +172,7 @@ class DBSCANClusterer(AnalysisStep):
         if np.max(toa) - np.min(toa) > PERIOD / 2:
             return
 
-        cluster_index = self.dbscan.fit(np.column_stack((x, y))).labels_
+        cluster_index = self.fit(x,y)
 
         clusters = average_over_clusters(cluster_index, toa, x, y, tot)
 
@@ -184,6 +186,21 @@ class DBSCANClusterer(AnalysisStep):
         self.group_index += np.max(cluster_index) + 1
 
 
+class CuMLDBSCANClusterer(DBSCANClusterer):
+    def initialize(self):
+        import cuml
+        super().initialize()
+        self.dbscan = cuml.DBSCAN(eps=self.dbscan_params['eps'], min_samples=self.dbscan_params['min_samples'])
+
+class DBSCANClustererPrecomputed(DBSCANClusterer):
+    pc_dist = None
+    def initialize(self):
+        super().initialize()
+        self.dbscan=sklearn.cluster.DBSCAN(metric='precomputed',**self.dbscan_params)
+        self.pc_dist=precompute_distance_matrix()
+
+    def fit(self, x, y):
+        return self.dbscan.fit(find_distance_matrix(x,y,self.pc_dist)).labels_
 class TriggerAnalyzer(AnalysisStep):
     """
     Indexes data based on trigger times, and puts the indexed data into the indexed_queues. Subtracts the trigger time from the
