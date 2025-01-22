@@ -3,6 +3,7 @@ import sklearn.cluster
 from .base_process import AnalysisStep
 from ..data_types import *
 from ..tpx_conversion import *
+# from ..vmi import *
 
 PIXEL_RES = 25 / 16
 PERIOD = 25 * 2 ** 30
@@ -201,6 +202,68 @@ class DBSCANClustererPrecomputed(DBSCANClusterer):
 
     def fit(self, x, y):
         return self.dbscan.fit(find_distance_matrix(x,y,self.pc_dist)).labels_
+
+class HDBSCANClusterer(DBSCANClusterer):
+    def initialize(self):
+        super().initialize()
+        if "eps" in self.dbscan_params.keys():
+            del self.dbscan_params["eps"]
+        self.dbscan=sklearn.cluster.HDBSCAN(**self.dbscan_params)
+
+    def fit(self, x, y):
+        if len(x) < self.dbscan_params['min_samples']:
+            return np.zeros(len(x))-1
+        return self.dbscan.fit(np.column_stack((x, y))).labels_
+
+class CustomClusterer(AnalysisStep):
+    """
+    Clusters data using a custom clustering algorithm, and puts the clusters into the cluster_queue.
+    Optionally, can also put the clustered pixels into the output_pixel_queue.
+
+    Parameters:
+    - pixel_queue: The queue containing the pixel data to cluster (Chunked [[(toa, x, y, tot), ...], ...])
+    - cluster_queue: The queue to put the clustered data into. (Unchunked [(toa, x, y),...])
+    - output_pixel_queue: The queue to put the clustered pixel data into. If None, the pixel data is not put into a queue.
+    - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
+    """
+
+    pixel_queue: ExtendedQueue[list[PixelData]]
+    cluster_queue: ExtendedQueue[ClusterData]
+
+    def __init__(self, pixel_queue, cluster_queue, output_pixel_queue=None, clusterer=None, **kwargs):
+        super().__init__(**kwargs)
+        self.pixel_queue = pixel_queue
+        self.cluster_queue = cluster_queue
+        self.input_queues = (pixel_queue,)
+        self.output_pixel_queue = output_pixel_queue
+        self.output_queues = (cluster_queue,) if not output_pixel_queue else (cluster_queue, output_pixel_queue)
+        self.group_index = 0
+        self.compiled=None
+
+        self.name = "CustomClusterer"
+
+    def action(self):
+        try:
+            pixels = self.pixel_queue.get(timeout=0.1)
+        except queue.Empty or InterruptedError:
+            time.sleep(0.1)
+            return
+        if len(pixels) == 0:
+            return
+        toa, x, y, tot = map(np.asarray, zip(*pixels))
+        if np.max(toa) - np.min(toa) > PERIOD / 2:
+            return
+
+        cluster_index = cluster(x, y,10,10,15)
+        clusters = average_over_clusters(cluster_index, toa, x, y, tot)
+
+        for c in clusters:
+            self.cluster_queue.put(c)
+        for i, p in enumerate(pixels):
+            if self.output_pixel_queue:
+                self.output_pixel_queue.put((p, self.group_index + cluster_index[i])) if cluster_index[i] >= 0 else self.output_pixel_queue.put(
+                        (p, -1))
+        self.group_index += np.max(cluster_index) + 1
 class TriggerAnalyzer(AnalysisStep):
     """
     Indexes data based on trigger times, and puts the indexed data into the indexed_queues. Subtracts the trigger time from the

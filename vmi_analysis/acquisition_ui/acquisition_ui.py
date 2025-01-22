@@ -174,7 +174,7 @@ class AcquisitionUI(ttk.Frame):
             self._connect_to_server()
             self.server_connected = True
             logging.info("Successfully connected to the server.")
-        except requests.exceptions.ConnectionError as e:
+        except Exception as e:
             logging.error(f"Failed to connect to the server: {e}")
             self.server_connected = False
             self._disable_server_dependent_widgets()

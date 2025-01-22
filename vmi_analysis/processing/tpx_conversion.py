@@ -6,6 +6,7 @@ os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import numba
 import numpy as np
 from numba import njit
+from numba.pycc import CC
 
 
 @njit
@@ -87,7 +88,7 @@ def cluster_pixels(pixels, dbscan):
     return cluster_index, toa, x, y, tot
 
 
-# @njit
+@njit(cache=True)
 def average_over_clusters(cluster_index, toa, x, y, tot):
     clusters = []
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
@@ -182,3 +183,75 @@ def precompute_distance_matrix():
 
 def find_distance_matrix(xs,ys,precomputed_dist_matrix):
     return precomputed_dist_matrix[xs[:, np.newaxis], ys[:, np.newaxis], xs, ys]
+
+@njit(cache=True)
+def cluster(xs,ys, min_pixels=10, clust_radius=10, max_clusters=15):
+    current_target_index=1
+    centers=np.zeros((max_clusters,2))
+    indexes=np.zeros_like(xs)-1
+    radii=np.zeros(max_clusters)
+    counts=np.zeros(max_clusters)
+    for i in range(len(xs)):
+        x=xs[i]
+        y=ys[i]
+        if i==0:
+            centers[0]=np.array([x,y])
+            indexes[0]=0
+            radii[0]=clust_radius
+            counts[0]=1
+            continue
+
+        mask=counts>0
+        dists=np.abs(centers[mask,0]-x)+np.abs(centers[mask,1]-y)
+        connections=np.argwhere(dists<radii[mask]).flatten()
+        if len(connections)==0:
+            centers[current_target_index]=np.array([x,y])
+            indexes[i]=current_target_index
+            radii[current_target_index]=clust_radius
+            counts[current_target_index]=1
+            current_target_index+=1
+        elif len(connections)==1:
+            indexes[i]=connections[0]
+            counts[connections[0]]+=1
+        else:
+            center_x=np.mean(centers[connections,0])
+            center_y=np.mean(centers[connections,1])
+            new_center=np.array([center_x,center_y])
+            new_radius=np.max(dists[connections])+clust_radius
+            new_count=np.sum(counts[connections])
+            for c in connections:
+                counts[c]=0
+                radii[c]=0
+                centers[c]=0
+            centers[current_target_index]=new_center
+            radii[current_target_index]=new_radius
+            counts[current_target_index]=new_count
+            for c in connections:
+                indexes[indexes==c]=current_target_index
+            current_target_index+=1
+        if current_target_index>=max_clusters:
+            centers=np.concatenate((centers,np.zeros((max_clusters,2))),axis=0)
+            radii=np.concatenate((radii,np.zeros(max_clusters)))
+            counts=np.concatenate((counts,np.zeros(max_clusters)))
+            max_clusters*=2
+
+
+    valid=np.argwhere(counts>min_pixels).flatten()
+    for i in range(len(indexes)):
+        if indexes[i] not in valid:
+            indexes[i]=-1
+    for i,v in enumerate(valid):
+        indexes[indexes==v]=i
+    return indexes
+
+if __name__ == '__main__':
+    cc=CC('vmi')
+    cc.export('cluster',  'int64[:](int32[:],int32[:],int32,int32,int32)')(cluster)
+    #returns list(UniTuple(float64 x 3))
+    #   cluster_index = arg(0, name=cluster_index)  :: array(int64, 1d, C)
+    #   toa = arg(1, name=toa)  :: array(float64, 1d, C)
+    #   x = arg(2, name=x)  :: array(int32, 1d, C)
+    #   y = arg(3, name=y)  :: array(int32, 1d, C)
+    #   tot = arg(4, name=tot)  :: array(int32, 1d, C)
+    cc.export('average_over_clusters', 'List(UniTuple(float64,3))(int32[:],float64[:],int32[:],int32[:],int32[:])')(average_over_clusters)
+    cc.compile()
