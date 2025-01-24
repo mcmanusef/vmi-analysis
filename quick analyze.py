@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import scipy.io
+import os
 
 def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.calibration_20241120):
     data = coincidence_v4.load_file(fname, coincidence=coincidence)
@@ -139,5 +140,7 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
     plt.savefig(name+'.png')
 
 if __name__ == '__main__':
-    fname=r"C:\DATA\20250123\Propylene Oxide 4,5W\-30.cv4"
-    analyze_file(fname)
+    fname=r"/mnt/ctgroup/Edward/DATA/Propylene Oxide 2W"
+    for f in os.listdir(fname):
+        if f.endswith('.cv4'):
+            analyze_file(os.path.join(fname, f))
