@@ -4,6 +4,7 @@ from vmi_analysis import calibrations
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+matplotlib.use("pdf")
 import scipy.io
 import os
 
