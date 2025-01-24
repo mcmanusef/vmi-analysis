@@ -9,6 +9,7 @@ from numba import njit
 from numba.typed import *
 from numba.types import UniTuple, List, Tuple, f8, i8
 from numba.pycc import CC
+from .tpx_constants import PIXEL_RES
 
 Packet_Data = numba.typeof((0,(1,2,3,4)))
 
@@ -39,6 +40,7 @@ def addr_to_coords(pix_addr):
 
 
 @njit(cache=True)
+# @numba.vectorize()
 def process_packet(packet: int):
     header = packet >> 60
     reduced = packet & 0x0fff_ffff_ffff_ffff
@@ -127,12 +129,14 @@ def sort_tdcs(cutoff: float | int, tdcs: list[tuple[int, int, int, int]]):
 def process_chunk(chunk):
     tdcs = []
     pixels = []
-    for packet in chunk:
-        data_type, packet_data = process_packet(packet)
+    packet_datas = [process_packet(chunk[i]) for i in range(len(chunk))]
+
+    for data_type, packet_data in packet_datas:
         if data_type == -1:
             continue
         if data_type == 1:
-            pixels.append(packet_data)
+            packet_data_fixed = (packet_data[0]*PIXEL_RES, packet_data[1], packet_data[2], packet_data[3])
+            pixels.append(packet_data_fixed)
         elif data_type == 0:
             tdcs.append(packet_data)
     return pixels, tdcs

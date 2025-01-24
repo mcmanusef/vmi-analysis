@@ -209,19 +209,19 @@ class CV4ConverterPipeline(AnalysisPipeline):
         super().__init__(**kwargs)
 
         self.queues = {
-            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
-            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
-            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
-            "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
-                                                 chunk_size=2000),
+            "Chunk": data_types.ExtendedQueue(chunk_size=10000),
+            "Pixel": data_types.ExtendedQueue(chunk_size=10000),
+            "Etof": data_types.ExtendedQueue(dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=10000),
+            "Itof": data_types.ExtendedQueue(dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=10000),
+            "Pulses": data_types.ExtendedQueue(dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+            "Clusters": data_types.ExtendedQueue(dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
+                                                 chunk_size=10000),
 
-            "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ("t_etof",)), chunk_size=2000),
-            "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('tof_corr', ("t_tof",)), chunk_size=2000),
+            "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('etof_corr', ("t_etof",)), chunk_size=10000),
+            "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=('tof_corr', ("t_tof",)), chunk_size=10000),
             "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=('t_pulse',), chunk_size=10000),
             "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")),
-                                                  chunk_size=2000),
+                                                  chunk_size=10000),
         }
         cluster_class=processes.DBSCANClusterer if cluster_class is None else cluster_class
 
@@ -234,7 +234,7 @@ class CV4ConverterPipeline(AnalysisPipeline):
                     {"cluster_queue": self.queues['Clusters']},
                     cluster_processes,
                     in_queue_kw_args={"chunk_size": 2000},
-                    out_queue_kw_args={"force_monotone": True, "chunk_size": 2000},
+                    out_queue_kw_args={"force_monotone": True, "chunk_size": 10000},
                     name="Clusterer"
             )
             self.queues.update(cluster_queues)

@@ -1,13 +1,10 @@
 import typing
 
-import numba
 import sklearn.cluster
 from .base_process import AnalysisStep
 from ..data_types import *
+from ..tpx_constants import PERIOD
 from ..tpx_conversion import *
-
-PIXEL_RES = 25 / 16
-PERIOD = 25 * 2 ** 30
 
 
 class TPXConverter(AnalysisStep):
@@ -107,8 +104,8 @@ class VMIConverter(AnalysisStep):
             chunk = self.chunk_queue.get(timeout=1)
         except queue.Empty or InterruptedError:
             return
-        pixels, tdcs = process_chunk(np.asarray(chunk))
-        pixels = [(toa * PIXEL_RES, x, y, tot) for toa, x, y, tot in pixels]
+        pixels, tdcs = process_chunk(chunk)
+        # pixels = [(toa * PIXEL_RES, x, y, tot) for toa, x, y, tot in pixels]
 
         if pixels:
             if self.timewalk_correction is not None:

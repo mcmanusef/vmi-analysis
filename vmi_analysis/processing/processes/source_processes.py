@@ -1,9 +1,14 @@
 import os
 import time
 import typing
+
+import numpy as np
+
 from ..data_types import ExtendedQueue, Chunk
 from .base_process import AnalysisStep
 import socket
+from numba import njit
+import numba
 
 
 class TPXFileReader(AnalysisStep):
@@ -53,7 +58,10 @@ class TPXFileReader(AnalysisStep):
             return
         _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
         num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
-        packets = [int.from_bytes(self.file.read(8), 'little') - 2 ** 62 for _ in range(num_bytes // 8)]
+        # packets=[int.from_bytes(self.file.read(8), 'little')-2**62 for _ in range(num_bytes//8)]
+        # packets = np.asarray(packets)
+        packet_bytes = self.file.read(num_bytes)
+        packets = np.frombuffer(packet_bytes, dtype=np.int64)-2**62
         self.chunk_queue.put(packets)
 
     def shutdown(self, **kwargs):
@@ -157,7 +165,7 @@ class TPXListener(AnalysisStep):
             _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
             num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
             packets = [int.from_bytes(self.client.recv(8), 'little') - 2 ** 62 for _ in range(num_bytes // 8)]
-            self.chunk_queue.put(packets)
+            self.chunk_queue.put(np.asarray(packets, dtype=np.int64))
 
         except Exception as e:
             self.logger.error(f"Error in {self.name}: {e}")

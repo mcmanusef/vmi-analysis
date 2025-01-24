@@ -1,0 +1,2 @@
+PIXEL_RES = 25 / 16
+PERIOD = 25 * 2 ** 30

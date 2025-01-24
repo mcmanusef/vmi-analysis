@@ -356,10 +356,10 @@ class VMIConverterTestPipeline(AnalysisPipeline):
     def __init__(self, input_path, **kwargs):
         super().__init__(**kwargs)
         self.queues={
-            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
-            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
+            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=10000),
+            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=10000),
+            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=10000),
+            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=10000),
             "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
         }
         self.processes = {
