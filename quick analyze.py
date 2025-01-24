@@ -140,7 +140,7 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
     plt.savefig(name+'.png')
 
 if __name__ == '__main__':
-    fname=r"/mnt/ctgroup/Edward/DATA/Propylene Oxide 2W"
+    fname=r"/mnt/ctgroup/Edward/DATA/VMI/20250123/Propylene Oxide 2W"
     for f in os.listdir(fname):
         if f.endswith('.cv4'):
             analyze_file(os.path.join(fname, f))
