@@ -6,8 +6,11 @@ os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import numba
 import numpy as np
 from numba import njit
+from numba.typed import *
+from numba.types import UniTuple, List, Tuple, f8, i8
 from numba.pycc import CC
 
+Packet_Data = numba.typeof((0,(1,2,3,4)))
 
 @njit(cache=True)
 def pw_jit(lst):
@@ -120,7 +123,7 @@ def sort_tdcs(cutoff: float | int, tdcs: list[tuple[int, int, int, int]]):
     return etof, itof, pulses
 
 
-# @njit(cache=True)
+@njit(UniTuple(List(Tuple(((f8,i8,i8,i8)))),2)(i8[:]), cache=True)
 def process_chunk(chunk):
     tdcs = []
     pixels = []
@@ -133,7 +136,6 @@ def process_chunk(chunk):
         elif data_type == 0:
             tdcs.append(packet_data)
     return pixels, tdcs
-
 
 # @njit(cache=True)
 def sort_clusters(clusters):

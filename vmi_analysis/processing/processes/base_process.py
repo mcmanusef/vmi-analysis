@@ -146,7 +146,6 @@ class AnalysisStep:
         return False
 
 
-
 class AnalysisProcess(multiprocessing.Process):
 
     """

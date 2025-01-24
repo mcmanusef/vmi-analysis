@@ -230,6 +230,7 @@ class Display(AnalysisStep):
         plt.close(self.figure)
         super().shutdown(**kwargs)
 
+
 class QueueCacheWriter(AnalysisStep):
     def __init__(self, fname, q, **kwargs):
         super().__init__(**kwargs)
@@ -249,6 +250,7 @@ class QueueCacheWriter(AnalysisStep):
     def shutdown(self, gentle=False):
         pickle.dump(self.cache, open(self.fname, 'wb'))
         super().shutdown(gentle=gentle)
+
 
 class QueueCacheReader(AnalysisStep):
     def __init__(self, fname, q, **kwargs):
@@ -272,4 +274,3 @@ class QueueCacheReader(AnalysisStep):
 
     def shutdown(self, gentle=False):
         super().shutdown(gentle=gentle)
-#%%

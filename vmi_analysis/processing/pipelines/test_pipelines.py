@@ -118,6 +118,7 @@ class RunMonitorPipeline(AnalysisPipeline):
             self.processes.update({n: k.make_process() for n, k in proc.items()})
             self.processes["Weaver"] = weaver.make_process()
 
+
 class LiveMonitorPipeline(AnalysisPipeline):
     def __init__(self, *args,
                  local_ip=("localhost", 1234),
@@ -228,6 +229,7 @@ class LiveMonitorPipeline(AnalysisPipeline):
             except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout, ConnectionRefusedError):
                 continue
 
+
 class CorrelatorTestDataPipeline(AnalysisPipeline):
     def __init__(self, input_path, **kwargs):
         super().__init__(**kwargs)
@@ -262,6 +264,7 @@ class CorrelatorTestDataPipeline(AnalysisPipeline):
             "Itof Cache": processes.QueueCacheWriter("itof_cache.pk", self.queues['Itof']).make_process(),
         }
 
+
 class CorrelatorTestPipeline(AnalysisPipeline):
     def __init__(self, chunksize=10000, **kwargs):
         super().__init__(**kwargs)
@@ -290,6 +293,7 @@ class CorrelatorTestPipeline(AnalysisPipeline):
             ).make_process(),
         }
 
+
 class ClusterTestDataPipeline(AnalysisPipeline):
     def __init__(self, input_path, **kwargs):
         super().__init__(**kwargs)
@@ -313,6 +317,7 @@ class ClusterTestDataPipeline(AnalysisPipeline):
 
             "Pixel Cache": processes.QueueCacheWriter("pixel_cache.pk", self.queues['Pixel']).make_process(),
         }
+
 
 class MultiprocessTestPipeline(AnalysisPipeline):
     def __init__(self, n=4, **kwargs):
@@ -345,3 +350,25 @@ class MultiprocessTestPipeline(AnalysisPipeline):
         self.queues.update(mp_queues)
         for k,v in self.processes.items():
             self.processes[k] = v.make_process()
+
+
+class VMIConverterTestPipeline(AnalysisPipeline):
+    def __init__(self, input_path, **kwargs):
+        super().__init__(**kwargs)
+        self.queues={
+            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
+            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
+            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
+            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+        }
+        self.processes = {
+            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
+            "Converter": processes.VMIConverter(
+                    chunk_queue=self.queues['Chunk'],
+                    pixel_queue=self.queues['Pixel'],
+                    laser_queue=self.queues['Pulses'],
+                    etof_queue=self.queues['Etof'],
+                    itof_queue=self.queues['Itof']
+            ).make_process(),
+        }

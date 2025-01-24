@@ -1,10 +1,10 @@
 import typing
-import os
+
+import numba
 import sklearn.cluster
 from .base_process import AnalysisStep
 from ..data_types import *
 from ..tpx_conversion import *
-# from ..vmi import *
 
 PIXEL_RES = 25 / 16
 PERIOD = 25 * 2 ** 30
@@ -52,6 +52,7 @@ class TPXConverter(AnalysisStep):
                 tdc_time = 3.125 * c_time + .260 * ftime
                 tdc_type = 1 if tdc_type == 10 else 2 if tdc_type == 15 else 3 if tdc_type == 14 else 4 if tdc_type == 11 else 0
                 self.tdc_queue.put((tdc_time, tdc_type))
+
 
 class VMIConverter(AnalysisStep):
     """
@@ -106,7 +107,7 @@ class VMIConverter(AnalysisStep):
             chunk = self.chunk_queue.get(timeout=1)
         except queue.Empty or InterruptedError:
             return
-        pixels, tdcs = process_chunk(chunk)
+        pixels, tdcs = process_chunk(np.asarray(chunk))
         pixels = [(toa * PIXEL_RES, x, y, tot) for toa, x, y, tot in pixels]
 
         if pixels:
@@ -194,8 +195,10 @@ class CuMLDBSCANClusterer(DBSCANClusterer):
         super().initialize()
         self.dbscan = cuml.DBSCAN(eps=self.dbscan_params['eps'], min_samples=self.dbscan_params['min_samples'])
 
+
 class DBSCANClustererPrecomputed(DBSCANClusterer):
     pc_dist = None
+
     def initialize(self):
         super().initialize()
         self.dbscan=sklearn.cluster.DBSCAN(metric='precomputed',**self.dbscan_params)
@@ -203,6 +206,7 @@ class DBSCANClustererPrecomputed(DBSCANClusterer):
 
     def fit(self, x, y):
         return self.dbscan.fit(find_distance_matrix(x,y,self.pc_dist)).labels_
+
 
 class HDBSCANClusterer(DBSCANClusterer):
     def initialize(self):
@@ -215,6 +219,7 @@ class HDBSCANClusterer(DBSCANClusterer):
         if len(x) < self.dbscan_params['min_samples']:
             return np.zeros(len(x))-1
         return self.dbscan.fit(np.column_stack((x, y))).labels_
+
 
 class CustomClusterer(AnalysisStep):
     """
@@ -265,6 +270,8 @@ class CustomClusterer(AnalysisStep):
                 self.output_pixel_queue.put((p, self.group_index + cluster_index[i])) if cluster_index[i] >= 0 else self.output_pixel_queue.put(
                         (p, -1))
         self.group_index += np.max(cluster_index) + 1
+
+
 class TriggerAnalyzer(AnalysisStep):
     """
     Indexes data based on trigger times, and puts the indexed data into the indexed_queues. Subtracts the trigger time from the
