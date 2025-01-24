@@ -143,20 +143,17 @@ class TPXListener(AnalysisStep):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind(self.local_ip)
         self.sock.listen()
+        # self.logger.info(f"Listening on {self.local_ip}")
+        print(f"Listening on {self.local_ip}")
         super().initialize()
-        self.logger.info(f"Listening on {self.local_ip}")
-
-    def begin(self):
-        self.client, self.client_address = self.sock.accept()
-        self.logger.info(f"Connected to {self.client_address}")
-        super().begin()
 
     def action(self):
+        if not self.client:
+            self.client, self.client_address = self.sock.accept()
+            # self.logger.info(f"Connected to {self.client_address}")
+            print(f"Connected to {self.client_address}")
         try:
             packet = self.client.recv(8)
-            if not packet:
-                self.shutdown()
-                return
             _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
             num_bytes = int.from_bytes((bytes(num_bytes)), 'little')
             packets = [int.from_bytes(self.client.recv(8), 'little') - 2 ** 62 for _ in range(num_bytes // 8)]
@@ -164,6 +161,7 @@ class TPXListener(AnalysisStep):
 
         except Exception as e:
             self.logger.error(f"Error in {self.name}: {e}")
+            print(f"Error in {self.name}: {e}")
             self.shutdown()
             return
 

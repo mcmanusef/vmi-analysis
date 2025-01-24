@@ -49,7 +49,17 @@ class Weaver(AnalysisStep):
         self.output_queue = output_queue
         self.output_queues = (output_queue,)
         self.current: list[int | float | None] = [None for _ in input_queues]
+        self.sortvals: list[int | float | None] = [None for _ in input_queues]
         self.name = "Weaver"
+        self.checked = False
+        self.order=0
+
+    @staticmethod
+    def repeated_index(i,n):
+        for _ in range(n):
+            i=i[0]
+        return i
+
 
     def action(self):
         if any(cur is None for cur in self.current):
@@ -57,16 +67,30 @@ class Weaver(AnalysisStep):
                 if self.current[i] is None:
                     if q.closed.value and q.empty():
                         self.current[i] = np.inf
+                        self.sortvals[i] = np.inf
                     try:
                         self.current[i] = q.get(timeout=0.1)
+                        if not self.checked:
+                            try:
+                                self.sortvals[i] = self.current[i]
+                                while True:
+                                    self.sortvals[i]=self.sortvals[i][0]
+                                    self.order+=1
+                            except TypeError:
+                                self.checked = True
+                        else:
+                            self.sortvals[i] = self.repeated_index(self.current[i],self.order)
+
                     except queue.Empty or InterruptedError:
                         time.sleep(0.1)
                         return
+
         if all(cur == np.inf for cur in self.current):
             self.shutdown()
             return
 
-        min_idx = self.current.index(min(c for c in self.current if c != np.inf))
+
+        min_idx = self.sortvals.index(min(c for c in self.sortvals if c != np.inf))
 
         self.output_queue.put(self.current[min_idx])
         self.current[min_idx] = None

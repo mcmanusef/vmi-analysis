@@ -205,7 +205,7 @@ class CV4ConverterPipeline(AnalysisPipeline):
     - pulses: t_pulse
     """
 
-    def __init__(self, input_path, output_path, save_pixels=False, cluster_processes=1, converter_processes=1, cuda=False, **kwargs):
+    def __init__(self, input_path, output_path, save_pixels=False, cluster_processes=1, converter_processes=1, cluster_class=None, **kwargs):
         super().__init__(**kwargs)
 
         self.queues = {
@@ -223,7 +223,7 @@ class CV4ConverterPipeline(AnalysisPipeline):
             "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=('cluster_corr', ("t", "x", "y")),
                                                   chunk_size=2000),
         }
-        cluster_class=processes.CuMLDBSCANClusterer if cuda else processes.DBSCANClusterer
+        cluster_class=processes.DBSCANClusterer if cluster_class is None else cluster_class
 
         if cluster_processes == 1:
             cluster_processes = {"Clusterer": cluster_class(self.queues['Pixel'], self.queues['Clusters'])}

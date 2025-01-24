@@ -1,6 +1,15 @@
+import multiprocessing
+import socket
+
+import numpy as np
+from matplotlib import pyplot as plt
+
 from .. import data_types, processes
 from ... import serval
 from .base_pipeline import AnalysisPipeline
+import threading
+import requests
+import cv2
 
 
 class MonitorPipeline(AnalysisPipeline):
@@ -56,7 +65,15 @@ class MonitorPipeline(AnalysisPipeline):
 
 
 class RunMonitorPipeline(AnalysisPipeline):
-    def __init__(self, saving_path, cluster_processes=1, toa_range=None, etof_range=None, itof_range=None, **kwargs):
+    def __init__(self, saving_path,
+                 cluster_processes=1,
+                 toa_range=None,
+                 etof_range=None,
+                 itof_range=None,
+                 calibration=None,
+                 center=(128, 128),
+                 angle=0,
+                 **kwargs):
         super().__init__(**kwargs)
         self.queues = {
             "chunk": data_types.ExtendedQueue(maxsize=1000),
@@ -78,14 +95,14 @@ class RunMonitorPipeline(AnalysisPipeline):
             "ChunkStream": processes.TPXFileReader(saving_path, self.queues['chunk']).make_process(),
             "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
                                                 self.queues['itof']).make_process(),
-            "Clusterer": processes.DBSCANClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
+            "Clusterer": processes.CustomClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
             "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']),
                                                     self.queues['t_pulse'],
                                                     (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])).make_process(),
             "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']),
                                               self.queues['grouped']).make_process(),
             "Display": processes.Display(self.queues['grouped'], 10000000, toa_range=toa_range, etof_range=etof_range,
-                                         itof_range=itof_range).make_process(),
+                                         itof_range=itof_range,calibration=calibration, center=center, angle=angle).make_process(),
             "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
         }
 
@@ -102,13 +119,15 @@ class RunMonitorPipeline(AnalysisPipeline):
             self.processes["Weaver"] = weaver.make_process()
 
 class LiveMonitorPipeline(AnalysisPipeline):
-    def __init__(self, local_ip=("127.0.0.1", 1234),
+    def __init__(self, *args,
+                 local_ip=("localhost", 1234),
                  serval_ip=serval.DEFAULT_IP,
                  toa_range=None,
                  etof_range=None,
                  itof_range=None,
-                 preview_ip_frame=("127.0.0.1", 1235),
-                 preview_ip_total=("127.0.0.1", 1236),
+                 preview_ip_frame=("localhost", 1235),
+                 preview_ip_total=("localhost", 1236),
+                    **kwargs
                  ):
 
         super().__init__()
@@ -125,7 +144,7 @@ class LiveMonitorPipeline(AnalysisPipeline):
             "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
             "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
 
-            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
+            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=1000, loud=True),
 
             "t_etof": data_types.ExtendedQueue(maxsize=1000),
             "t_itof": data_types.ExtendedQueue(maxsize=1000),
@@ -137,15 +156,36 @@ class LiveMonitorPipeline(AnalysisPipeline):
 
         self.processes = {
             "Listener": processes.TPXListener(self.local_ip, self.queues['chunk']).make_process(),
-            "printvoid": processes.QueueVoid((self.queues['chunk'],), loud=True).make_process(),
+
+            "Converter": processes.VMIConverter(
+                self.queues['chunk'],
+                self.queues['pixel'],
+                self.queues['pulses'],
+                self.queues['etof'],
+                self.queues['itof']
+            ).make_process(),
+
+            "Clusterer": processes.DBSCANClusterer(
+                self.queues['pixel'], self.queues['clusters']
+            ).make_process(),
+
+            # "printvoid": processes.QueueVoid((
+            #     self.queues['clusters'], self.queues['etof'], self.queues['itof'], self.queues['pulses']
+            # ), loud=True).make_process(),
         }
+        self.latest_frame = np.zeros((256, 256), dtype=np.uint8)
+        self.acc_frame = np.zeros((256, 256), dtype=np.uint8)
+        self.frame_listener = threading.Thread(target=self.process_frame_loop, args=(serval_ip, self.latest_frame, self.acc_frame))
+        self.frame_listener.start()
+
 
     def start(self):
-        super().start()
+        starting_thread=threading.Thread(target=super().start())
+        starting_thread.start()
 
         serval_destination = {
             "Raw": [{
-                "Base": f"tcp://{self.serval_ip[0]}:{self.serval_ip[1]}",
+                "Base": f"tcp://{self.local_ip[0]}:{self.local_ip[1]}",
                 "FilePattern": "",
             }],
 
@@ -153,15 +193,9 @@ class LiveMonitorPipeline(AnalysisPipeline):
                 "Period": 0.1,
                 "SamplingMode": "skipOnFrame",
                 "ImageChannels": [{
-                    "Base": f"tcp://{self.preview_ip_frame[0]}:{self.preview_ip_frame[1]}",
-                    "Format": "jsonimage",
+                    "Base": self.serval_ip,
+                    "Format": "png",
                     "Mode": "count",
-                }, {
-                    "Base": f"tcp://{self.preview_ip_total[0]}:{self.preview_ip_total[1]}",
-                    "Format": "jsonimage",
-                    "Mode": "count",
-                    "IntegrationSize": -1,
-                    "IntegrationMode": "last"
                 }]
             }
         }
@@ -170,12 +204,29 @@ class LiveMonitorPipeline(AnalysisPipeline):
             serval_destination,
             frame_time=1
         )
-        serval.start_acquisition()
+        resp=requests.get(self.serval_ip+"/server/destination")
+        print(resp.text)
+        serval.start_acquisition(block=False)
+        starting_thread.join()
 
     def stop(self):
         serval.stop_acquisition()
         super().stop()
 
+    def process_frame_loop(self, ip, last_frame, acc_frame):
+        while True:
+            try:
+                png=requests.get(ip+"/measurement/image").content
+                if png==b"HTTP is not setup as a destination in the current measurement's destination config.\r\n":
+                    print("HTTP not set up")
+                    continue
+                frame=cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_GRAYSCALE)
+
+                last_frame[:]=frame
+                acc_frame+=frame
+
+            except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout, ConnectionRefusedError):
+                continue
 
 class CorrelatorTestDataPipeline(AnalysisPipeline):
     def __init__(self, input_path, **kwargs):

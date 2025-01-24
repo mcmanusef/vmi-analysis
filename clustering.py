@@ -1,9 +1,10 @@
 from vmi_analysis.processing.pipelines import CV4ConverterPipeline, run_pipeline
+from vmi_analysis.processing.processes import *
 import os
 
 
 def convert_cv4(fname):
-    pipeline = CV4ConverterPipeline(fname, fname + ".cv4", cluster_processes=4)
+    pipeline = CV4ConverterPipeline(fname, fname + ".cv4", cluster_processes=1,converter_processes=1, cluster_class=CustomClusterer)
     run_pipeline(pipeline)
 
 
@@ -17,6 +18,6 @@ def bulk_convert_cv4(dirname):
 
 
 if __name__ == '__main__':
-    fname = r"D:\Data\11_20\xe_s_5W"
-    convert_cv4(fname)
+    fname = r"C:\DATA\20250123\Propylene Oxide 2W"
+    bulk_convert_cv4(fname)
 #%%

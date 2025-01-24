@@ -36,7 +36,7 @@ def set_acquisition_parameters(destination, duration=999999, frame_time=1, prefi
 def load_config_files(bpc_file, dacs_file, serval_ip=DEFAULT_IP):
     resp = requests.get(serval_ip + '/config/load?format=pixelconfig&file=' + bpc_file)
     assert resp.status_code == 200, f"Error loading bpc file: {resp.text}"
-    resp = requests.get(serval_ip + '/config/load?format=dacs&file=' + dacs_file).ra
+    resp = requests.get(serval_ip + '/config/load?format=dacs&file=' + dacs_file)
     assert resp.status_code == 200, f"Error loading dacs file: {resp.text}"
 
 

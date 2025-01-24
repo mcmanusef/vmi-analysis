@@ -8,6 +8,7 @@ from tkinter import StringVar, DoubleVar, BooleanVar, OptionMenu
 import requests
 import logging
 import labview_integrations as lv
+from .. import serval
 
 # Constants
 DEFAULT_FOLDER_NAME = "test"
@@ -28,6 +29,13 @@ COLOR_ERROR = "red"
 class AcquisitionUI(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
+        serval_init = serval.get_dash()["Measurement"] is not None
+        if not serval_init:
+            try:
+                serval.set_acquisition_parameters("C:\\serval_test", 1, frame_time=1)
+                serval.start_acquisition()
+            except Exception as e:
+                print(e)
 
         # Variables
         self.folder_name = StringVar(value=DEFAULT_FOLDER_NAME)

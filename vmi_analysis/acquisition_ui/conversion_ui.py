@@ -15,6 +15,7 @@ from ..processing.pipelines import (
     VMIConverterPipeline,
     ClusterSavePipeline,
     CV4ConverterPipeline,
+    LiveMonitorPipeline,
     StonyBrookClusterPipeline
 )
 import multiprocessing
@@ -56,6 +57,7 @@ class ConversionUI(ttk.Frame):
             "Uncorrelated VMI Converter (Clustered)": ClusterSavePipeline,
             "UV4 Converter (Unclustered VMI Data)": VMIConverterPipeline,
             "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline,
+            "Synchronous": LiveMonitorPipeline,
             "Stony Brook Converter": StonyBrookClusterPipeline
         }
 
@@ -66,6 +68,7 @@ class ConversionUI(ttk.Frame):
             "Uncorrelated VMI Converter (Clustered)": ".h5",
             "UV4 Converter (Unclustered VMI Data)": ".uv4",
             "CV4 Converter (Clustered VMI Data)": ".cv4",
+            "Synchronous": ".cv4",
             "Stony Brook Converter": ".h5"
         }
 

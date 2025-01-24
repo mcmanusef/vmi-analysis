@@ -9,7 +9,7 @@ from numba import njit
 from numba.pycc import CC
 
 
-@njit
+@njit(cache=True)
 def pw_jit(lst):
     out = []
     for i in range(len(lst) - 1):
@@ -17,7 +17,7 @@ def pw_jit(lst):
     return out
 
 
-@njit
+@njit(cache=True)
 def split_int(num: int, ranges: list[tuple[int, int]]):
     out = []
     for r in ranges:
@@ -25,7 +25,7 @@ def split_int(num: int, ranges: list[tuple[int, int]]):
     return out
 
 
-@njit
+@njit(cache=True)
 def addr_to_coords(pix_addr):
     dcol = (pix_addr & 0xFE00) >> 8
     spix = (pix_addr & 0x01F8) >> 1
@@ -35,7 +35,7 @@ def addr_to_coords(pix_addr):
     return x, y
 
 
-@njit
+@njit(cache=True)
 def process_packet(packet: int):
     header = packet >> 60
     reduced = packet & 0x0fff_ffff_ffff_ffff
@@ -59,7 +59,7 @@ def process_tdc_old(packet):
     # tdc_type: 10->TDC1R, 15->TDC1F, 14->TDC2R, 11->TDC2F
 
 
-@njit
+@njit(cache=True)
 def process_tdc(packet: int):
     split_points = (5, 9, 44, 56, 60)
     f_time, c_time, _, tdc_type = split_int(packet, pw_jit(split_points))
@@ -70,7 +70,7 @@ def process_tdc(packet: int):
     # tdc_type: 10->TDC1R, 15->TDC1F, 14->TDC2R, 11->TDC2F
 
 
-@njit
+@njit(cache=True)
 def process_pixel(packet: int):
     split_points = (0, 16, 20, 30, 44, 61)
     c_time, f_time, tot, m_time, pix_add = split_int(packet, pw_jit(split_points))
@@ -101,7 +101,7 @@ def average_over_clusters(cluster_index, toa, x, y, tot):
     return clusters
 
 
-# @njit
+# @njit(cache=True)
 def sort_tdcs(cutoff: float | int, tdcs: list[tuple[int, int, int, int]]):
     start_time = 0
     pulses, etof, itof = [], [], []
@@ -120,7 +120,7 @@ def sort_tdcs(cutoff: float | int, tdcs: list[tuple[int, int, int, int]]):
     return etof, itof, pulses
 
 
-# @njit
+# @njit(cache=True)
 def process_chunk(chunk):
     tdcs = []
     pixels = []
@@ -135,7 +135,7 @@ def process_chunk(chunk):
     return pixels, tdcs
 
 
-# @njit
+# @njit(cache=True)
 def sort_clusters(clusters):
     period = 25 * 2 ** 30
     t0 = clusters[0][0]
@@ -143,7 +143,7 @@ def sort_clusters(clusters):
     return [((t + t0) % period, x, y) for t, x, y in sorted(c_adjust)]
 
 
-# @njit
+@njit(cache=True)
 def fix_toa(toa):
     if max(toa) - min(toa) < 2 ** 32:
         return toa
@@ -152,7 +152,7 @@ def fix_toa(toa):
     return (toa - t0 + period / 2) % period + t0 - period / 2
 
 
-# @njit
+@njit(cache=True)
 def apply_timewalk(pixels, timewalk_correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
         if tot >= len(timewalk_correction):
@@ -161,7 +161,7 @@ def apply_timewalk(pixels, timewalk_correction):
     return pixels
 
 
-# @njit
+# @njit(cache=True)
 def toa_correction(pixels, correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
         pixels[i] = (toa - correction, x, y, tot)

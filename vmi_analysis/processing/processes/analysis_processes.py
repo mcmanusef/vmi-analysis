@@ -1,4 +1,5 @@
 import typing
+import os
 import sklearn.cluster
 from .base_process import AnalysisStep
 from ..data_types import *
@@ -116,7 +117,7 @@ class VMIConverter(AnalysisStep):
 
         self.pixel_queue.put(pixels) if pixels else None
 
-        etof, itof, pulses = sort_tdcs(self.cutoff, tdcs)
+        etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
         for t in etof:
             self.etof_queue.put(t)
         for t in itof:
