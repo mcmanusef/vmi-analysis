@@ -45,7 +45,13 @@ def test_connection(serval_ip=DEFAULT_IP):
     return resp.status_code == 200
 
 
-def start_acquisition(serval_ip=DEFAULT_IP, block=True):
+def start_acquisition(serval_ip=DEFAULT_IP, block=True, force_restart=True):
+    resp = requests.get(serval_ip + '/measurement/start')
+    if force_restart:
+        stop_acquisition(serval_ip)
+        while get_dash(serval_ip)['Measurement']['Status'] != 'DA_IDLE':
+            time.sleep(0.1)
+
     resp = requests.get(serval_ip + '/measurement/start')
     assert resp.status_code == 200, f"Error starting acquisition: {resp.text}"
     if block:

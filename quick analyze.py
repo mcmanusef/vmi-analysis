@@ -8,7 +8,7 @@ matplotlib.use("pdf")
 import scipy.io
 import os
 
-def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.calibration_20241120):
+def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.calibration_20250123):
     data = coincidence_v4.load_file(fname, coincidence=coincidence)
     print("Data Loaded")
     # data = coincidence_v4.load_file(r"D:\Data\c2h4_p_5W.cv4")
@@ -104,7 +104,7 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
     else:
         name+='_calibrated'
         pmax=0.7
-        px,py,pz=calibration(x,y,etof,symmetrize=False, angle=-0.43)
+        px,py,pz=calibration(x,y,etof,symmetrize=False)
         scipy.io.savemat(name+'.mat', {'px':px[mask], 'py':py[mask], 'pz':pz[mask]})
 
         plt.subplot(323)
@@ -141,7 +141,7 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
     plt.savefig(name+'.png')
 
 if __name__ == '__main__':
-    fname=r"/mnt/ctgroup/Edward/DATA/VMI/20250123/Propylene Oxide 2W"
+    fname=r"J:\ctgroup\Edward\DATA\VMI\20250121\xe_ellipticity"
     for f in os.listdir(fname):
         if f.endswith('.cv4'):
             analyze_file(os.path.join(fname, f))

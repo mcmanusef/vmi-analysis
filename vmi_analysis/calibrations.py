@@ -39,4 +39,14 @@ def calibration_20241120(x, y, t, center=(133.2, 131.7, 496), angle=-0.43, symme
     )
     return general_calibration(x, y, t, center, E_xy, lambda t: E_xy(z(t)), angle, symmetrize, cutup)
 
+
+def calibration_20250123(x,y,t, center=(127.75, 128.75, 495.42), angle=-0.5, symmetrize=True, cutup=False):
+    E_xy=lambda x: 0.000519 * x**2
+    z = lambda t: np.where(
+        t < 0,
+        -np.polyval([-2.180124512511416, 152.71609026513565, 0, 0],t)**0.5,
+        np.polyval([-0.04885889138712628, -2.0134037673354435, 92.1302612227862, 0, 0],t)**0.5
+    )
+    return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
 #%%

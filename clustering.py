@@ -4,7 +4,7 @@ import os
 
 
 def convert_cv4(fname):
-    pipeline = CV4ConverterPipeline(fname, fname + ".cv4", cluster_processes=1,converter_processes=1, cluster_class=CustomClusterer)
+    pipeline = CV4ConverterPipeline(fname, fname + ".cv4", cluster_processes=4,converter_processes=1, cluster_class=CustomClusterer)
     run_pipeline(pipeline)
 
 
@@ -16,8 +16,22 @@ def bulk_convert_cv4(dirname):
             continue
         convert_cv4(fname)
 
+def continuous_bulk_convert_cv4(dirname):
+    while True:
+        for f in os.listdir(dirname):
+            if not os.path.isdir(os.path.join(dirname, f)):
+                continue
+            for file in os.listdir(os.path.join(dirname, f)):
+                if not file.endswith(".tpx3") or os.path.exists(os.path.join(dirname, f, file+ ".cv4")):
+                    continue
+                if os.path.getsize(os.path.join(dirname, f, file)) < 1000000:
+                    continue
+                fname = os.path.join(dirname, f, file)
+                print(f"Converting {fname}")
+                convert_cv4(fname)
 
 if __name__ == '__main__':
-    fname = r"C:\DATA\20250123\Propylene Oxide 2W"
-    bulk_convert_cv4(fname)
+    file=r"C:\DATA\20250227\xe_2,5W"
+    bulk_convert_cv4(file)
+    # continuous_bulk_convert_cv4(file)
 #%%
