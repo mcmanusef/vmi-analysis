@@ -16,6 +16,4 @@ converted.txt
 /Old/
 *.pyc
 **/__pycache__/*
-# pixi environments
-.pixi
-*.egg-info
+Server/*
