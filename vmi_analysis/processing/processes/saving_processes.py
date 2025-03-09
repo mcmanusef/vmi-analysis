@@ -1,5 +1,6 @@
 import queue
 import time
+from typing import Any, TypeVar
 import h5py
 
 from ..data_types import ExtendedQueue, unstructure
@@ -51,16 +52,25 @@ class SaveToH5(AnalysisStep):
         self.input_queues = tuple(input_queues.values())
         self.in_queues = input_queues
         self.chunk_size = chunk_size
-        self.flat = (
-            flat
-            if isinstance(flat, dict)
-            else {k: flat for k in input_queues.keys()}
-            if isinstance(flat, bool)
-            else {k: f for k, f in flat}
-        )
+        # self.flat = (
+        #     flat
+        #     if isinstance(flat, dict)
+        #     else {k: flat for k in input_queues.keys()}
+        #     if isinstance(flat, bool)
+        #     else {k: f for k, f in flat}
+        # )
+        match flat:
+            case bool():
+                self.flat = {k: flat for k in input_queues.keys()}
+            case dict():
+                self.flat = flat
+            case tuple():
+                self.flat = {k: f for k, f in zip(input_queues.keys(), flat)}
+            case _:
+                raise ValueError("Invalid flat argument")
         self.h5_file = None
-        self.n = 0
-        self.loud = loud
+        self.time_since_last_save = 0
+        self.verbose = loud
 
     def initialize(self):
         f = h5py.File(self.file_path, "w")
@@ -77,13 +87,16 @@ class SaveToH5(AnalysisStep):
                         name, (self.chunk_size,), dtype=dtype, maxshape=(None,)
                     )
         self.h5_file = f
-        print(f"Loud={self.loud}")
+        print(f"Loud={self.verbose}")
         super().initialize()
 
     def action(self):
-        f = self.h5_file
-
-        sizes = [(q.qsize(), k, q) for k, q in self.in_queues.items()]
+        """Saves available data up to self.save_size
+          from the largest queue to the H5 file."""
+        h5f = self.h5_file
+        if h5f is None: # pragma: no cover
+            raise ValueError("H5 file not initialized")
+        sizes: list[tuple[int, str, ExtendedQueue]] = [(q.qsize(), k, q) for k, q in self.in_queues.items()]
         sizes.sort()
         max_queue = sizes[-1][2]
         max_name = sizes[-1][1]
@@ -95,61 +108,66 @@ class SaveToH5(AnalysisStep):
         size_diff = min(10 * self.chunk_size, size_diff)
         save_size = size_diff if size_diff else max_size
         if max_size == 0:
-            self.n += 1
+            self.time_since_last_save += 1
             time.sleep(1)
             return
 
-        self.n = 0
-        to_write = []
-        if self.loud:
+        self.time_since_last_save = 0
+        to_write: list[list[Any]] = []
+        if self.verbose:
             print(f"Gathering {save_size} from {max_name}")
 
+        # save a chunk of data of size i from the largest queue
         for i in range(save_size):
             try:
                 data = max_queue.get(timeout=0.1)
                 to_write.append(list(unstructure(data)))
             except queue.Empty or InterruptedError:
-                if self.loud:
+                if self.verbose:
                     print(f"Queue {max_name} empty")
                 break
 
         data_lists = tuple(zip(*to_write))
-        if self.loud:
+        if self.verbose:
             print(f"Data gathered:{data_lists}")
         for name, data in zip(unstructure(max_queue.names), data_lists):
-            if self.loud:
+            if self.verbose:
                 print(f"Writing {len(data)} to {name}")
                 print(data)
-
-            if f[name].shape[0] != self.chunk_size:
+            dataset = h5f[name]
+            if not isinstance(dataset, h5py.Dataset):
+                raise RuntimeError()
+            if dataset.shape[0] != self.chunk_size:
                 if self.flat[max_name]:
-                    f[name].resize(f[name].shape[0] + len(data), axis=0)
-                    f[name][-len(data) :] = data
-                    if self.loud:
-                        print(f"Resizing {name} to {f[name].shape[0]}")
-                        print(f[name][-len(data) :])
+                    dataset.resize(dataset.shape[0] + len(data), axis=0)
+                    dataset[-len(data) :] = data
+                    if self.verbose:
+                        print(f"Resizing {name} to {dataset.shape[0]}")
+                        print(dataset[-len(data) :])
                 else:
-                    g = f[max_name]
-                    g[name].resize(g[name].shape[0] + len(data), axis=0)
-                    g[name][-len(data) :] = data
-                    if self.loud:
-                        print(f"Resizing {name} to {g[name].shape[0]}")
-                        print(g[name][-len(data) :])
+                    g: h5py.Group = h5f[max_name] # type: ignore
+                    g_dataset: h5py.Dataset = g[name] # type: ignore
+                    g_dataset.resize(g_dataset.shape[0] + len(data), axis=0)
+                    g_dataset[-len(data) :] = data
+                    if self.verbose:
+                        print(f"Resizing {name} to {g_dataset.shape[0]}")
+                        print(g_dataset[-len(data) :])
             else:
                 if self.flat[max_name]:
-                    f[name].resize(len(data), axis=0)
-                    f[name][:] = data
-                    if self.loud:
-                        print(f"Writing {f[name].shape[0]} to {name}")
-                        print(f[name][:])
+                    dataset.resize(len(data), axis=0)
+                    dataset[:] = data
+                    if self.verbose:
+                        print(f"Writing {dataset.shape[0]} to {name}")
+                        print(dataset[:])
                 else:
-                    g = f[max_name]
-                    g[name].resize(len(data), axis=0)
-                    g[name][:] = data
-                    if self.loud:
-                        print(f"Writing {g[name].shape[0]} to {name}")
-                        print(g[name][:])
+                    g: h5py.Group = h5f[max_name] # type: ignore
+                    g_dataset: h5py.Dataset = g[name] # type: ignore
+                    g_dataset.resize(len(data), axis=0)
+                    g_dataset[:] = data
+                    if self.verbose:
+                        print(f"Writing {g_dataset.shape[0]} to {name}")
+                        print(g_dataset[:])
 
-    def shutdown(self, **kwargs):
+    def shutdown(self, gentle=False):
         self.h5_file.close() if self.h5_file else None
-        super().shutdown(**kwargs)
+        super().shutdown(gentle)

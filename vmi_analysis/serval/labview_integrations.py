@@ -49,7 +49,7 @@ def stop_acquisition():
     serval.stop_acquisition()
 
 
-def get_status() -> str:
+def get_status() -> str | None:
     return serval.get_status()
 
 

@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import cProfile
 import logging
 import multiprocessing
@@ -103,8 +104,9 @@ class AnalysisStep:
     def initialize(self):
         self.initialized.value = True
 
-    def action(self):
-        raise NotImplemented
+    @abstractmethod
+    def action(self) -> None: 
+        pass
 
     def begin(self):
         self.running.value = True
@@ -119,20 +121,20 @@ class AnalysisStep:
         while not self.running.value and not self.stopped.value:
             time.sleep(0.1)
         if self.profile:
-            pr = cProfile.Profile()
+            pr: cProfile.Profile = cProfile.Profile()
 
         while True:
             if self.profile:
-                pr.enable()
+                pr.enable() # pyright: ignore[reportPossiblyUnboundVariable]
 
             self.action()
 
             if self.profile:
-                pr.disable()
+                pr.disable() # pyright: ignore[reportPossiblyUnboundVariable]
 
             if self.check_queues():
                 if self.profile:
-                    pr.dump_stats(f"{self.name}.prof")
+                    pr.dump_stats(f"{self.name}.prof") # pyright: ignore[reportPossiblyUnboundVariable]
                 self.shutdown(gentle=True)
                 return
 

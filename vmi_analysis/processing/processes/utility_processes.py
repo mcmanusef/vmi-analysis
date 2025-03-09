@@ -5,7 +5,7 @@ import time
 import typing
 import numpy as np
 
-from ..data_types import ExtendedQueue, T, structure_map
+from ..data_types import ExtendedQueue, TpxDataType, UnstructurableData, structure_map, unstructure
 from .base_process import AnalysisStep
 
 
@@ -36,22 +36,23 @@ class QueueTee(AnalysisStep):
 class Weaver(AnalysisStep):
     """
     Combines data from multiple sorted queues into a single sorted queue.
+    Sorts on the first value of the data.
 
     Parameters:
     - input_queues (tuple[ExtendedQueue]): Queues to combine data from.
     - output_queue (ExtendedQueue): Queue to put combined data into.
     """
 
-    input_queues: tuple[ExtendedQueue[T]]
-    output_queue: ExtendedQueue[T]
 
-    def __init__(self, input_queues, output_queue):
+    def __init__(self, 
+                 input_queues: tuple[ExtendedQueue[UnstructurableData[TpxDataType]]], 
+                 output_queue: ExtendedQueue[UnstructurableData[TpxDataType]]):
         super().__init__()
         self.input_queues = input_queues
         self.output_queue = output_queue
         self.output_queues = (output_queue,)
-        self.current: list[int | float | None] = [None for _ in input_queues]
-        self.sortvals: list[int | float | None] = [None for _ in input_queues]
+        self.current: list[UnstructurableData | None] = [None for _ in input_queues]
+        self.sortvals: list[int | float | str | None] = [None for _ in input_queues]
         self.name = "Weaver"
         self.checked = False
         self.order = 0
@@ -70,19 +71,21 @@ class Weaver(AnalysisStep):
                         self.current[i] = np.inf
                         self.sortvals[i] = np.inf
                     try:
-                        self.current[i] = q.get(timeout=0.1)
-                        if not self.checked:
-                            try:
-                                self.sortvals[i] = self.current[i]
-                                while True:
-                                    self.sortvals[i] = self.sortvals[i][0]
-                                    self.order += 1
-                            except TypeError:
-                                self.checked = True
-                        else:
-                            self.sortvals[i] = self.repeated_index(
-                                self.current[i], self.order
-                            )
+                        next_ = q.get(timeout=0.1)
+                        self.current[i] = next_
+                        # if not self.checked:
+                        #     try:
+                        #         self.sortvals[i] = self.current[i]
+                        #         while True:
+                        #             self.sortvals[i] = self.sortvals[i][0]
+                        #             self.order += 1
+                        #     except TypeError:
+                        #         self.checked = True
+                        # else:
+                        #     self.sortvals[i] = self.repeated_index(
+                        #         self.current[i], self.order
+                        #     )
+                        self.sortvals[i] = next(unstructure(next_))
 
                     except queue.Empty or InterruptedError:
                         time.sleep(0.1)
@@ -92,9 +95,9 @@ class Weaver(AnalysisStep):
             self.shutdown()
             return
 
-        min_idx = self.sortvals.index(min(c for c in self.sortvals if c != np.inf))
-
-        self.output_queue.put(self.current[min_idx])
+        min_idx = self.sortvals.index(min(c for c in self.sortvals if c != np.inf)) # type: ignore
+        assert (c:=self.current[min_idx]) is not None
+        self.output_queue.put(c)
         self.current[min_idx] = None
 
 
