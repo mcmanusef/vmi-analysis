@@ -13,3 +13,4 @@ converted.txt
 *.pickle
 */func_cache/*
 *scratch*
+/Old/

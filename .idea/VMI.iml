@@ -7,9 +7,9 @@
       <excludeFolder url="file://$MODULE_DIR$/.idea/dictionaries" />
       <excludeFolder url="file://$MODULE_DIR$/.idea/inspectionProfiles" />
       <excludeFolder url="file://$MODULE_DIR$/Data" />
-      <excludeFolder url="file://$MODULE_DIR$/dep/plotting/func_cache/get_exp_data" />
-      <excludeFolder url="file://$MODULE_DIR$/dep/plotting/func_cache/get_theory_data" />
-      <excludeFolder url="file://$MODULE_DIR$/dep/plotting/func_cache/load_data" />
+      <excludeFolder url="file://$MODULE_DIR$/Old/dep/plotting/func_cache/get_exp_data" />
+      <excludeFolder url="file://$MODULE_DIR$/Old/dep/plotting/func_cache/get_theory_data" />
+      <excludeFolder url="file://$MODULE_DIR$/Old/dep/plotting/func_cache/load_data" />
     </content>
     <orderEntry type="jdk" jdkName="vmi-analysis" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
