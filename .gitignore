@@ -11,6 +11,8 @@ Data
 converted.txt
 *.dat
 *.pickle
-*/func_cache/*
+**/func_cache/*
 *scratch*
 /Old/
+*.pyc
+**/__pycache__/*
