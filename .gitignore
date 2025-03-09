@@ -16,3 +16,4 @@ converted.txt
 /Old/
 *.pyc
 **/__pycache__/*
+Server/*

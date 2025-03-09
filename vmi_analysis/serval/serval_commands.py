@@ -106,6 +106,7 @@ class Dashboard:
         software_version: str
         software_timestamp: str
 
+    @define
     class Measurement:
         start_date_time: int
         time_left: int
@@ -114,6 +115,7 @@ class Dashboard:
         pixel_event_rate: int
         status: str
 
+    @define
     class Detector:
         detector_type: str
 
