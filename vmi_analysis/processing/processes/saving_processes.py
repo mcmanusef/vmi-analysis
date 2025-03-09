@@ -36,28 +36,46 @@ class SaveToH5(AnalysisStep):
     output_queues = ()
     h5_file: h5py.File | None
 
-    def __init__(self, file_path, input_queues, chunk_size=1000, flat: bool | tuple[bool] | dict[str, bool] = True, loud=False, **kwargs):
+    def __init__(
+        self,
+        file_path,
+        input_queues,
+        chunk_size=1000,
+        flat: bool | tuple[bool] | dict[str, bool] = True,
+        loud=False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.name = "SaveToH5"
         self.file_path = file_path
         self.input_queues = tuple(input_queues.values())
         self.in_queues = input_queues
         self.chunk_size = chunk_size
-        self.flat = flat if isinstance(flat, dict) else {k: flat for k in input_queues.keys()} if isinstance(flat, bool) else {k: f for k, f in flat}
+        self.flat = (
+            flat
+            if isinstance(flat, dict)
+            else {k: flat for k in input_queues.keys()}
+            if isinstance(flat, bool)
+            else {k: f for k, f in flat}
+        )
         self.h5_file = None
         self.n = 0
         self.loud = loud
 
     def initialize(self):
-        f = h5py.File(self.file_path, 'w')
+        f = h5py.File(self.file_path, "w")
         for key, q in self.in_queues.items():
             if self.flat[key]:
                 for name, dtype in zip(unstructure(q.names), unstructure(q.dtypes)):
-                    f.create_dataset(name, (self.chunk_size,), dtype=dtype, maxshape=(None,))
+                    f.create_dataset(
+                        name, (self.chunk_size,), dtype=dtype, maxshape=(None,)
+                    )
             else:
                 g = f.create_group(key)
                 for name, dtype in zip(unstructure(q.names), unstructure(q.dtypes)):
-                    g.create_dataset(name, (self.chunk_size,), dtype=dtype, maxshape=(None,))
+                    g.create_dataset(
+                        name, (self.chunk_size,), dtype=dtype, maxshape=(None,)
+                    )
         self.h5_file = f
         print(f"Loud={self.loud}")
         super().initialize()
@@ -99,7 +117,6 @@ class SaveToH5(AnalysisStep):
         if self.loud:
             print(f"Data gathered:{data_lists}")
         for name, data in zip(unstructure(max_queue.names), data_lists):
-
             if self.loud:
                 print(f"Writing {len(data)} to {name}")
                 print(data)
@@ -107,17 +124,17 @@ class SaveToH5(AnalysisStep):
             if f[name].shape[0] != self.chunk_size:
                 if self.flat[max_name]:
                     f[name].resize(f[name].shape[0] + len(data), axis=0)
-                    f[name][-len(data):] = data
+                    f[name][-len(data) :] = data
                     if self.loud:
                         print(f"Resizing {name} to {f[name].shape[0]}")
-                        print(f[name][-len(data):])
+                        print(f[name][-len(data) :])
                 else:
                     g = f[max_name]
                     g[name].resize(g[name].shape[0] + len(data), axis=0)
-                    g[name][-len(data):] = data
+                    g[name][-len(data) :] = data
                     if self.loud:
                         print(f"Resizing {name} to {g[name].shape[0]}")
-                        print(g[name][-len(data):])
+                        print(g[name][-len(data) :])
             else:
                 if self.flat[max_name]:
                     f[name].resize(len(data), axis=0)

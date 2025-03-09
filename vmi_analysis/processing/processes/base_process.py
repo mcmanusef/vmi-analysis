@@ -68,18 +68,27 @@ class AnalysisStep:
     - make_thread(**kwargs): Creates an AnalysisThread object for the step, which can be used to run the step in a separate thread within the same process.
 
     """
-    def __init__(self, input_queues=(), output_queues=(), profile=False, pipeline_active=None, logger=None, **kwargs):
+
+    def __init__(
+        self,
+        input_queues=(),
+        output_queues=(),
+        profile=False,
+        pipeline_active=None,
+        logger=None,
+        **kwargs,
+    ):
         self.input_queues: tuple[ExtendedQueue, ...] = input_queues
         self.output_queues: tuple[ExtendedQueue, ...] = output_queues
-        self.initialized = multiprocessing.Value('b', False)
-        self.running = multiprocessing.Value('b', False)
-        self.stopped = multiprocessing.Value('b', False)
-        self.holding = multiprocessing.Value('b', False)
+        self.initialized = multiprocessing.Value("b", False)
+        self.running = multiprocessing.Value("b", False)
+        self.stopped = multiprocessing.Value("b", False)
+        self.holding = multiprocessing.Value("b", False)
         self.profile = profile
         self.any_queue = True
         self.name = ""
         self.pipeline_active = pipeline_active
-        self.logger=logger if logger else logging.getLogger()
+        self.logger = logger if logger else logging.getLogger()
         self.last_check = time.time()
         self.check_interval = 5
 
@@ -88,7 +97,7 @@ class AnalysisStep:
             "initialized": bool(self.initialized.value),
             "running": bool(self.running.value),
             "holding": self.is_holding,
-            "stopped": bool(self.stopped.value)
+            "stopped": bool(self.stopped.value),
         }
 
     def initialize(self):
@@ -140,14 +149,18 @@ class AnalysisStep:
     def check_queues(self):
         if time.time() - self.last_check > self.check_interval:
             self.last_check = time.time()
-            return (self.any_queue and (all(q.closed.value and q.empty() for q in self.input_queues))
-                or (not self.any_queue and any(q.closed.value and q.empty() for q in self.input_queues))
+            return (
+                self.any_queue
+                and (all(q.closed.value and q.empty() for q in self.input_queues))
+                or (
+                    not self.any_queue
+                    and any(q.closed.value and q.empty() for q in self.input_queues)
+                )
             ) and not self.is_holding
         return False
 
 
 class AnalysisProcess(multiprocessing.Process):
-
     """
     A wrapper around the AnalysisStep class that allows the step to be run in a separate process. This class inherits from the
     multiprocessing.Process class, and overrides the run method to call the run_loop method of the step. This class should be used
@@ -231,6 +244,7 @@ class AnalysisThread(threading.Thread):
 
     Currently not well tested and may not work as expected. Not recommended for use.
     """
+
     def __init__(self, astep, **kwargs):
         self.astep = astep
         threading.Thread.__init__(self, **kwargs)
@@ -276,12 +290,15 @@ class AnalysisThread(threading.Thread):
 
 
 class CombinedStep(AnalysisStep):
-    def __init__(self,
-                 steps: tuple[AnalysisStep, ...] = (),
-                 input_queues: tuple[ExtendedQueue, ...] = (),
-                 output_queues: tuple[ExtendedQueue, ...] = (),
-                 intermediate_queues: tuple[ExtendedQueue, ...] = (),
-                 name="Combined", **kwargs):
+    def __init__(
+        self,
+        steps: tuple[AnalysisStep, ...] = (),
+        input_queues: tuple[ExtendedQueue, ...] = (),
+        output_queues: tuple[ExtendedQueue, ...] = (),
+        intermediate_queues: tuple[ExtendedQueue, ...] = (),
+        name="Combined",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.steps = steps
         self.threads = []

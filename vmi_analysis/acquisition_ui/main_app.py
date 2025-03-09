@@ -3,6 +3,7 @@ from tkinter import ttk
 from .acquisition_ui import AcquisitionUI
 from .conversion_ui import ConversionUI
 
+
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -37,10 +38,12 @@ class MainApp(tk.Tk):
         self.conversion_ui.on_destroy()
         self.destroy()
 
+
 def main():
     app = MainApp()
     app.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.mainloop()
+
 
 if __name__ == "__main__":
     main()

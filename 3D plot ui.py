@@ -6,7 +6,9 @@ from skimage import measure
 import logging
 import pywt
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 np.bool = np.bool_
 import pyvista as pv
@@ -23,7 +25,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QLineEdit,
     QSpinBox,
-    QDoubleSpinBox
+    QDoubleSpinBox,
 )
 from PyQt5.QtCore import Qt, QTimer
 
@@ -68,7 +70,9 @@ class MainWindow(QMainWindow):
         fname_layout = QHBoxLayout()
         fname_label = QLabel("Filename:")
         self.fname_edit = QLineEdit()
-        self.fname_edit.editingFinished.connect(lambda: self.fname_edit.setText(self.fname_edit.text().strip("\"")))
+        self.fname_edit.editingFinished.connect(
+            lambda: self.fname_edit.setText(self.fname_edit.text().strip('"'))
+        )
         fname_layout.addWidget(fname_label)
         fname_layout.addWidget(self.fname_edit)
         controls_layout.addLayout(fname_layout)
@@ -183,21 +187,25 @@ class MainWindow(QMainWindow):
 
     def load_data(self):
         logging.debug("Loading data")
-        fname = self.fname_edit.text().strip("\"")
+        fname = self.fname_edit.text().strip('"')
         if fname == "":
             logging.warning("Filename is empty")
             return
         data = scipy.io.loadmat(fname, squeeze_me=True)
-        px, py, pz = data['px'], data['py'], data['pz']
-        mask = (px ** 2 + py ** 2 + pz ** 2) < self.pmax ** 2
+        px, py, pz = data["px"], data["py"], data["pz"]
+        mask = (px**2 + py**2 + pz**2) < self.pmax**2
         px, py, pz = px[mask], py[mask], pz[mask]
         logging.debug("Data loaded and masked")
 
-        hist, _ = np.histogramdd((px, py, pz),
-                                 bins=128,
-                                 range=((-self.pmax, self.pmax),
-                                        (-self.pmax, self.pmax),
-                                        (-self.pmax, self.pmax)))
+        hist, _ = np.histogramdd(
+            (px, py, pz),
+            bins=128,
+            range=(
+                (-self.pmax, self.pmax),
+                (-self.pmax, self.pmax),
+                (-self.pmax, self.pmax),
+            ),
+        )
 
         self.hist = hist / hist.max()
         logging.debug("Histogram generated and normalized")
@@ -222,9 +230,13 @@ class MainWindow(QMainWindow):
 
         hist_smooth = scipy.ndimage.gaussian_filter(self.hist, smoothing)
         logging.debug("Histogram smoothed")
-        hist_mod = np.nan_to_num(hist_smooth ** (gamma_contours), nan=0.0, posinf=0.0, neginf=0.0)
+        hist_mod = np.nan_to_num(
+            hist_smooth ** (gamma_contours), nan=0.0, posinf=0.0, neginf=0.0
+        )
         logging.debug("Histogram modified with gamma adjustments")
-        hist_mod = wavelet_denoise_3d(hist_mod, wavelet='sym4', level=2, threshold_type='soft')
+        hist_mod = wavelet_denoise_3d(
+            hist_mod, wavelet="sym4", level=2, threshold_type="soft"
+        )
         logging.debug("Histogram denoised with wavelet transform")
 
         self.plotter.clear()
@@ -234,10 +246,19 @@ class MainWindow(QMainWindow):
         for level in levels:
             logging.debug(f"Processing level {level}")
             if level >= np.max(hist_mod):
-                logging.debug(f"Level {level} is greater than maximum value in histogram")
+                logging.debug(
+                    f"Level {level} is greater than maximum value in histogram"
+                )
                 continue
-            verts, faces, _, _ = measure.marching_cubes(hist_mod, level,
-                                                        spacing=(2 * self.pmax / 1024, 2 * self.pmax / 1024, 2 * self.pmax / 1024))
+            verts, faces, _, _ = measure.marching_cubes(
+                hist_mod,
+                level,
+                spacing=(
+                    2 * self.pmax / 1024,
+                    2 * self.pmax / 1024,
+                    2 * self.pmax / 1024,
+                ),
+            )
             logging.debug("Marching cubes generated")
             faces = [(len(f), *f) for f in faces]
             faces = np.concatenate(faces)
@@ -248,9 +269,9 @@ class MainWindow(QMainWindow):
             gamma_opacities_effective = gamma_opacities / gamma_contours
             level_effective = (level - min_contour) / (max_contour - min_contour)
             self.plotter.add_mesh(
-                    surf,
-                    color=self.cmap(level_effective ** gamma_colors_effective),
-                    opacity=level_effective ** gamma_opacities_effective
+                surf,
+                color=self.cmap(level_effective**gamma_colors_effective),
+                opacity=level_effective**gamma_opacities_effective,
             )
             logging.debug("Mesh added to plotter")
         logging.debug("All contour levels processed")
@@ -259,7 +280,7 @@ class MainWindow(QMainWindow):
 
     def save_screenshot(self):
         fname = self.fname_edit.text()
-        fname=fname.split('.')[0]+"_3D"
+        fname = fname.split(".")[0] + "_3D"
         if fname:
             logging.debug(f"Saving screenshot to {fname}.pdf")
             self.plotter.save_graphic(fname + ".pdf")
@@ -271,7 +292,7 @@ class MainWindow(QMainWindow):
         total_frames = int(duration * fps)
         angle_increment = 360.0 / total_frames
         fname = self.fname_edit.text()
-        output_filename = fname.split('.')[0] + "_3D.mp4"
+        output_filename = fname.split(".")[0] + "_3D.mp4"
 
         logging.debug("Starting video capture")
         # Set the camera elevation to 5 degrees above xy-plane
@@ -294,13 +315,14 @@ class MainWindow(QMainWindow):
         self.main_layout.removeWidget(self.plotter.interactor)
         self.plotter.close()  # Finalize the video file
         logging.debug(f"Video saved to {output_filename}")
-        self.plotter=QtInteractor(self)
+        self.plotter = QtInteractor(self)
         self.main_layout.addWidget(self.plotter.interactor)
         self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
         self.update_plot()
 
-def wavelet_denoise_3d(data, wavelet='db4', level=2, threshold_type='hard'):
+
+def wavelet_denoise_3d(data, wavelet="db4", level=2, threshold_type="hard"):
     """
     Perform 3D wavelet-based denoising on volumetric data.
 
@@ -314,23 +336,24 @@ def wavelet_denoise_3d(data, wavelet='db4', level=2, threshold_type='hard'):
         numpy.ndarray: Denoised 3D data.
     """
     coeffs = pywt.dwtn(data, wavelet=wavelet, axes=(0, 1, 2))
-    detail_coeffs = coeffs['d'*3]
+    detail_coeffs = coeffs["d" * 3]
     sigma = np.median(np.abs(detail_coeffs)) / 0.6745
     threshold = sigma * np.sqrt(2 * np.log(data.size))
 
     def thresholding(coeff, threshold, threshold_type):
-        if threshold_type == 'soft':
-            return pywt.threshold(coeff, threshold, mode='soft')
-        elif threshold_type == 'hard':
-            return pywt.threshold(coeff, threshold, mode='hard')
+        if threshold_type == "soft":
+            return pywt.threshold(coeff, threshold, mode="soft")
+        elif threshold_type == "hard":
+            return pywt.threshold(coeff, threshold, mode="hard")
         return coeff
 
     for key in coeffs.keys():
-        if 'd' in key:
+        if "d" in key:
             coeffs[key] = thresholding(coeffs[key], threshold, threshold_type)
 
     denoised_data = pywt.idwtn(coeffs, wavelet=wavelet, axes=(0, 1, 2))
     return denoised_data
+
 
 if __name__ == "__main__":
     logging.debug("Starting application")

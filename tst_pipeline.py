@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 from vmi_analysis.processing import pipelines
 import logging
 
-if __name__ == '__main__':
-    pipeline=pipelines.LiveMonitorPipeline()
-    logger=logging.getLogger()
-
+if __name__ == "__main__":
+    pipeline = pipelines.LiveMonitorPipeline()
+    logger = logging.getLogger()
 
     with pipeline:
         print("Pipeline Initialized")

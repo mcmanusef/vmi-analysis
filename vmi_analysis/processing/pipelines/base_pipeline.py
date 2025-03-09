@@ -29,14 +29,13 @@ class AnalysisPipeline:
     - wait_for_completion(): Waits for all processes in the pipeline to finish.
     """
 
-
     queues: dict[str, data_types.ExtendedQueue]
     processes: dict[str, processes.AnalysisProcess]
     initialized: bool
     profile: bool
 
     def __init__(self, **kwargs):
-        self.active = multiprocessing.Value('b', True)
+        self.active = multiprocessing.Value("b", True)
 
     def set_profile(self, profile: bool):
         for process in self.processes.values():
@@ -70,7 +69,10 @@ class AnalysisPipeline:
         logging.info("Stopping pipeline")
         logging.debug("Process Status:")
         [logging.debug(f"{n} - {p.status()}") for n, p in self.processes.items()]
-        [logging.debug(f"{n} - {p.status()}\n\t{p.exitcode}") for n, p in self.processes.items()]
+        [
+            logging.debug(f"{n} - {p.status()}\n\t{p.exitcode}")
+            for n, p in self.processes.items()
+        ]
         for name, process in self.processes.items():
             print(f"Process {name} status: {process.status()}")
 
@@ -88,7 +90,6 @@ class AnalysisPipeline:
                 process.terminate()
                 process.join()
                 logging.error(f"Process {name} terminated")
-
 
     def is_running(self):
         return any([p.status()["running"] for p in self.processes.values()])
@@ -116,11 +117,16 @@ def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
         for name, process in target_pipeline.processes.items():
             print(f"{name} running: {process.running.value}")
 
-        while not all(p.astep.stopped.value for p in target_pipeline.processes.values()) or forever:
+        while (
+            not all(p.astep.stopped.value for p in target_pipeline.processes.values())
+            or forever
+        ):
             for name, process in target_pipeline.processes.items():
                 print(f"{name} status: {process.status()}")
                 for qname, q in target_pipeline.queues.items():
                     if q in process.astep.output_queues:
-                        print(f"\t{qname} ({'Closed' if q.closed.value else 'Open'}) queue size: {q.qsize()} (internal: {q.queue.qsize()})")
+                        print(
+                            f"\t{qname} ({'Closed' if q.closed.value else 'Open'}) queue size: {q.qsize()} (internal: {q.queue.qsize()})"
+                        )
             time.sleep(1)
             print("\n")

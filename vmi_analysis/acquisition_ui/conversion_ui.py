@@ -16,16 +16,19 @@ from ..processing.pipelines import (
     ClusterSavePipeline,
     CV4ConverterPipeline,
     LiveMonitorPipeline,
-    StonyBrookClusterPipeline
+    StonyBrookClusterPipeline,
 )
 import multiprocessing
 import requests
 import time
 
+
 class ConversionUI(ttk.Frame):
     def __init__(self, parent, acquisition_ui: AcquisitionUI, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        self.acquisition_ui = acquisition_ui  # Reference to AcquisitionUI for default paths
+        self.acquisition_ui = (
+            acquisition_ui  # Reference to AcquisitionUI for default paths
+        )
 
         # Initialize variables
         self._initialize_variables()
@@ -37,8 +40,8 @@ class ConversionUI(ttk.Frame):
         self._setup_logging()
 
         # Trace changes to input_path and selected_pipeline
-        self.input_path.trace_add('write', self._update_output_path)
-        self.selected_pipeline.trace_add('write', self._update_output_path)
+        self.input_path.trace_add("write", self._update_output_path)
+        self.selected_pipeline.trace_add("write", self._update_output_path)
 
         # Placeholder for the pipeline thread
         self.pipeline_thread = None
@@ -58,7 +61,7 @@ class ConversionUI(ttk.Frame):
             "UV4 Converter (Unclustered VMI Data)": VMIConverterPipeline,
             "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline,
             "Synchronous": LiveMonitorPipeline,
-            "Stony Brook Converter": StonyBrookClusterPipeline
+            "Stony Brook Converter": StonyBrookClusterPipeline,
         }
 
         # Extension map for pipelines
@@ -69,7 +72,7 @@ class ConversionUI(ttk.Frame):
             "UV4 Converter (Unclustered VMI Data)": ".uv4",
             "CV4 Converter (Clustered VMI Data)": ".cv4",
             "Synchronous": ".cv4",
-            "Stony Brook Converter": ".h5"
+            "Stony Brook Converter": ".h5",
         }
 
         self.selected_pipeline = tk.StringVar()
@@ -86,10 +89,10 @@ class ConversionUI(ttk.Frame):
         # Pipeline Selection
         ttk.Label(top_frame, text="Select Pipeline:").grid(row=0, column=0, sticky="w")
         self.pipeline_combobox = ttk.Combobox(
-                top_frame,
-                textvariable=self.selected_pipeline,
-                values=list(self.pipeline_options.keys()),
-                state="readonly"
+            top_frame,
+            textvariable=self.selected_pipeline,
+            values=list(self.pipeline_options.keys()),
+            state="readonly",
         )
         self.pipeline_combobox.grid(row=0, column=1, sticky="ew", padx=5)
         self.pipeline_combobox.bind("<<ComboboxSelected>>", self._update_default_paths)
@@ -97,17 +100,25 @@ class ConversionUI(ttk.Frame):
         top_frame.columnconfigure(1, weight=1)
 
         # Input Path
-        ttk.Label(top_frame, text="Input Folder:").grid(row=1, column=0, sticky="w", pady=5)
+        ttk.Label(top_frame, text="Input Folder:").grid(
+            row=1, column=0, sticky="w", pady=5
+        )
         self.input_entry = ttk.Entry(top_frame, textvariable=self.input_path)
         self.input_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-        self.input_browse = ttk.Button(top_frame, text="Browse", command=self._browse_input)
+        self.input_browse = ttk.Button(
+            top_frame, text="Browse", command=self._browse_input
+        )
         self.input_browse.grid(row=1, column=2, sticky="e", padx=5, pady=5)
 
         # Output Path
-        ttk.Label(top_frame, text="Output File:").grid(row=2, column=0, sticky="w", pady=5)
+        ttk.Label(top_frame, text="Output File:").grid(
+            row=2, column=0, sticky="w", pady=5
+        )
         self.output_entry = ttk.Entry(top_frame, textvariable=self.output_path)
         self.output_entry.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
-        self.output_browse = ttk.Button(top_frame, text="Browse", command=self._browse_output)
+        self.output_browse = ttk.Button(
+            top_frame, text="Browse", command=self._browse_output
+        )
         self.output_browse.grid(row=2, column=2, sticky="e", padx=5, pady=5)
 
         # Start and Stop Buttons Frame
@@ -115,18 +126,27 @@ class ConversionUI(ttk.Frame):
         buttons_frame.pack(side=tk.TOP, pady=10)
 
         # Start Pipeline Button
-        self.start_button = ttk.Button(buttons_frame, text="Start Pipeline", command=self._start_pipeline)
+        self.start_button = ttk.Button(
+            buttons_frame, text="Start Pipeline", command=self._start_pipeline
+        )
         self.start_button.pack(side=tk.LEFT, padx=5)
 
         # Stop Pipeline Button
-        self.stop_button = ttk.Button(buttons_frame, text="Stop Pipeline", command=self._stop_pipeline, state="disabled")
+        self.stop_button = ttk.Button(
+            buttons_frame,
+            text="Stop Pipeline",
+            command=self._stop_pipeline,
+            state="disabled",
+        )
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
         # Middle Frame for Process and Queue Monitoring
         middle_frame = ttk.LabelFrame(self, text="Processes and Queues", padding=10)
         middle_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.tree = ttk.Treeview(middle_frame, columns=("Type", "Status"), show="headings")
+        self.tree = ttk.Treeview(
+            middle_frame, columns=("Type", "Status"), show="headings"
+        )
         self.tree.heading("Type", text="Type")
         self.tree.heading("Status", text="Status")
         self.tree.pack(fill=tk.BOTH, expand=True)
@@ -143,7 +163,9 @@ class ConversionUI(ttk.Frame):
             filetypes = [("HDF5 files", "*.h5"), ("All files", "*.*")]
         else:
             filetypes = [("CV4 files", "*.cv4"), ("All files", "*.*")]
-        file_selected = filedialog.asksaveasfilename(defaultextension=extension, filetypes=filetypes)
+        file_selected = filedialog.asksaveasfilename(
+            defaultextension=extension, filetypes=filetypes
+        )
         if file_selected:
             self.output_path.set(file_selected)
 
@@ -155,18 +177,18 @@ class ConversionUI(ttk.Frame):
 
     def _setup_logging(self):
         # Setup logging for stdout
-        self.logger_stdout = logging.getLogger('stdout')
+        self.logger_stdout = logging.getLogger("stdout")
         self.logger_stdout.setLevel(logging.INFO)
 
         # Setup logging for stderr
-        self.logger_stderr = logging.getLogger('stderr')
+        self.logger_stderr = logging.getLogger("stderr")
         self.logger_stderr.setLevel(logging.ERROR)
 
     def _append_text(self, text_widget: scrolledtext.ScrolledText, text: str):
-        text_widget.configure(state='normal')
+        text_widget.configure(state="normal")
         text_widget.insert(tk.END, text)
         text_widget.see(tk.END)
-        text_widget.configure(state='disabled')
+        text_widget.configure(state="disabled")
 
     def _update_output_path(self, *args):
         input_path = self.input_path.get()
@@ -199,7 +221,9 @@ class ConversionUI(ttk.Frame):
             return
 
         try:
-            self.pipeline = pipeline_class(input_path=input_path, output_path=output_path)
+            self.pipeline = pipeline_class(
+                input_path=input_path, output_path=output_path
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to instantiate pipeline: {e}")
             logging.error(f"Failed to instantiate pipeline: {e}")
@@ -220,16 +244,28 @@ class ConversionUI(ttk.Frame):
         try:
             with self.pipeline:
                 for name, process in self.pipeline.processes.items():
-                    initialized = getattr(process, 'initialized', multiprocessing.Value('b', False))
+                    initialized = getattr(
+                        process, "initialized", multiprocessing.Value("b", False)
+                    )
                     logging.info(f"{name} initialized correctly: {initialized.value}")
 
                 logging.info("Starting pipeline")
                 self.pipeline.start()
                 for name, process in self.pipeline.processes.items():
-                    running = getattr(process, 'running', multiprocessing.Value('b', False))
+                    running = getattr(
+                        process, "running", multiprocessing.Value("b", False)
+                    )
                     logging.info(f"{name} running: {running.value}")
 
-                while not all(getattr(p.astep, 'stopped', multiprocessing.Value('b', True)).value for p in self.pipeline.processes.values()) and not self.pipeline_stop_event.is_set():
+                while (
+                    not all(
+                        getattr(
+                            p.astep, "stopped", multiprocessing.Value("b", True)
+                        ).value
+                        for p in self.pipeline.processes.values()
+                    )
+                    and not self.pipeline_stop_event.is_set()
+                ):
                     time.sleep(1)
 
                 logging.info("Initiating Shutdown.")
@@ -257,7 +293,6 @@ class ConversionUI(ttk.Frame):
             messagebox.showwarning("Warning", "No running pipeline to stop.")
 
     def update_process_queue_status(self):
-
         # Clear the treeview
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -275,7 +310,9 @@ class ConversionUI(ttk.Frame):
                 q_status = "Closed" if queue_obj.closed.value else "Open"
                 q_size = queue_obj.qsize()
 
-                self.tree.insert("", tk.END, values=(f"\t{qname}", f"{q_status} (Size: {q_size})"))
+                self.tree.insert(
+                    "", tk.END, values=(f"\t{qname}", f"{q_status} (Size: {q_size})")
+                )
 
     def _monitor_pipeline(self):
         if self.pipeline and self.pipeline.is_running():
@@ -284,7 +321,9 @@ class ConversionUI(ttk.Frame):
 
     def on_destroy(self):
         if self.pipeline and self.pipeline.is_running():
-            if messagebox.askokcancel("Quit", "Pipeline is still running. Do you want to stop it and quit?"):
+            if messagebox.askokcancel(
+                "Quit", "Pipeline is still running. Do you want to stop it and quit?"
+            ):
                 self.pipeline_stop_event.set()
                 self.pipeline.stop()
         self.destroy()
