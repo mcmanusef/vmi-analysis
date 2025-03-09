@@ -1,7 +1,7 @@
 import time
 import os
 from attrs import define
-from cattrs import structure
+from cattrs import structure, transform_error
 import requests
 import pathlib
 
@@ -101,35 +101,43 @@ def stop_acquisition(serval_ip=DEFAULT_IP):
 @define
 class Dashboard:
     @define
-    class Server:
-        notifications: list[str]
-        software_version: str
-        software_timestamp: str
+    class _Server:
+        Notifications: list[str]
+        SoftwareVersion: str
+        SoftwareTimestamp: str
 
     @define
-    class Measurement:
-        start_date_time: int
-        time_left: int
-        elapsed_time: float
-        frame_count: int
-        pixel_event_rate: int
-        status: str
+    class _Measurement:
+        StartDateTime: int
+        TimeLeft: int
+        ElapsedTime: float
+        FrameCount: int
+        PixelEventRate: int
+        Status: str
 
     @define
-    class Detector:
-        detector_type: str
+    class _Detector:
+        DetectorType: str
 
-    server: Server
-    measurement: Measurement
-    detector: Detector
+    Server: _Server
+    Measurement: _Measurement | None
+    Detector: _Detector | None
 
 
 def get_dash(serval_ip=DEFAULT_IP) -> Dashboard:
     resp = requests.get(serval_ip + "/dashboard")
     if resp.status_code != 200:
         raise ServalException(f"Error getting dashboard: {resp.text}")
-    return structure(resp.json(), Dashboard)
+    try:
+        return structure(resp.json(), Dashboard)
+    except Exception as exc:
+        print(resp.json())
+        print(transform_error(exc))
+        raise exc
 
 
-def get_status(serval_ip=DEFAULT_IP):
-    return get_dash(serval_ip).measurement.status
+def get_status(serval_ip=DEFAULT_IP) -> str | None:
+    d = get_dash(serval_ip)
+    if d.Measurement:
+        return d.Measurement.Status
+    return None
