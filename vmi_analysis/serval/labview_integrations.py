@@ -54,5 +54,5 @@ def get_status() -> str:
     return serval.get_status()
 
 
-def get_dash():
+def get_dash() -> dict:
     return unstructure(serval.get_dash())
