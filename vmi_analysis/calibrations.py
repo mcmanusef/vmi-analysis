@@ -49,4 +49,38 @@ def calibration_20250123(x,y,t, center=(127.75, 128.75, 495.42), angle=-0.5, sym
     )
     return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
 
+def calibration_20250228(x,y,t, center=(121.3, 128.7, 495.9), angle=-0.53, symmetrize=True, cutup=False):
+    E_xy=lambda x: 0.000519 * x**2
+    z = lambda t: np.where(
+            t < 0,
+            -np.polyval([-15.939239037763162, 44.81692906680434, 0, 0],t)**0.5,
+            np.polyval([0.09487404130881483, -3.7896129598378003, 92.55227231395205, 0, 0],t)**0.5
+    )
+    return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
+# def calibration_20250303(x,y,t, center=(121.375, 128.25, 495.42), angle=-0.54, symmetrize=True, cutup=False):
+#     E_xy=lambda x: 0.000519 * x**2
+#     z = lambda t: np.where(
+#             t < 0,
+#             -np.polyval([-3.9696366262625324, 150.7251571326864, 0, 0],t)**0.5,
+#             np.polyval([-0.1370448112323239, 0.5805970723710808, 71.025514133672, 0, 0],t)**0.5
+#     )
+#     return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
+# def calibration_20250303(x,y,t, center=(121.625, 127.625, 495.92757346365676), angle=2.630162514320607, symmetrize=True, cutup=False):
+#     E_xy=lambda x: 0.000519 * x**2
+#     z = lambda t: np.where(
+#             t < 0,
+#             -np.polyval([0.9257842027376331, 129.3299219963953, 0, 0],-t)**0.5,
+#             np.polyval([0.06087596354321943, -5.34959474544479, 116.76233863558174, 0, 0],t)**0.5
+#     )
+#     return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+def calibration_20250303(x,y,t, center=(121.875, 127.125, 495.9345297060858), angle=2.630162514320607, symmetrize=True, cutup=False):
+    E_xy=lambda x: 0.000519 * x**2
+    z = lambda t: np.where(
+            t < 0,
+            -np.polyval([1.0067789324603167, 129.95544764952695, 0, 0],-t)**0.5,
+            np.polyval([0.12542165461684168, -6.387291956347507, 121.53401756837005, 0, 0],t)**0.5
+    )
+    return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
 #%%
