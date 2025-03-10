@@ -8,7 +8,7 @@ matplotlib.use("pdf")
 import scipy.io
 import os
 
-def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.calibration_20250123):
+def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.calibration_20250303):
     data = coincidence_v4.load_file(fname, coincidence=coincidence)
     print("Data Loaded")
     # data = coincidence_v4.load_file(r"D:\Data\c2h4_p_5W.cv4")
@@ -141,7 +141,15 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
     plt.savefig(name+'.png')
 
 if __name__ == '__main__':
-    fname=r"J:\ctgroup\Edward\DATA\VMI\20250121\xe_ellipticity"
+    fname=r"J:\ctgroup\Edward\DATA\VMI\20250303\Propylene Oxide 2W"
     for f in os.listdir(fname):
         if f.endswith('.cv4'):
-            analyze_file(os.path.join(fname, f))
+            print(f"Analyzing {f}")
+            # if os.path.exists(os.path.join(fname, f[:-4] + "_calibrated.png")):
+            #     print("Skipping", f)
+            #     continue
+            try:
+                analyze_file(os.path.join(fname, f))
+            except OSError:
+                print("Error analyzing", f)
+                pass
