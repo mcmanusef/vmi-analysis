@@ -335,14 +335,15 @@ class MultiprocessTestPipeline(AnalysisPipeline):
 
         mp_queues,mp_processes = processes.multithread_process(
                 # processes.CuMLDBSCANClusterer,
-                processes.DBSCANClusterer,
+                # processes.DBSCANClusterer,
                 # processes.DBSCANClustererPrecomputed,
+                processes.CustomClusterer,
                 {"pixel_queue": self.queues['pixel']},
                 {"cluster_queue": self.queues['cluster']},
                 n,
                 in_queue_kw_args={"chunk_size": 2000},
                 out_queue_kw_args={"force_monotone": True, "chunk_size": 2000},
-                astep_kw_args={"dbscan_params": {"eps": 1.5, "min_samples": 8}},
+                # astep_kw_args={"dbscan_params": {"eps": 1.5, "min_samples": 8}},
                 name="clusterer"
         )
 
