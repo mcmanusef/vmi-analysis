@@ -143,13 +143,8 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
 if __name__ == '__main__':
     fname=r"J:\ctgroup\Edward\DATA\VMI\20250303\Propylene Oxide 2W"
     for f in os.listdir(fname):
+    #     for f2 in os.listdir(os.path.join(fname,f)):
         if f.endswith('.cv4'):
             print(f"Analyzing {f}")
-            # if os.path.exists(os.path.join(fname, f[:-4] + "_calibrated.png")):
-            #     print("Skipping", f)
-            #     continue
-            try:
-                analyze_file(os.path.join(fname, f))
-            except OSError:
-                print("Error analyzing", f)
-                pass
+            analyze_file(os.path.join(fname,f))
+            print(f"Finished {f}")

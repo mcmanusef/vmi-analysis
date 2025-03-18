@@ -43,6 +43,7 @@ class SaveToH5(AnalysisStep):
         chunk_size=1000,
         flat: bool | tuple[bool] | dict[str, bool] = True,
         loud=False,
+        swmr=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -61,6 +62,7 @@ class SaveToH5(AnalysisStep):
         self.h5_file = None
         self.n = 0
         self.loud = loud
+        self.swmr = swmr
 
     def initialize(self):
         f = h5py.File(self.file_path, "w")
@@ -77,12 +79,13 @@ class SaveToH5(AnalysisStep):
                         name, (self.chunk_size,), dtype=dtype, maxshape=(None,)
                     )
         self.h5_file = f
+        if self.swmr:
+            self.h5_file.swmr_mode = True
         print(f"Loud={self.loud}")
         super().initialize()
 
     def action(self):
         f = self.h5_file
-
         sizes = [(q.qsize(), k, q) for k, q in self.in_queues.items()]
         sizes.sort()
         max_queue = sizes[-1][2]

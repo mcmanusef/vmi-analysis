@@ -16,7 +16,7 @@ from ..processing.pipelines import (
     ClusterSavePipeline,
     CV4ConverterPipeline,
     LiveMonitorPipeline,
-    StonyBrookClusterPipeline,
+    StonyBrookClusterPipeline, SynchronousSBPipeline,
 )
 import multiprocessing
 import requests
@@ -62,6 +62,7 @@ class ConversionUI(ttk.Frame):
             "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline,
             "Synchronous": LiveMonitorPipeline,
             "Stony Brook Converter": StonyBrookClusterPipeline,
+            "Stony Brook Synchronous": SynchronousSBPipeline
         }
 
         # Extension map for pipelines
@@ -73,6 +74,7 @@ class ConversionUI(ttk.Frame):
             "CV4 Converter (Clustered VMI Data)": ".cv4",
             "Synchronous": ".cv4",
             "Stony Brook Converter": ".h5",
+            "Stony Brook Synchronous": ".h5"
         }
 
         self.selected_pipeline = tk.StringVar()

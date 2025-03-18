@@ -2,6 +2,8 @@ import numpy as np
 
 from . import coincidence_v4
 
+def itof_calibration(itof, t0=670.54):
+    return ((itof - t0)/1803.29)**2
 
 def general_calibration(x, y, t, center, E_xy, E_t, angle=0., symmetrize=True, cutup=False):
     px = np.sqrt(2 * 0.0367493 * E_xy(x - center[0])) * np.sign(x - center[0])

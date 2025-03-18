@@ -335,3 +335,36 @@ class QueueCacheReader(AnalysisStep):
 
     def shutdown(self, gentle=False):
         super().shutdown(gentle=gentle)
+
+class SB_Display(AnalysisStep):
+    def __init__(
+            self,
+            grouped_queue,
+            n,
+            angle=0,
+            center=(128, 128),
+            calibration=None,
+    ):
+        def __init__(
+                self,
+                grouped_queue,
+                n,
+        ):
+            super().__init__()
+        self.input_queues = (grouped_queue,)
+        self.grouped_queue = grouped_queue
+        self.name = "Display"
+        self.current_data = {
+            "etof": collections.deque(maxlen=n),
+            "itof": collections.deque(maxlen=n),
+            "cluster": collections.deque(maxlen=n),
+            "timestamps": collections.deque(maxlen=n),
+        }
+        self.figure = None
+        self.ax = None
+        self.xy_hist = None
+        self.xy_hist_data = np.zeros((256, 256))
+        self.toa_hist = None
+        self.toa_hist_data = np.zeros(2000)
+        self.etof_hist = None
+        self.etof_hist_data = np.zeros(2000)
