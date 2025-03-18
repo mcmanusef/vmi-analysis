@@ -102,24 +102,24 @@ def stop_acquisition(serval_ip=DEFAULT_IP):
 class Dashboard:
     @define
     class Server:
-        notifications: list[str]
-        software_version: str
-        software_timestamp: str
+        Notifications: list[str]
+        SoftwareVersion: str
+        SoftwareTimestamp: str
 
     class Measurement:
-        start_date_time: int
-        time_left: int
-        elapsed_time: float
-        frame_count: int
-        pixel_event_rate: int
-        status: str
+        StartDateTime: int
+        TimeLeft: int
+        ElapsedTime: float
+        FrameCount: int
+        PixelEventRate: int
+        Status: str
 
     class Detector:
-        detector_type: str
+        DetectorType: str
 
-    server: Server
-    measurement: Measurement
-    detector: Detector
+    Server: Server
+    Measurement: Measurement
+    Detector: Detector
 
 
 def get_dash(serval_ip=DEFAULT_IP) -> Dashboard:
