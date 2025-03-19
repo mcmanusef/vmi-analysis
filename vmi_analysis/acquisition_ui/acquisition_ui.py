@@ -14,7 +14,7 @@ from ..serval import labview_integrations as lv
 DEFAULT_FOLDER_NAME = "test"
 DEFAULT_DURATION = 60.0
 DEFAULT_DURATION_UNIT = "sec"
-DESTINATION_BASE_PATH = "C:\\DATA"
+DESTINATION_BASE_PATH = ""
 STATUS_IDLE = "DA_IDLE"
 STATUS_RECORDING = "DA_RECORDING"
 STATUS_PREFIX = "DA_"
@@ -28,14 +28,13 @@ COLOR_ERROR = "red"
 
 
 class AcquisitionUI(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, serval_test_location="C:\\serval_test"):
         super().__init__(master)
         try:
             serval_init = serval.get_dash()["Measurement"] is not None
             if not serval_init:
                 try:
-                    serval.set_acquisition_parameters(
-                        "C:\\serval_test", 1, frame_time=1
+                    serval.set_acquisition_parameters(serval_test_location, 1, frame_time=1
                     )
                     serval.start_acquisition()
                 except Exception as e:

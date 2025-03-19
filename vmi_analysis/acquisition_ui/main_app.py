@@ -5,7 +5,7 @@ from .conversion_ui import ConversionUI
 
 
 class MainApp(tk.Tk):
-    def __init__(self):
+    def __init__(self, pipelines=None, test_dir=""):
         super().__init__()
         self.title("Data Acquisition and Analysis")
         self.geometry("500x700")
@@ -13,21 +13,21 @@ class MainApp(tk.Tk):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True)
 
-        self._add_acquisition_tab()
-        self._add_conversion_tab()
+        self._add_acquisition_tab(serval_test_dir=test_dir)
+        self._add_conversion_tab(pipelines=pipelines)
 
         self.after(1000, self._update_conversion_monitor)
 
-    def _add_acquisition_tab(self):
+    def _add_acquisition_tab(self, serval_test_dir=""):
         acquisition_tab = ttk.Frame(self.notebook)
         self.notebook.add(acquisition_tab, text="Acquisition")
-        self.acquisition_ui = AcquisitionUI(acquisition_tab)
+        self.acquisition_ui = AcquisitionUI(acquisition_tab,serval_test_dir=serval_test_dir)
         self.acquisition_ui.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def _add_conversion_tab(self):
+    def _add_conversion_tab(self,pipelines=None):
         conversion_tab = ttk.Frame(self.notebook)
         self.notebook.add(conversion_tab, text="File Conversion")
-        self.conversion_ui = ConversionUI(conversion_tab, self.acquisition_ui)
+        self.conversion_ui = ConversionUI(conversion_tab, self.acquisition_ui, pipelines=pipelines)
         self.conversion_ui.pack(fill="both", expand=True, padx=10, pady=10)
 
     def _update_conversion_monitor(self):
@@ -39,8 +39,8 @@ class MainApp(tk.Tk):
         self.destroy()
 
 
-def main():
-    app = MainApp()
+def main(pipelines=None, test_dir=""):
+    app = MainApp(pipelines=pipelines, test_dir=test_dir)
     app.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.mainloop()
 

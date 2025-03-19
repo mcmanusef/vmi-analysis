@@ -9,29 +9,20 @@ import sys
 import os
 from typing import Dict
 from .acquisition_ui import AcquisitionUI
-from ..processing.pipelines import (
-    TPXFileConverter,
-    RawVMIConverterPipeline,
-    VMIConverterPipeline,
-    ClusterSavePipeline,
-    CV4ConverterPipeline,
-    LiveMonitorPipeline,
-    StonyBrookClusterPipeline, SynchronousSBPipeline,
-)
 import multiprocessing
 import requests
 import time
 
 
 class ConversionUI(ttk.Frame):
-    def __init__(self, parent, acquisition_ui: AcquisitionUI, *args, **kwargs):
+    def __init__(self, parent, acquisition_ui: AcquisitionUI, *args, pipelines=None, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.acquisition_ui = (
             acquisition_ui  # Reference to AcquisitionUI for default paths
         )
 
         # Initialize variables
-        self._initialize_variables()
+        self._initialize_variables(pipelines)
 
         # Setup UI
         self._create_widgets()
@@ -53,29 +44,11 @@ class ConversionUI(ttk.Frame):
         self._monitor_pipeline()
         self._update_default_paths()
 
-    def _initialize_variables(self):
-        self.pipeline_options = {
-            "Direct HDF5 Converter": TPXFileConverter,
-            "Uncorrelated VMI Converter": RawVMIConverterPipeline,
-            "Uncorrelated VMI Converter (Clustered)": ClusterSavePipeline,
-            "UV4 Converter (Unclustered VMI Data)": VMIConverterPipeline,
-            "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline,
-            "Synchronous": LiveMonitorPipeline,
-            "Stony Brook Converter": StonyBrookClusterPipeline,
-            "Stony Brook Synchronous": SynchronousSBPipeline
-        }
+    def _initialize_variables(self, pipelines: Dict[str, tuple[type,str]] = None):
 
+        self.pipeline_options = {k:v[0] for k,v in pipelines.items()} if pipelines is not None else dict()
         # Extension map for pipelines
-        self.pipeline_extension_map = {
-            "Direct HDF5 Converter": ".h5",
-            "Uncorrelated VMI Converter": ".h5",
-            "Uncorrelated VMI Converter (Clustered)": ".h5",
-            "UV4 Converter (Unclustered VMI Data)": ".uv4",
-            "CV4 Converter (Clustered VMI Data)": ".cv4",
-            "Synchronous": ".cv4",
-            "Stony Brook Converter": ".h5",
-            "Stony Brook Synchronous": ".h5"
-        }
+        self.pipeline_extension_map = {k:v[1] for k,v in pipelines.items()} if pipelines is not None else dict()
 
         self.selected_pipeline = tk.StringVar()
         self.selected_pipeline.set("Direct HDF5 Converter")  # Default selection

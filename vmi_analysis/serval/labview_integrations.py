@@ -12,11 +12,13 @@ def acquire_data(
     prefix: str = "tpx_",
     bpc_file: str = r"C:\SoPhy\pixelconfig_20241206.bpc",
     dacs_file: str = r"C:\SoPhy\pixelconfig_20240514.bpc.dacs",
+    test_dir: str = r"C:\serval_test",
     frame_time: int | float = 10,
 ):
+
     if not os.path.exists(folder):
         os.makedirs(folder)
-    serval.set_acquisition_parameters("C:\\serval_test", 0.1, frame_time=0.1)
+    serval.set_acquisition_parameters(test_dir, 0.1, frame_time=0.1)
     serval.start_acquisition()
     # assert serval.test_connection(), "Serval server not found"
     if serval_busy():
@@ -41,7 +43,6 @@ def acquire_data(
 
 
 def serval_busy() -> bool:
-    # assert serval.test_connection(), "Serval server not found"
     return serval.get_status() != "DA_IDLE"
 
 
