@@ -1,9 +1,10 @@
-import time
 import os
+import pathlib
+import time
+
+import requests
 from attrs import define
 from cattrs import structure
-import requests
-import pathlib
 
 DEFAULT_IP = "http://localhost:8080"
 
@@ -102,24 +103,26 @@ def stop_acquisition(serval_ip=DEFAULT_IP):
 class Dashboard:
     @define
     class Server:
-        Notifications: list[str]
-        SoftwareVersion: str
-        SoftwareTimestamp: str
+        Notifications: list[str] | None
+        SoftwareVersion: str | None
+        SoftwareTimestamp: str | None
 
+    @define
     class Measurement:
-        StartDateTime: int
-        TimeLeft: int
-        ElapsedTime: float
-        FrameCount: int
-        PixelEventRate: int
-        Status: str
+        StartDateTime: int | None
+        TimeLeft: int | None
+        ElapsedTime: float | None
+        FrameCount: int | None
+        PixelEventRate: int | None
+        Status: str | None
 
+    @define
     class Detector:
-        DetectorType: str
+        DetectorType: str | None
 
-    Server: Server
-    Measurement: Measurement
-    Detector: Detector
+    Server: Server | None
+    Measurement: Measurement | None
+    Detector: Detector | None
 
 
 def get_dash(serval_ip=DEFAULT_IP) -> Dashboard:
@@ -130,4 +133,4 @@ def get_dash(serval_ip=DEFAULT_IP) -> Dashboard:
 
 
 def get_status(serval_ip=DEFAULT_IP):
-    return get_dash(serval_ip).measurement.status
+    return get_dash(serval_ip).Measurement.Status
