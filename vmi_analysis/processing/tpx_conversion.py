@@ -1,8 +1,5 @@
-import itertools
 import os
-
 os.environ["FOR_DISABLE_CONSOLE_CTRL_HANDLER"] = "1"
-
 import numba
 import numpy as np
 from numba import njit
@@ -270,16 +267,3 @@ def cluster(xs, ys, min_pixels=10, clust_radius=10, max_clusters=15):
     for i, v in enumerate(valid):
         indexes[indexes == v] = i
     return indexes
-
-
-# if __name__ == '__main__':
-#     cc=CC('vmi')
-#     cc.export('cluster',  'int64[:](int32[:],int32[:],int32,int32,int32)')(cluster)
-#     #returns list(UniTuple(float64 x 3))
-#     #   cluster_index = arg(0, name=cluster_index)  :: array(int64, 1d, C)
-#     #   toa = arg(1, name=toa)  :: array(float64, 1d, C)
-#     #   x = arg(2, name=x)  :: array(int32, 1d, C)
-#     #   y = arg(3, name=y)  :: array(int32, 1d, C)
-#     #   tot = arg(4, name=tot)  :: array(int32, 1d, C)
-#     cc.export('average_over_clusters', 'List(UniTuple(float64,3))(int32[:],float64[:],int32[:],int32[:],int32[:])')(average_over_clusters)
-#     cc.compile()

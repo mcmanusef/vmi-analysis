@@ -1,6 +1,6 @@
 import scipy
-from vmi_analysis import coincidence_v4
-from vmi_analysis import calibrations
+import coincidence_v4
+import calibrations
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib

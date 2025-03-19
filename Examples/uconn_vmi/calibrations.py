@@ -1,6 +1,7 @@
 import numpy as np
 
-from . import coincidence_v4
+import coincidence_v4
+
 
 def itof_calibration(itof, t0=670.54):
     return ((itof - t0)/1803.29)**2

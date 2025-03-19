@@ -1,4 +1,5 @@
-from vmi_analysis.processing.pipelines import CV4ConverterPipeline, run_pipeline
+from vmi_analysis.processing.pipelines import run_pipeline
+from uconn_pipelines import CV4ConverterPipeline
 from vmi_analysis.processing.processes import *
 import os
 

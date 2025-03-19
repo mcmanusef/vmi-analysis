@@ -1,9 +1,6 @@
-import multiprocessing
-import socket
-
 import numpy as np
-from matplotlib import pyplot as plt
 
+import uconn_processes
 from .. import data_types, processes
 from ... import serval
 from .base_pipeline import AnalysisPipeline
@@ -36,8 +33,8 @@ class MonitorPipeline(AnalysisPipeline):
         self.processes = {
             "ChunkStream": processes.FolderStream(saving_path, self.queues['chunk_stream']).make_process(),
             "Chunk": processes.QueueReducer(self.queues['chunk_stream'], self.queues['chunk'], max_size=1000).make_process(),
-            "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
-                                                self.queues['itof']).make_process(),
+            "Converter": uconn_processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
+                                                      self.queues['itof']).make_process(),
             "Clusterer": processes.DBSCANClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
             "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']),
                                                     self.queues['t_pulse'],
@@ -45,66 +42,11 @@ class MonitorPipeline(AnalysisPipeline):
             "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']),
                                               self.queues['grouped']).make_process(),
             "Reducer": processes.QueueReducer(self.queues['grouped'], self.queues['reduced_grouped'], max_size=1000).make_process(),
-            "Display": processes.Display(self.queues['reduced_grouped'], 1000000, toa_range=toa_range, etof_range=etof_range,
-                                         itof_range=itof_range).make_process(),
+            "Display": uconn_processes.Display(self.queues['reduced_grouped'], 1000000, toa_range=toa_range, etof_range=etof_range,
+                                               itof_range=itof_range).make_process(),
             "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
         }
         self.processes["Reducer"].astep.name = "r2"
-
-        if cluster_processes > 1:
-            queues, proc, weaver = processes.create_process_instances(
-                    processes.DBSCANClusterer, cluster_processes, self.queues["clusters"],
-                    process_args={"pixel_queue": self.queues['pixel'], "cluster_queue": None},
-                    queue_args={"force_monotone": True},
-                    queue_name="clust", process_name="clusterer")
-
-            self.queues.update(queues)
-            del self.processes["Clusterer"]
-            self.processes.update({n: k.make_process() for n, k in proc.items()})
-            self.processes["Weaver"] = weaver.make_process()
-
-
-class RunMonitorPipeline(AnalysisPipeline):
-    def __init__(self, saving_path,
-                 cluster_processes=1,
-                 toa_range=None,
-                 etof_range=None,
-                 itof_range=None,
-                 calibration=None,
-                 center=(128, 128),
-                 angle=0,
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.queues = {
-            "chunk": data_types.ExtendedQueue(maxsize=1000),
-            "pixel": data_types.ExtendedQueue(),
-            "etof": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-
-            "t_etof": data_types.ExtendedQueue(),
-            "t_itof": data_types.ExtendedQueue(),
-            "t_pulse": data_types.ExtendedQueue(),
-            "t_cluster": data_types.ExtendedQueue(),
-
-            "grouped": data_types.ExtendedQueue(),
-        }
-
-        self.processes = {
-            "ChunkStream": processes.TPXFileReader(saving_path, self.queues['chunk']).make_process(),
-            "Converter": processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
-                                                self.queues['itof']).make_process(),
-            "Clusterer": processes.CustomClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
-            "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']),
-                                                    self.queues['t_pulse'],
-                                                    (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])).make_process(),
-            "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']),
-                                              self.queues['grouped']).make_process(),
-            "Display": processes.Display(self.queues['grouped'], 10000000, toa_range=toa_range, etof_range=etof_range,
-                                         itof_range=itof_range,calibration=calibration, center=center, angle=angle).make_process(),
-            "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
-        }
 
         if cluster_processes > 1:
             queues, proc, weaver = processes.create_process_instances(
@@ -158,7 +100,7 @@ class LiveMonitorPipeline(AnalysisPipeline):
         self.processes = {
             "Listener": processes.TPXListener(self.local_ip, self.queues['chunk']).make_process(),
 
-            "Converter": processes.VMIConverter(
+            "Converter": uconn_processes.VMIConverter(
                 self.queues['chunk'],
                 self.queues['pixel'],
                 self.queues['pulses'],
@@ -245,7 +187,7 @@ class CorrelatorTestDataPipeline(AnalysisPipeline):
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
 
-            "Converter": processes.VMIConverter(
+            "Converter": uconn_processes.VMIConverter(
                     chunk_queue=self.queues['Chunk'],
                     pixel_queue=self.queues['Pixel'],
                     laser_queue=self.queues['Pulses'],
@@ -307,7 +249,7 @@ class ClusterTestDataPipeline(AnalysisPipeline):
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
 
-            "Converter": processes.VMIConverter(
+            "Converter": uconn_processes.VMIConverter(
                     chunk_queue=self.queues['Chunk'],
                     pixel_queue=self.queues['Pixel'],
                     laser_queue=self.queues['Pulses'],
@@ -365,7 +307,7 @@ class VMIConverterTestPipeline(AnalysisPipeline):
         }
         self.processes = {
             "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
-            "Converter": processes.VMIConverter(
+            "Converter": uconn_processes.VMIConverter(
                     chunk_queue=self.queues['Chunk'],
                     pixel_queue=self.queues['Pixel'],
                     laser_queue=self.queues['Pulses'],
