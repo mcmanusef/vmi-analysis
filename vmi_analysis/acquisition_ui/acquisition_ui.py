@@ -1,12 +1,12 @@
-import os
-import time
 import datetime
-import threading
-import tkinter as tk
-from tkinter import ttk
-from tkinter import StringVar, DoubleVar, BooleanVar, OptionMenu
-import requests
 import logging
+import os
+import tkinter as tk
+from tkinter import StringVar, DoubleVar, BooleanVar, OptionMenu
+from tkinter import ttk
+
+import requests
+
 from .. import serval
 from ..serval import labview_integrations as lv
 
@@ -28,14 +28,14 @@ COLOR_ERROR = "red"
 
 
 class AcquisitionUI(ttk.Frame):
-    def __init__(self, master, serval_test_location="C:\\serval_test"):
+    def __init__(self, master, serval_test_dir="C:\\serval_test"):
         super().__init__(master)
         try:
             serval_init = serval.get_dash()["Measurement"] is not None
             if not serval_init:
                 try:
-                    serval.set_acquisition_parameters(serval_test_location, 1, frame_time=1
-                    )
+                    serval.set_acquisition_parameters(serval_test_dir, 1, frame_time=1
+                                                      )
                     serval.start_acquisition()
                 except Exception as e:
                     print(e)

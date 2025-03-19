@@ -1,12 +1,13 @@
+import threading
+
+import cv2
 import numpy as np
+import requests
 
 import uconn_processes
+from .base_pipeline import AnalysisPipeline
 from .. import data_types, processes
 from ... import serval
-from .base_pipeline import AnalysisPipeline
-import threading
-import requests
-import cv2
 
 
 class MonitorPipeline(AnalysisPipeline):
@@ -70,7 +71,7 @@ class LiveMonitorPipeline(AnalysisPipeline):
                  itof_range=None,
                  preview_ip_frame=("localhost", 1235),
                  preview_ip_total=("localhost", 1236),
-                    **kwargs
+                 **kwargs
                  ):
 
         super().__init__()
