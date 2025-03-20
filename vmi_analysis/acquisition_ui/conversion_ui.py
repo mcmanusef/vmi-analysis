@@ -51,7 +51,7 @@ class ConversionUI(ttk.Frame):
         self.pipeline_extension_map = {k:v[1] for k,v in pipelines.items()} if pipelines is not None else dict()
 
         self.selected_pipeline = tk.StringVar()
-        self.selected_pipeline.set("Direct HDF5 Converter")  # Default selection
+        self.selected_pipeline.set(list(self.pipeline_options.keys())[0])  # Default selection
 
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
@@ -146,7 +146,7 @@ class ConversionUI(ttk.Frame):
 
     def _update_default_paths(self, event=None):
         # Set default input path to the acquisition destination
-        dest_folder = self.acquisition_ui.destination.get()
+        dest_folder = self.acquisition_ui.folder_name.get()
         self.input_path.set(dest_folder)
         # The output_path will be automatically updated via tracing
 
@@ -196,12 +196,12 @@ class ConversionUI(ttk.Frame):
             return
 
         try:
-            self.pipeline = pipeline_class(
+                self.pipeline = pipeline_class(
                 input_path=input_path, output_path=output_path
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to instantiate pipeline: {e}")
-            logging.error(f"Failed to instantiate pipeline: {e}")
+            logging.exception(f"Failed to instantiate pipeline: {e}")
             return
 
         # Update button states

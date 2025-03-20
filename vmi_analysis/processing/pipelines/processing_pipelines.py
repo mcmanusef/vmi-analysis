@@ -2,7 +2,14 @@ from .base_pipeline import AnalysisPipeline
 from .. import data_types, processes
 
 
-class TPXFileConverter(AnalysisPipeline):
+class PostProcessingPipeline(AnalysisPipeline):
+    def __init__(self, input_path: str, output_path: str, **kwargs):
+        super().__init__(**kwargs)
+        self.input_path=input_path
+        self.output_path=output_path
+
+
+class TPXFileConverter(PostProcessingPipeline):
     """
     Pipeline for converting TPX3 files to h5 files.
     Not specific to our VMI setup.
@@ -22,7 +29,7 @@ class TPXFileConverter(AnalysisPipeline):
         single_process=False,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(input_path,output_path,**kwargs)
         if not single_process:
             self.queues = {
                 "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),

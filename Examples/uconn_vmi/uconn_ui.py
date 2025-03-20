@@ -7,5 +7,8 @@ if __name__ == "__main__":
         'TPX Converter': (TPXFileConverter, ".h5"),
         'CV4 Converter': (uconn_pipelines.CV4ConverterPipeline, ".cv4")
     }
-    app = MainApp(pipelines=pipelines, test_dir=r"C:\serval_test")
+    app = MainApp(
+        processing_pipelines=pipelines,
+        test_dir=r"C:\serval_test",
+        default_dir=r"C:\DATA\%Y%m%d")
     app.mainloop()
