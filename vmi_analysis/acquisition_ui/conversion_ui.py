@@ -1,17 +1,13 @@
-# conversion_ui.py
-
+import logging
+import multiprocessing
+import os
+import threading
+import time
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
-import threading
-import logging
-import queue
-import sys
-import os
 from typing import Dict
+
 from .acquisition_ui import AcquisitionUI
-import multiprocessing
-import requests
-import time
 
 
 class ConversionUI(ttk.Frame):

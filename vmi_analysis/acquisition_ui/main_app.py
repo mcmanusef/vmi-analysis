@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+
 from .acquisition_ui import AcquisitionUI
 from .conversion_ui import ConversionUI
+from .synchronous_ui import SynchronousUI
 from ..processing.pipelines.processing_pipelines import PostProcessingPipeline
 from ..processing.pipelines.synchronous_pipelines import SynchronousPipeline
 
@@ -24,6 +26,7 @@ class MainApp(tk.Tk):
 
         self._add_acquisition_tab(serval_test_dir=test_dir, default_dir=default_dir)
         self._add_conversion_tab(pipelines=processing_pipelines)
+        self._add_synchronous_tab(pipelines=synchronous_pipelines, default_dir=default_dir)
 
         self.after(1000, self._update_conversion_monitor)
 
@@ -38,6 +41,12 @@ class MainApp(tk.Tk):
         self.notebook.add(conversion_tab, text="File Conversion")
         self.conversion_ui = ConversionUI(conversion_tab, self.acquisition_ui, pipelines=pipelines)
         self.conversion_ui.pack(fill="both", expand=True, padx=10, pady=10)
+
+    def _add_synchronous_tab(self, pipelines=None, default_dir=""):
+        synchronous_tab = ttk.Frame(self.notebook)
+        self.notebook.add(synchronous_tab, text="Synchronous Analysis")
+        self.synchronous_ui = SynchronousUI(synchronous_tab, pipelines=pipelines, default_dir=default_dir)
+        self.synchronous_ui.pack(fill="both", expand=True, padx=10, pady=10)
 
     def _update_conversion_monitor(self):
         self.conversion_ui.update_process_queue_status()
