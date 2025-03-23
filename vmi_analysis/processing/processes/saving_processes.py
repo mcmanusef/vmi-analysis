@@ -44,6 +44,7 @@ class SaveToH5(AnalysisStep):
         chunk_size=1000,
         flat: bool | tuple[bool] | dict[str, bool] = True,
         loud=False,
+        swmr=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -71,6 +72,7 @@ class SaveToH5(AnalysisStep):
         self.h5_file = None
         self.time_since_last_save = 0
         self.verbose = loud
+        self.swmr = swmr
 
     def initialize(self):
         f = h5py.File(self.file_path, "w")
@@ -87,18 +89,14 @@ class SaveToH5(AnalysisStep):
                         name, (self.chunk_size,), dtype=dtype, maxshape=(None,)
                     )
         self.h5_file = f
-        print(f"Loud={self.verbose}")
+        if self.swmr:
+            self.h5_file.swmr_mode = True
+        print(f"Verbose={self.verbose}")
         super().initialize()
 
     def action(self):
-        """Saves available data up to self.save_size
-        from the largest queue to the H5 file."""
-        h5f = self.h5_file
-        if h5f is None:  # pragma: no cover
-            raise ValueError("H5 file not initialized")
-        sizes: list[tuple[int, str, Queue]] = [
-            (q.qsize(), k, q) for k, q in self.in_queues.items()
-        ]
+        f = self.h5_file
+        sizes = [(q.qsize(), k, q) for k, q in self.in_queues.items()]
         sizes.sort()
         max_queue = sizes[-1][2]
         max_name = sizes[-1][1]

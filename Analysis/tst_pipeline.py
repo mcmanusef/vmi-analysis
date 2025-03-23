@@ -1,12 +1,12 @@
+import logging
 import time
 
 import matplotlib.pyplot as plt
 
-from vmi_analysis.processing import pipelines
-import logging
+import uconn_test_pipelines
 
 if __name__ == "__main__":
-    pipeline = pipelines.LiveMonitorPipeline()
+    pipeline = uconn_test_pipelines.LiveMonitorPipeline()
     logger = logging.getLogger()
 
     with pipeline:

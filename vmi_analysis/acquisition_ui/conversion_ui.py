@@ -1,37 +1,24 @@
-# conversion_ui.py
-
+import logging
+import multiprocessing
+import os
+import threading
+import time
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
-import threading
-import logging
-import queue
-import sys
-import os
 from typing import Dict
+
 from .acquisition_ui import AcquisitionUI
-from ..processing.pipelines import (
-    TPXFileConverter,
-    RawVMIConverterPipeline,
-    VMIConverterPipeline,
-    ClusterSavePipeline,
-    CV4ConverterPipeline,
-    LiveMonitorPipeline,
-    StonyBrookClusterPipeline,
-)
-import multiprocessing
-import requests
-import time
 
 
 class ConversionUI(ttk.Frame):
-    def __init__(self, parent, acquisition_ui: AcquisitionUI, *args, **kwargs):
+    def __init__(self, parent, acquisition_ui: AcquisitionUI, *args, pipelines=None, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.acquisition_ui = (
             acquisition_ui  # Reference to AcquisitionUI for default paths
         )
 
         # Initialize variables
-        self._initialize_variables()
+        self._initialize_variables(pipelines)
 
         # Setup UI
         self._create_widgets()
@@ -53,30 +40,14 @@ class ConversionUI(ttk.Frame):
         self._monitor_pipeline()
         self._update_default_paths()
 
-    def _initialize_variables(self):
-        self.pipeline_options = {
-            "Direct HDF5 Converter": TPXFileConverter,
-            "Uncorrelated VMI Converter": RawVMIConverterPipeline,
-            "Uncorrelated VMI Converter (Clustered)": ClusterSavePipeline,
-            "UV4 Converter (Unclustered VMI Data)": VMIConverterPipeline,
-            "CV4 Converter (Clustered VMI Data)": CV4ConverterPipeline,
-            "Synchronous": LiveMonitorPipeline,
-            "Stony Brook Converter": StonyBrookClusterPipeline,
-        }
+    def _initialize_variables(self, pipelines: Dict[str, tuple[type,str]] = None):
 
+        self.pipeline_options = {k:v[0] for k,v in pipelines.items()} if pipelines is not None else dict()
         # Extension map for pipelines
-        self.pipeline_extension_map = {
-            "Direct HDF5 Converter": ".h5",
-            "Uncorrelated VMI Converter": ".h5",
-            "Uncorrelated VMI Converter (Clustered)": ".h5",
-            "UV4 Converter (Unclustered VMI Data)": ".uv4",
-            "CV4 Converter (Clustered VMI Data)": ".cv4",
-            "Synchronous": ".cv4",
-            "Stony Brook Converter": ".h5",
-        }
+        self.pipeline_extension_map = {k:v[1] for k,v in pipelines.items()} if pipelines is not None else dict()
 
         self.selected_pipeline = tk.StringVar()
-        self.selected_pipeline.set("Direct HDF5 Converter")  # Default selection
+        self.selected_pipeline.set(list(self.pipeline_options.keys())[0])  # Default selection
 
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
@@ -171,7 +142,7 @@ class ConversionUI(ttk.Frame):
 
     def _update_default_paths(self, event=None):
         # Set default input path to the acquisition destination
-        dest_folder = self.acquisition_ui.destination.get()
+        dest_folder = self.acquisition_ui.folder_name.get()
         self.input_path.set(dest_folder)
         # The output_path will be automatically updated via tracing
 
@@ -221,12 +192,12 @@ class ConversionUI(ttk.Frame):
             return
 
         try:
-            self.pipeline = pipeline_class(
+                self.pipeline = pipeline_class(
                 input_path=input_path, output_path=output_path
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to instantiate pipeline: {e}")
-            logging.error(f"Failed to instantiate pipeline: {e}")
+            logging.exception(f"Failed to instantiate pipeline: {e}")
             return
 
         # Update button states

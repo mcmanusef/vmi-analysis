@@ -1,10 +1,11 @@
+import logging
 import sys
+
 import numpy as np
+import pywt
 import scipy.io
 import scipy.ndimage
 from skimage import measure
-import logging
-import pywt
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -21,13 +22,12 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
-    QSlider,
     QPushButton,
     QLineEdit,
     QSpinBox,
     QDoubleSpinBox,
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import QTimer
 
 import cmasher as cmr
 

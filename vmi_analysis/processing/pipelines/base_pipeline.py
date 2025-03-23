@@ -91,6 +91,8 @@ class BasePipeline:
                 process.join()
                 logging.error(f"Process {name} terminated")
 
+        self.on_finish.set()
+
     def is_running(self):
         return any([p.status()["running"] for p in self.processes.values()])
 

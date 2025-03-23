@@ -5,7 +5,6 @@ np.bool = np.bool_
 import scipy
 import pyvista as pv
 from skimage import measure
-import matplotlib.pyplot as plt
 import cmasher as cmr
 
 cmap = cmr.rainforest

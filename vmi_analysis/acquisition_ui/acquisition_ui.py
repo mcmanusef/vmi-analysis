@@ -1,39 +1,39 @@
-import os
-import time
 import datetime
-import threading
-import tkinter as tk
-from tkinter import ttk
-from tkinter import StringVar, DoubleVar, BooleanVar, OptionMenu
-import requests
 import logging
+import os
+import tkinter as tk
+from tkinter import StringVar, DoubleVar, BooleanVar, OptionMenu
+from tkinter import ttk
+
+import requests
+
 from .. import serval
-from ..serval import labview_integrations as lv
 
 # Constants
 DEFAULT_FOLDER_NAME = "test"
 DEFAULT_DURATION = 60.0
 DEFAULT_DURATION_UNIT = "sec"
-DESTINATION_BASE_PATH = "C:\\DATA"
+DESTINATION_BASE_PATH = ""
 STATUS_IDLE = "DA_IDLE"
 STATUS_RECORDING = "DA_RECORDING"
 STATUS_PREFIX = "DA_"
 UPDATE_INTERVAL_MS = 100  # 100 milliseconds
 INFINITE_DURATION = 999999999
-FRAME_TIME=10
+FRAME_TIME = 1
 
 COLOR_IDLE = "black"
 COLOR_BUSY = "green"
 COLOR_ERROR = "red"
 
+
 class AcquisitionUI(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, serval_test_dir="C:\\serval_test", default_dir=""):
         super().__init__(master)
         try:
-            serval_init = serval.get_dash()["Measurement"] is not None
+            serval_init = serval.get_dash().Measurement is not None
             if not serval_init:
                 try:
-                    serval.set_acquisition_parameters("C:\\serval_test", 1, frame_time=1)
+                    serval.set_acquisition_parameters(serval_test_dir, 1, frame_time=1)
                     serval.start_acquisition()
                 except Exception as e:
                     print(e)
@@ -41,13 +41,15 @@ class AcquisitionUI(ttk.Frame):
             print(e)
 
         # Variables
-        self.folder_name = StringVar(value=DEFAULT_FOLDER_NAME)
+        self.default_dir = default_dir
+        self.folder_name = StringVar(
+            value=os.path.join(
+                datetime.datetime.now().strftime(default_dir), DEFAULT_FOLDER_NAME
+            )
+        )
         self.duration_value = DoubleVar(value=DEFAULT_DURATION)
         self.infinite = BooleanVar(value=False)
         self.duration_unit = StringVar(value=DEFAULT_DURATION_UNIT)
-
-        self.destination = StringVar()
-        self.update_destination()
 
         # Server connection state
         self.server_connected = False
@@ -69,7 +71,9 @@ class AcquisitionUI(ttk.Frame):
         self.update_status()
 
     def _initialize_logging(self):
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(
+            level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+        )
 
     def _create_widgets(self):
         param_frame = ttk.LabelFrame(self, text="Acquisition Parameters", padding=10)
@@ -84,31 +88,42 @@ class AcquisitionUI(ttk.Frame):
         status_frame.columnconfigure(1, weight=1)
 
         # Folder name
-        ttk.Label(param_frame, text="Folder Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(param_frame, text="Folder Name:").grid(
+            row=0, column=0, sticky="w", padx=5, pady=5
+        )
         self.folder_entry = ttk.Entry(param_frame, textvariable=self.folder_name)
         self.folder_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-
-        ttk.Label(param_frame, text="Destination:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        dest_label = ttk.Label(param_frame, textvariable=self.destination, foreground="gray")
-        dest_label.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
         duration_frame = ttk.Frame(param_frame)
         duration_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
 
-        ttk.Label(duration_frame, text="Duration:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.duration_entry = ttk.Entry(duration_frame, textvariable=self.duration_value, width=8)
+        ttk.Label(duration_frame, text="Duration:").grid(
+            row=0, column=0, sticky="w", padx=5, pady=5
+        )
+        self.duration_entry = ttk.Entry(
+            duration_frame, textvariable=self.duration_value, width=8
+        )
         self.duration_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
 
-        self.duration_unit_menu = OptionMenu(duration_frame, self.duration_unit, "sec", "min", "hr")
+        self.duration_unit_menu = OptionMenu(
+            duration_frame, self.duration_unit, "sec", "min", "hr"
+        )
         self.duration_unit_menu.grid(row=0, column=2, sticky="w", padx=5, pady=5)
 
-        self.infinite_check = ttk.Checkbutton(duration_frame, text="Run Infinitely", variable=self.infinite, command=self.toggle_infinite_mode)
+        self.infinite_check = ttk.Checkbutton(
+            duration_frame,
+            text="Run Infinitely",
+            variable=self.infinite,
+            command=self.toggle_infinite_mode,
+        )
         self.infinite_check.grid(row=0, column=3, sticky="w", padx=5, pady=5)
 
         busy_frame = ttk.Frame(status_frame)
         busy_frame.grid(row=0, column=0, columnspan=2, sticky="ew")
 
-        self.busy_canvas = tk.Canvas(busy_frame, width=16, height=16, highlightthickness=0)
+        self.busy_canvas = tk.Canvas(
+            busy_frame, width=16, height=16, highlightthickness=0
+        )
         self.busy_canvas.grid(row=0, column=0, padx=5)
         self.draw_busy_indicator()
 
@@ -116,18 +131,31 @@ class AcquisitionUI(ttk.Frame):
         status_label = ttk.Label(busy_frame, textvariable=self.status)
         status_label.grid(row=0, column=2, sticky="w", padx=5)
 
-        self.progress_bar = ttk.Progressbar(status_frame, orient="horizontal", mode="determinate", variable=self.progress_var)
-        self.progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+        self.progress_bar = ttk.Progressbar(
+            status_frame,
+            orient="horizontal",
+            mode="determinate",
+            variable=self.progress_var,
+        )
+        self.progress_bar.grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5
+        )
 
-        ttk.Label(status_frame, text="Start:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(status_frame, text="Start:").grid(
+            row=2, column=0, sticky="w", padx=5, pady=5
+        )
         self.start_label = ttk.Label(status_frame, textvariable=self.start_str)
         self.start_label.grid(row=2, column=1, sticky="w", padx=5, pady=5)
 
-        ttk.Label(status_frame, text="End:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(status_frame, text="End:").grid(
+            row=3, column=0, sticky="w", padx=5, pady=5
+        )
         self.end_label = ttk.Label(status_frame, textvariable=self.end_str)
         self.end_label.grid(row=3, column=1, sticky="w", padx=5)
 
-        ttk.Label(status_frame, text="Elapsed:").grid(row=4, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(status_frame, text="Elapsed:").grid(
+            row=4, column=0, sticky="w", padx=5, pady=5
+        )
         self.elapsed_label = ttk.Label(status_frame, textvariable=self.elapsed_str)
         self.elapsed_label.grid(row=4, column=1, sticky="w", padx=5)
 
@@ -136,25 +164,23 @@ class AcquisitionUI(ttk.Frame):
         button_frame.columnconfigure(0, weight=1)
         button_frame.columnconfigure(1, weight=1)
 
-        self.start_button = ttk.Button(button_frame, text="Start", command=self.start_acquisition)
+        self.start_button = ttk.Button(
+            button_frame, text="Start", command=self.start_acquisition
+        )
         self.start_button.grid(row=0, column=0, sticky="ew", padx=5)
 
-        self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop_acquisition)
+        self.stop_button = ttk.Button(
+            button_frame, text="Stop", command=self.stop_acquisition
+        )
         self.stop_button.grid(row=0, column=1, sticky="ew", padx=5)
 
     def _bind_events(self):
-        self.folder_name.trace_add('write', lambda *args: self.update_destination())
-
-    def update_destination(self):
-        now = datetime.datetime.now()
-        date_str = now.strftime("%Y%m%d")
-        dest = os.path.join(DESTINATION_BASE_PATH, date_str, self.folder_name.get())
-        self.destination.set(dest)
+        pass
 
     def draw_busy_indicator(self):
         self.busy_canvas.delete("all")
         match self.status.get():
-            case status if status==STATUS_IDLE:
+            case status if status == STATUS_IDLE:
                 color = COLOR_IDLE
             case status if status.startswith(STATUS_PREFIX):
                 color = COLOR_BUSY
@@ -190,7 +216,8 @@ class AcquisitionUI(ttk.Frame):
             self.server_connected = False
             self._disable_server_dependent_widgets()
 
-    def _connect_to_server(self):
+    @staticmethod
+    def _connect_to_server():
         try:
             serval.get_dash()
         except requests.exceptions.ConnectionError as e:
@@ -219,7 +246,8 @@ class AcquisitionUI(ttk.Frame):
             return
 
         dash = serval.get_dash()
-        current_status = serval.get_status()
+        meas = dash.Measurement
+        current_status = meas.Status if meas is not None else None
 
         if current_status is not None:
             self.status.set(current_status)
@@ -254,10 +282,10 @@ class AcquisitionUI(ttk.Frame):
         self.duration_entry.config(state="disabled")
         self.duration_unit_menu.config(state="disabled")
 
-        start_ms = meas.get("StartDateTime")
-        elapsed = meas.get("ElapsedTime")
-        timeleft = meas.get("TimeLeft")
-        framecount = meas.get("FrameCount")
+        start_ms = meas.StartDateTime
+        elapsed = meas.ElapsedTime
+        timeleft = meas.TimeLeft
+        framecount = meas.FrameCount
 
         if start_ms is not None:
             start_dt = datetime.datetime.fromtimestamp(start_ms / 1000.0)
@@ -269,7 +297,9 @@ class AcquisitionUI(ttk.Frame):
         if self.infinite.get():
             self.end_str.set("")
         else:
-            self.end_str.set(self._calculate_end_time(meas, start_dt) if start_ms else "")
+            self.end_str.set(
+                self._calculate_end_time(meas, start_dt) if start_ms is not None else ""
+            )
 
         self._update_progress_bar(meas)
 
@@ -300,13 +330,15 @@ class AcquisitionUI(ttk.Frame):
             return f"{int(days)}:{int(hours):02}:{int(minutes):02}:{int(seconds):02}.{milliseconds:03}"
 
     def _calculate_end_time(self, meas, start_dt):
-        elapsed = meas.get("ElapsedTime")
-        timeleft = meas.get("TimeLeft")
-        framecount = meas.get("FrameCount")
+        elapsed = meas.ElapsedTime
+        timeleft = meas.TimeLeft
+        framecount = meas.FrameCount
 
         if elapsed is not None and timeleft is not None and framecount is not None:
             predicted_offset = timeleft - (elapsed - (FRAME_TIME * framecount))
-            end_dt = datetime.datetime.now() + datetime.timedelta(seconds=predicted_offset)
+            end_dt = datetime.datetime.now() + datetime.timedelta(
+                seconds=predicted_offset
+            )
             if start_dt.date() != end_dt.date():
                 return end_dt.strftime("%Y-%m-%d %I:%M:%S %p").replace(" 0", " ")
             else:
@@ -314,7 +346,7 @@ class AcquisitionUI(ttk.Frame):
         return ""
 
     def _update_progress_bar(self, meas):
-        elapsed = meas.get("ElapsedTime")
+        elapsed = meas.ElapsedTime
         if self.infinite.get():
             self.progress_var.set(0)
         elif elapsed is not None:
@@ -332,11 +364,11 @@ class AcquisitionUI(ttk.Frame):
 
         folder = self.folder_name.get()
         duration = self.convert_duration_to_seconds()
-        dest = self.destination.get()
         if self.infinite.get():
             duration = INFINITE_DURATION
         try:
-            lv.acquire_data(dest, duration)
+            serval.set_acquisition_parameters(folder, duration)
+            serval.start_acquisition(block=False)
             logging.info("Acquisition started.")
         except Exception as e:
             logging.exception(f"Failed to start acquisition: {e}")
@@ -347,7 +379,7 @@ class AcquisitionUI(ttk.Frame):
             return
 
         try:
-            lv.stop_acquisition()
+            serval.stop_acquisition()
             logging.info("Acquisition stopped.")
         except Exception as e:
             logging.exception(f"Failed to stop acquisition: {e}")

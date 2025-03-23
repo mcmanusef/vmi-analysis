@@ -1,6 +1,6 @@
-from vmi_analysis.processing.pipelines import RunMonitorPipeline, run_pipeline
-import os
-from vmi_analysis.calibrations import calibration_20241120
+from calibrations import calibration_20241120
+from uconn_pipelines import RunMonitorPipeline
+from vmi_analysis.processing.pipelines import run_pipeline
 
 if __name__ == "__main__":
     fname = r"C:\DATA\20250227\xe_2,5W\0"
