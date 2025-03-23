@@ -46,7 +46,7 @@ class SynchronousUI(ttk.Frame):
         self.pipeline_stop_event = threading.Event()
 
         # Acquisition parameters (similar to AcquisitionUI)
-        self.folder_name = tk.StringVar(value=os.path.join(datetime.datetime.now().strftime(default_dir), "test"))
+        self.folder_name = tk.StringVar(value=os.path.join(datetime.datetime.now().strftime(default_dir), "test.h5"))
         self.duration_value = tk.DoubleVar(value=60.0)
         self.infinite = tk.BooleanVar(value=False)
         self.duration_unit = tk.StringVar(value="sec")
@@ -183,7 +183,7 @@ class SynchronousUI(ttk.Frame):
 
         try:
             # For a synchronous pipeline, pass the output_file and acquisition_time.
-            self.pipeline = pipeline_class(output_file=folder, acquisition_time=duration)
+            self.pipeline = pipeline_class(output_path=folder, acquisition_time=duration)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to instantiate pipeline: {e}")
             logging.exception("Pipeline instantiation failed")
@@ -202,10 +202,8 @@ class SynchronousUI(ttk.Frame):
     def _run_pipeline(self):
         try:
             with self.pipeline:
-                # Start the pipeline (this should also start the acquisition)
                 self.pipeline.start()
-                # Loop until the pipeline stops or a stop event is triggered
-                while not self.pipeline_stop_event.is_set() and self.pipeline.is_running():
+                while not self.pipeline.on_finish.is_set() and not self.pipeline_stop_event.is_set():
                     # Update display: call the pipeline's update_display method
                     self.pipeline.update_display()
                     # Update the figure canvas if the pipeline has a display figure
@@ -279,6 +277,6 @@ if __name__ == "__main__":
         "Pipeline B": SynchronousPipeline,
     }
 
-    ui = SynchronousPipelineUI(root, pipeline_classes=example_pipeline_classes)
+    ui = SynchronousUI(root, pipeline_classes=example_pipeline_classes)
     ui.pack(fill=tk.BOTH, expand=True)
     root.mainloop()

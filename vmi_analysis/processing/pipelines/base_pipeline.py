@@ -1,10 +1,11 @@
+import abc
 import multiprocessing
 import time
 from .. import data_types, processes
 import logging
 
 
-class AnalysisPipeline:
+class AnalysisPipeline(abc.ABC):
     """
     A class to represent an analysis pipeline. This class is responsible for managing the processes and queues that
     make up the pipeline, and for starting and stopping the pipeline.
@@ -29,13 +30,15 @@ class AnalysisPipeline:
     - wait_for_completion(): Waits for all processes in the pipeline to finish.
     """
 
-    queues: dict[str, data_types.ExtendedQueue]
-    processes: dict[str, processes.AnalysisProcess]
-    initialized: bool
-    profile: bool
+
 
     def __init__(self, **kwargs):
         self.active = multiprocessing.Value("b", True)
+        self.queues: dict[str, data_types.ExtendedQueue]= {}
+        self.processes: dict[str, processes.AnalysisProcess]= {}
+        self.initialized: bool= False
+        self.profile: bool= False
+        self.on_finish= multiprocessing.Event()
 
     def set_profile(self, profile: bool):
         for process in self.processes.values():
@@ -90,6 +93,8 @@ class AnalysisPipeline:
                 process.terminate()
                 process.join()
                 logging.error(f"Process {name} terminated")
+
+        self.on_finish.set()
 
     def is_running(self):
         return any([p.status()["running"] for p in self.processes.values()])
