@@ -1,8 +1,8 @@
-from .base_pipeline import AnalysisPipeline
+from .base_pipeline import BasePipeline
 from .. import data_types, processes
 
 
-class TPXFileConverter(AnalysisPipeline):
+class TPXFileConverter(BasePipeline):
     """
     Pipeline for converting TPX3 files to h5 files.
     Not specific to our VMI setup.
@@ -18,22 +18,19 @@ class TPXFileConverter(AnalysisPipeline):
         self,
         input_path: str,
         output_path: str,
-        buffer_size: int = 0,
         single_process=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         if not single_process:
-            self.queues = {
-                "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-                "pixel": data_types.ExtendedQueue(
-                    buffer_size=buffer_size,
+            queues = {
+                "chunk": data_types.Queue(),
+                "pixel": data_types.StructuredDataQueue[data_types.PixelData](
                     dtypes=("f", "i", "i", "i"),
                     names=("toa", "x", "y", "tot"),
                     chunk_size=10000,
                 ),
-                "tdc": data_types.ExtendedQueue(
-                    buffer_size=buffer_size,
+                "tdc": data_types.StructuredDataQueue[data_types.TDCData](
                     dtypes=("f", "i"),
                     names=("tdc_time", "tdc_type"),
                     chunk_size=10000,
@@ -45,24 +42,23 @@ class TPXFileConverter(AnalysisPipeline):
                     input_path, self.queues["chunk"]
                 ).make_process(),
                 "converter": processes.TPXConverter(
-                    self.queues["chunk"], self.queues["pixel"], self.queues["tdc"]
+                    self.queues["chunk"], queues["pixel"], queues["tdc"]
                 ).make_process(),
                 "save": processes.SaveToH5(
                     output_path,
                     {"pixel": self.queues["pixel"], "tdc": self.queues["tdc"]},
                 ).make_process(),
             }
+            self.queues = queues
 
         if single_process:
-            self.queues: dict[str, data_types.ExtendedQueue] = {
-                "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-                "pixel": data_types.ExtendedQueue(
-                    buffer_size=buffer_size,
+            queues = {
+                "chunk": data_types.Queue(),
+                "pixel": data_types.StructuredDataQueue[data_types.PixelData](
                     dtypes=("f", "i", "i", "i"),
                     names=("toa", "x", "y", "tot"),
                 ),
-                "tdc": data_types.ExtendedQueue(
-                    buffer_size=buffer_size,
+                "tdc": data_types.StructuredDataQueue[data_types.TDCData](
                     dtypes=("f", "i"),
                     names=("tdc_time", "tdc_type"),
                 ),
@@ -76,8 +72,8 @@ class TPXFileConverter(AnalysisPipeline):
                         ),
                         processes.TPXConverter(
                             chunk_queue=self.queues["chunk"],
-                            pixel_queue=self.queues["pixel"],
-                            tdc_queue=self.queues["tdc"],
+                            pixel_queue=queues["pixel"],
+                            tdc_queue=queues["tdc"],
                         ),
                         processes.SaveToH5(
                             output_path,
@@ -88,9 +84,10 @@ class TPXFileConverter(AnalysisPipeline):
                     output_queues=(self.queues["chunk"],),
                 ).make_process(),
             }
+            self.queues = queues
 
 
-class RawVMIConverterPipeline(AnalysisPipeline):
+class RawVMIConverterPipeline(BasePipeline):
     """
     Pipeline for converting raw VMI data to h5 files.
     Specific to our VMI setup.
@@ -106,9 +103,8 @@ class RawVMIConverterPipeline(AnalysisPipeline):
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-            "pixel": data_types.ExtendedQueue(
-                buffer_size=0,
+            "chunk": data_types.Queue(),
+            "pixel": data_types.StructuredDataQueue(
                 dtypes=("f", "i", "i", "i"),
                 names=("toa", "x", "y", "tot"),
                 unwrap=True,
@@ -116,24 +112,21 @@ class RawVMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "etof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "etof": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("etof",),
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "itof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "itof": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("itof",),
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "pulses": data_types.ExtendedQueue(
-                buffer_size=0,
+            "pulses": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("pulses",),
                 force_monotone=True,
@@ -165,7 +158,7 @@ class RawVMIConverterPipeline(AnalysisPipeline):
         }
 
 
-class VMIConverterPipeline(AnalysisPipeline):
+class VMIConverterPipeline(BasePipeline):
     """
     Pipeline for converting raw VMI data to UV4 files (H5 file with specific internal format).
     Specific to our VMI setup.
@@ -181,9 +174,8 @@ class VMIConverterPipeline(AnalysisPipeline):
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-            "pixel": data_types.ExtendedQueue(
-                buffer_size=0,
+            "chunk": data_types.Queue(),
+            "pixel": data_types.StructuredDataQueue(
                 dtypes=("f", "i", "i", "i"),
                 names=("toa", "x", "y", "tot"),
                 unwrap=True,
@@ -191,47 +183,41 @@ class VMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "etof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "etof": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("etof",),
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "itof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "itof": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("itof",),
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "pulses": data_types.ExtendedQueue(
-                buffer_size=0,
+            "pulses": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("pulses",),
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "t_etof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "t_etof": data_types.StructuredDataQueue(
                 dtypes=("i", ("f",)),
                 names=("etof_corr", ("t_etof",)),
                 chunk_size=2000,
             ),
-            "t_itof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "t_itof": data_types.StructuredDataQueue(
                 dtypes=("i", ("f",)),
                 names=("itof_corr", ("t_itof",)),
                 chunk_size=2000,
             ),
-            "t_pulse": data_types.ExtendedQueue(
-                buffer_size=0, dtypes=("f",), names=("t_pulse",), chunk_size=10000
+            "t_pulse": data_types.StructuredDataQueue(
+                dtypes=("f",), names=("t_pulse",), chunk_size=10000
             ),
-            "t_pixel": data_types.ExtendedQueue(
-                buffer_size=0,
+            "t_pixel": data_types.StructuredDataQueue(
                 dtypes=("i", ("f", "i", "i", "i")),
                 names=("pixel_corr", ("t", "x", "y", "tot")),
                 chunk_size=10000,
@@ -267,7 +253,7 @@ class VMIConverterPipeline(AnalysisPipeline):
         }
 
 
-class ClusterSavePipeline(AnalysisPipeline):
+class ClusterSavePipeline(BasePipeline):
     """
     Pipeline for clustering and saving raw VMI data to h5 files.
     Specific to our VMI setup.
@@ -283,42 +269,35 @@ class ClusterSavePipeline(AnalysisPipeline):
     def __init__(self, input_path, output_path, monotone=False, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(
-                buffer_size=0, dtypes=(), names=(), chunk_size=2000
+            "chunk": data_types.Queue(),
+            "pixel": data_types.StructuredDataQueue(
+                dtypes=(), names=(), chunk_size=2000
             ),
-            "pixel": data_types.ExtendedQueue(
-                buffer_size=0, dtypes=(), names=(), chunk_size=2000
-            ),
-            "etof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "etof": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("etof",),
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "itof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "itof": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("itof",),
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "pulses": data_types.ExtendedQueue(
-                buffer_size=0,
+            "pulses": data_types.StructuredDataQueue(
                 dtypes=("f",),
                 names=("pulses",),
                 force_monotone=monotone,
                 chunk_size=10000,
             ),
-            "clusters": data_types.ExtendedQueue(
-                buffer_size=0,
+            "clusters": data_types.StructuredDataQueue(
                 dtypes=("f", "f", "f"),
                 names=("toa", "x", "y"),
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "clustered": data_types.ExtendedQueue(
-                buffer_size=0,
+            "clustered": data_types.StructuredDataQueue(
                 dtypes=(("f", "i", "i", "i"), "i"),
                 names=(("toa_pix", "x_pix", "y_pix", "tot_pix"), "cluster_pix"),
                 force_monotone=monotone,
@@ -355,7 +334,7 @@ class ClusterSavePipeline(AnalysisPipeline):
         }
 
 
-class CV4ConverterPipeline(AnalysisPipeline):
+class CV4ConverterPipeline(BasePipeline):
     """
     Pipeline for converting raw VMI data to CV4 files (H5 file with specific internal format).
     Specific to our VMI setup.
@@ -381,40 +360,37 @@ class CV4ConverterPipeline(AnalysisPipeline):
         super().__init__(**kwargs)
 
         self.queues = {
-            "Chunk": data_types.ExtendedQueue(chunk_size=10000),
-            "Pixel": data_types.ExtendedQueue(chunk_size=10000),
-            "Etof": data_types.ExtendedQueue(
+            "Chunk": data_types.Queue(chunk_size=10000),
+            "Pixel": data_types.StructuredDataQueue(chunk_size=10000),
+            "Etof": data_types.StructuredDataQueue(
                 dtypes=("f",), names=("etof",), force_monotone=True, chunk_size=10000
             ),
-            "Itof": data_types.ExtendedQueue(
+            "Itof": data_types.StructuredDataQueue(
                 dtypes=("f",), names=("itof",), force_monotone=True, chunk_size=10000
             ),
-            "Pulses": data_types.ExtendedQueue(
+            "Pulses": data_types.StructuredDataQueue(
                 dtypes=("f",), names=("pulses",), force_monotone=True, chunk_size=10000
             ),
-            "Clusters": data_types.ExtendedQueue(
+            "Clusters": data_types.StructuredDataQueue(
                 dtypes=("f", "f", "f"),
                 names=("toa", "x", "y"),
                 force_monotone=True,
                 chunk_size=10000,
             ),
-            "t_etof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "t_etof": data_types.StructuredDataQueue(
                 dtypes=("i", ("f",)),
                 names=("etof_corr", ("t_etof",)),
                 chunk_size=10000,
             ),
-            "t_itof": data_types.ExtendedQueue(
-                buffer_size=0,
+            "t_itof": data_types.StructuredDataQueue(
                 dtypes=("i", ("f",)),
                 names=("tof_corr", ("t_tof",)),
                 chunk_size=10000,
             ),
-            "t_pulse": data_types.ExtendedQueue(
-                buffer_size=0, dtypes=("f",), names=("t_pulse",), chunk_size=10000
+            "t_pulse": data_types.StructuredDataQueue(
+                dtypes=("f",), names=("t_pulse",), chunk_size=10000
             ),
-            "t_cluster": data_types.ExtendedQueue(
-                buffer_size=0,
+            "t_cluster": data_types.StructuredDataQueue(
                 dtypes=("i", ("f", "f", "f")),
                 names=("cluster_corr", ("t", "x", "y")),
                 chunk_size=10000,
@@ -506,31 +482,34 @@ class CV4ConverterPipeline(AnalysisPipeline):
         }
 
 
-class StonyBrookClusterPipeline(AnalysisPipeline):
+class StonyBrookClusterPipeline(BasePipeline):
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
-        self.queues = {
-            "chunk": data_types.ExtendedQueue(),
-            "pixel": data_types.ExtendedQueue(),
-            "tdc": data_types.ExtendedQueue(),
-            "pulse": data_types.ExtendedQueue(),
-            "tof": data_types.ExtendedQueue(),
-            "clusters": data_types.ExtendedQueue(),
-            "t_tof": data_types.ExtendedQueue(
+        queues = {
+            "chunk": data_types.Queue(),
+            "pixel": data_types.StructuredDataQueue[data_types.PixelData](),
+            "tdc": data_types.StructuredDataQueue[data_types.TDCData](),
+            "pulse": data_types.StructuredDataQueue(),
+            "tof": data_types.StructuredDataQueue(),
+            "clusters": data_types.StructuredDataQueue(),
+            "t_tof": data_types.StructuredDataQueue(
                 dtypes=("i", ("f",)), names=("tof_corr", ("t_tof",))
             ),
-            "t_cluster": data_types.ExtendedQueue(
+            "t_cluster": data_types.StructuredDataQueue(
                 dtypes=("i", ("f", "f", "f")), names=("cluster_corr", ("t", "x", "y"))
             ),
-            "t_pulse": data_types.ExtendedQueue(dtypes=("f",), names=("t_pulse",)),
+            "t_pulse": data_types.StructuredDataQueue(
+                dtypes=("f",), names=("t_pulse",)
+            ),
         }
+        self.queues = queues
 
         self.processes = {
             "Reader": processes.TPXFileReader(
                 input_path, self.queues["chunk"]
             ).make_process(),
             "Converter": processes.TPXConverter(
-                self.queues["chunk"], self.queues["pixel"], self.queues["tdc"]
+                self.queues["chunk"], queues["pixel"], queues["tdc"]
             ).make_process(),
             "Filter": processes.TDCFilter(
                 self.queues["tdc"], self.queues["pulse"], self.queues["tof"]

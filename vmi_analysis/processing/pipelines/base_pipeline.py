@@ -4,7 +4,7 @@ from .. import data_types, processes
 import logging
 
 
-class AnalysisPipeline:
+class BasePipeline:
     """
     A class to represent an analysis pipeline. This class is responsible for managing the processes and queues that
     make up the pipeline, and for starting and stopping the pipeline.
@@ -29,12 +29,12 @@ class AnalysisPipeline:
     - wait_for_completion(): Waits for all processes in the pipeline to finish.
     """
 
-    queues: dict[str, data_types.ExtendedQueue]
-    processes: dict[str, processes.AnalysisProcess]
+    queues: dict[str, data_types.Queue]
+    processes: dict[str, processes.BaseProcess]
     initialized: bool
     profile: bool
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.active = multiprocessing.Value("b", True)
 
     def set_profile(self, profile: bool):
@@ -107,7 +107,7 @@ class AnalysisPipeline:
         return False
 
 
-def run_pipeline(target_pipeline: AnalysisPipeline, forever=False):
+def run_pipeline(target_pipeline: BasePipeline, forever=False):
     print("Initializing pipeline")
     with target_pipeline:
         for name, process in target_pipeline.processes.items():

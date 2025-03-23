@@ -1,16 +1,18 @@
-import itertools
 import os
+from typing import Literal
 
 os.environ["FOR_DISABLE_CONSOLE_CTRL_HANDLER"] = "1"
 
 import numba
 import numpy as np
 from numba import njit
-from numba.typed import *
-from numba.types import UniTuple, List, Tuple, f8, i8
+
+from numba.core.types import UniTuple, List, Tuple, f8, i8
 from .tpx_constants import PIXEL_RES
 
 Packet_Data = numba.typeof((0, (1, 2, 3, 4)))
+
+type tPacket = tuple[Literal[-1, 0, 1], tuple[int, int, int, int]]
 
 
 @njit(cache=True)
@@ -30,7 +32,7 @@ def split_int(num: int, ranges: list[tuple[int, int]]):
 
 
 @njit(cache=True)
-def addr_to_coords(pix_addr):
+def addr_to_coords(pix_addr) -> tuple[int, int]:
     dcol = (pix_addr & 0xFE00) >> 8
     spix = (pix_addr & 0x01F8) >> 1
     pix = pix_addr & 0x0007
@@ -41,7 +43,7 @@ def addr_to_coords(pix_addr):
 
 @njit(cache=True)
 # @numba.vectorize()
-def process_packet(packet: int):
+def process_packet(packet: int) -> tPacket:
     header = packet >> 60
     reduced = packet & 0x0FFF_FFFF_FFFF_FFFF
     if header == 7:
@@ -67,7 +69,7 @@ def process_tdc_old(packet):
 
 
 @njit(cache=True)
-def process_tdc(packet: int):
+def process_tdc(packet: int) -> tPacket:
     split_points = (5, 9, 44, 56, 60)
     f_time, c_time, _, tdc_type = split_int(packet, pw_jit(split_points))
     c_time = (
@@ -80,7 +82,7 @@ def process_tdc(packet: int):
 
 
 @njit(cache=True)
-def process_pixel(packet: int):
+def process_pixel(packet: int) -> tPacket:
     split_points = (0, 16, 20, 30, 44, 61)
     c_time, f_time, tot, m_time, pix_add = split_int(packet, pw_jit(split_points))
     toa = numba.uint64(c_time * 2**18 + m_time * 2**4)
@@ -96,7 +98,7 @@ def process_pixel(packet: int):
 
 def cluster_pixels(pixels, dbscan):
     if not pixels:
-        return []
+        return tuple()
     toa, x, y, tot = map(np.asarray, zip(*pixels))
     cluster_index = dbscan.fit(np.column_stack((x, y))).labels_
     return cluster_index, toa, x, y, tot

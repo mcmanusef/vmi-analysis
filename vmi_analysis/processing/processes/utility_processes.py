@@ -1,11 +1,15 @@
-import collections
 import multiprocessing
 import queue
 import time
 import typing
 import numpy as np
 
-from ..data_types import ExtendedQueue, TpxDataType, UnstructurableData, structure_map, unstructure
+from ..data_types import (
+    Queue,
+    TpxDataType,
+    UnstructurableData,
+    unstructure,
+)
 from .base_process import AnalysisStep
 
 
@@ -43,10 +47,11 @@ class Weaver(AnalysisStep):
     - output_queue (ExtendedQueue): Queue to put combined data into.
     """
 
-
-    def __init__(self, 
-                 input_queues: tuple[ExtendedQueue[UnstructurableData[TpxDataType]]], 
-                 output_queue: ExtendedQueue[UnstructurableData[TpxDataType]]):
+    def __init__(
+        self,
+        input_queues: tuple[Queue[UnstructurableData[TpxDataType]]],
+        output_queue: Queue[UnstructurableData[TpxDataType]],
+    ):
         super().__init__()
         self.input_queues = input_queues
         self.output_queue = output_queue
@@ -95,8 +100,8 @@ class Weaver(AnalysisStep):
             self.shutdown()
             return
 
-        min_idx = self.sortvals.index(min(c for c in self.sortvals if c != np.inf)) # type: ignore
-        assert (c:=self.current[min_idx]) is not None
+        min_idx = self.sortvals.index(min(c for c in self.sortvals if c != np.inf))  # type: ignore
+        assert (c := self.current[min_idx]) is not None
         self.output_queue.put(c)
         self.current[min_idx] = None
 
@@ -166,7 +171,9 @@ class QueueGrouper(AnalysisStep):
         self.output_queue = output_queue
         self.output_queues = (output_queue,)
         self.current = 0
-        self.nexts: list[tuple[int, typing.Any] | None] = [None for _ in input_queues]
+        self.nexts: list[tuple[int | float, typing.Any] | None] = [
+            None for _ in input_queues
+        ]
         self.out = tuple([] for _ in self.input_queues)
         self.output_empty = output_empty
 
@@ -175,20 +182,20 @@ class QueueGrouper(AnalysisStep):
             for i, q in enumerate(self.input_queues):
                 if self.nexts[i] is None:
                     if q.closed.value and q.empty():
-                        self.nexts[i] = (np.inf,)
+                        self.nexts[i] = (np.inf, None)
                     try:
                         self.nexts[i] = q.get(timeout=0.1)
                     except queue.Empty or InterruptedError:
                         time.sleep(0.1)
                         return
 
-        if all(n[0] == np.inf for n in self.nexts):
+        if all(n[0] == np.inf for n in self.nexts):  # type: ignore
             self.shutdown()
             return
 
         for i, n in enumerate(self.nexts):
-            while self.nexts[i][0] == self.current:
-                self.out[i].append(self.nexts[i][1])
+            while self.nexts[i][0] == self.current:  # type: ignore
+                self.out[i].append(self.nexts[i][1])  # type: ignore
                 try:
                     self.nexts[i] = self.input_queues[i].get(timeout=0.1)
                 except queue.Empty or InterruptedError:
@@ -213,7 +220,7 @@ def create_process_instances(
 ):
     if queue_args is None:
         queue_args = {}
-    queues = tuple([ExtendedQueue(**queue_args) for _ in range(n_instances)])
+    queues = tuple([Queue(**queue_args) for _ in range(n_instances)])
     args = []
     for q in queues:
         new_args = process_args.copy()
@@ -264,13 +271,15 @@ class QueueDistributor(AnalysisStep):
 
 
 def multithread_process(
-    astep_class,
-    input_queues_dict,
-    output_queues_dict,
-    n_threads,
-    astep_kw_args=None,
-    in_queue_kw_args=None,
-    out_queue_kw_args=None,
+    astep_class: typing.Type[AnalysisStep],
+    input_queues_dict: dict[str, Queue],
+    output_queues_dict: dict[str, Queue],
+    n_threads: int,
+    astep_kw_args: dict | None = None,
+    in_queue_kw_args: dict[str, typing.Any]
+    | dict[str, dict[str, typing.Any]]
+    | None = None,
+    out_queue_kw_args: dict | None = None,
     name="",
 ):
     if astep_kw_args is None:
@@ -283,43 +292,32 @@ def multithread_process(
         **input_queues_dict, **output_queues_dict, **astep_kw_args
     )
 
+    # check if input/output queue kw args are individual or shared
     individual_in_queue_kw_args = in_queue_kw_args.keys() == input_queues_dict.keys()
     individual_out_queue_kw_args = out_queue_kw_args.keys() == output_queues_dict.keys()
 
-    def make_in_queue(k):
-        def maker(a):
-            return (
-                ExtendedQueue(**in_queue_kw_args)
+    # for each process, a dictionary of queue name : queue
+    split_in_queues = []
+    for _ in range(n_threads):
+        process_queues = {}
+        for queue_name in input_queues_dict:
+            queue_kwargs: dict[str, typing.Any] = (
+                in_queue_kw_args
                 if not individual_in_queue_kw_args
-                else ExtendedQueue(**in_queue_kw_args[k])
+                else in_queue_kw_args[queue_name]
             )
+            process_queues[queue_name] = Queue(**queue_kwargs)
 
-        return maker
-
-    def make_out_queue(k):
-        def maker(a):
-            return (
-                ExtendedQueue(**out_queue_kw_args)
+    split_out_queues = []
+    for _ in range(n_threads):
+        process_queues = {}
+        for queue_name in output_queues_dict:
+            queue_kwargs: dict[str, typing.Any] = (
+                out_queue_kw_args
                 if not individual_out_queue_kw_args
-                else ExtendedQueue(**out_queue_kw_args[k])
+                else out_queue_kw_args[queue_name]
             )
-
-        return maker
-
-    split_in_queues = [
-        {
-            k: structure_map(make_in_queue(k), input_queues_dict[k])
-            for k in input_queues_dict
-        }
-        for _ in range(n_threads)
-    ]
-    split_out_queues = [
-        {
-            k: structure_map(make_out_queue(k), output_queues_dict[k])
-            for k in output_queues_dict
-        }
-        for _ in range(n_threads)
-    ]
+            process_queues[queue_name] = Queue(**queue_kwargs)
 
     active_processes = {
         f"{name}_{i}": astep_class(

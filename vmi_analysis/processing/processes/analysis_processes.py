@@ -1,10 +1,37 @@
+import time
 import typing
+import queue
+
 
 import sklearn.cluster
+import numpy as np
+
+from vmi_analysis.processing.tpx_conversion import (
+    apply_timewalk,
+    average_over_clusters,
+    cluster,
+    find_distance_matrix,
+    precompute_distance_matrix,
+    process_chunk,
+    process_packet,
+    sort_tdcs,
+    toa_correction,
+)
 from .base_process import AnalysisStep
-from ..data_types import *
+from ..data_types import (
+    ClusterData,
+    Queue,
+    StructuredDataQueue as SDQueue,
+    Chunk,
+    PixelData,
+    TDCData,
+    ToF,
+    TriggerTime,
+    structure,
+    unstructure,
+)
 from ..tpx_constants import PERIOD
-from ..tpx_conversion import *
+# from ..tpx_conversion import *
 
 
 class TPXConverter(AnalysisStep):
@@ -20,15 +47,11 @@ class TPXConverter(AnalysisStep):
     - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
     """
 
-    chunk_queue: ExtendedQueue[Chunk]
-    pixel_queue: ExtendedQueue[PixelData]
-    tdc_queue: ExtendedQueue[TDCData]
-
     def __init__(
         self,
-        chunk_queue: ExtendedQueue[Chunk],
-        pixel_queue: ExtendedQueue[PixelData],
-        tdc_queue: ExtendedQueue[TDCData],
+        chunk_queue: Queue[Chunk],
+        pixel_queue: SDQueue[PixelData],
+        tdc_queue: SDQueue[TDCData],
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -89,11 +112,11 @@ class VMIConverter(AnalysisStep):
     """
 
     cutoff: float
-    chunk_queue: ExtendedQueue[Chunk]
-    pixel_queue: ExtendedQueue[list[PixelData]]
-    laser_queue: ExtendedQueue[TriggerTime]
-    etof_queue: ExtendedQueue[ToF]
-    itof_queue: ExtendedQueue[ToF]
+    chunk_queue: Queue[Chunk]
+    pixel_queue: Queue[list[PixelData]]
+    laser_queue: Queue[TriggerTime]
+    etof_queue: Queue[ToF]
+    itof_queue: Queue[ToF]
 
     def __init__(
         self,
@@ -165,8 +188,8 @@ class DBSCANClusterer(AnalysisStep):
     - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
     """
 
-    pixel_queue: ExtendedQueue[list[PixelData]]
-    cluster_queue: ExtendedQueue[ClusterData]
+    pixel_queue: Queue[list[PixelData]]
+    cluster_queue: Queue[ClusterData]
 
     def __init__(
         self,
@@ -199,6 +222,7 @@ class DBSCANClusterer(AnalysisStep):
         super().initialize()
 
     def fit(self, x, y):
+        assert self.dbscan
         return self.dbscan.fit(np.column_stack((x, y))).labels_
 
     def action(self):
@@ -230,7 +254,7 @@ class DBSCANClusterer(AnalysisStep):
 
 class CuMLDBSCANClusterer(DBSCANClusterer):
     def initialize(self):
-        import cuml
+        import cuml  # type: ignore
 
         super().initialize()
         self.dbscan = cuml.DBSCAN(
@@ -255,7 +279,7 @@ class HDBSCANClusterer(DBSCANClusterer):
         super().initialize()
         if "eps" in self.dbscan_params.keys():
             del self.dbscan_params["eps"]
-        self.dbscan = sklearn.cluster.HDBSCAN(**self.dbscan_params)
+        self.dbscan = sklearn.cluster.HDBSCAN(**self.dbscan_params)  # type: ignore
 
     def fit(self, x, y):
         if len(x) < self.dbscan_params["min_samples"]:
@@ -275,8 +299,8 @@ class CustomClusterer(AnalysisStep):
     - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
     """
 
-    pixel_queue: ExtendedQueue[list[PixelData]]
-    cluster_queue: ExtendedQueue[ClusterData]
+    pixel_queue: Queue[list[PixelData]]
+    cluster_queue: Queue[ClusterData]
 
     def __init__(
         self,
@@ -342,10 +366,10 @@ class TriggerAnalyzer(AnalysisStep):
     time relative to the trigger time.
     """
 
-    input_trigger_queue: ExtendedQueue[TriggerTime]
-    queues_to_index: tuple[ExtendedQueue, ...]
-    output_trigger_queue: ExtendedQueue[TriggerTime]
-    indexed_queues: tuple[ExtendedQueue[tuple[int, typing.Any]], ...]
+    input_trigger_queue: Queue[TriggerTime]
+    queues_to_index: tuple[Queue, ...]
+    output_trigger_queue: Queue[TriggerTime]
+    indexed_queues: tuple[Queue[tuple[int, typing.Any]], ...]
 
     def __init__(
         self,
@@ -364,6 +388,7 @@ class TriggerAnalyzer(AnalysisStep):
         self.output_queues = (output_trigger_queue, *indexed_queues)
         self.name = "TriggerAnalyzer"
 
+        # The current value being processed for each queue
         self.current: list[list[int | float] | None] = [None for _ in queues_to_index]
         self.current_trigger_idx = 0
         self.last_trigger_time = -1
@@ -395,12 +420,12 @@ class TriggerAnalyzer(AnalysisStep):
                     return
         n = 0
         for i, q in enumerate(self.queues_to_index):
-            while self.current[i][0] < self.current_trigger_time:
+            while self.current[i][0] < self.current_trigger_time:  # type: ignore
                 if n > 1000:
                     return
                 n += 1
 
-                out = self.current[i]
+                out: list[int | float] = self.current[i]  # type: ignore
                 out[0] -= self.last_trigger_time
                 self.indexed_queues[i].put(
                     (self.current_trigger_idx, structure(self.current_samples[i], out))

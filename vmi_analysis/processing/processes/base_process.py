@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import cProfile
 import logging
 import multiprocessing
@@ -7,7 +7,7 @@ import signal
 import threading
 import time
 
-from ..data_types import ExtendedQueue
+from ..data_types import Queue
 
 
 class AnalysisStep:
@@ -79,8 +79,8 @@ class AnalysisStep:
         logger=None,
         **kwargs,
     ):
-        self.input_queues: tuple[ExtendedQueue, ...] = input_queues
-        self.output_queues: tuple[ExtendedQueue, ...] = output_queues
+        self.input_queues: tuple[Queue, ...] = input_queues
+        self.output_queues: tuple[Queue, ...] = output_queues
         self.initialized = multiprocessing.Value("b", False)
         self.running = multiprocessing.Value("b", False)
         self.stopped = multiprocessing.Value("b", False)
@@ -105,7 +105,7 @@ class AnalysisStep:
         self.initialized.value = True
 
     @abstractmethod
-    def action(self) -> None: 
+    def action(self) -> None:
         pass
 
     def begin(self):
@@ -125,16 +125,16 @@ class AnalysisStep:
 
         while True:
             if self.profile:
-                pr.enable() # pyright: ignore[reportPossiblyUnboundVariable]
+                pr.enable()  # pyright: ignore[reportPossiblyUnboundVariable]
 
             self.action()
 
             if self.profile:
-                pr.disable() # pyright: ignore[reportPossiblyUnboundVariable]
+                pr.disable()  # pyright: ignore[reportPossiblyUnboundVariable]
 
             if self.check_queues():
                 if self.profile:
-                    pr.dump_stats(f"{self.name}.prof") # pyright: ignore[reportPossiblyUnboundVariable]
+                    pr.dump_stats(f"{self.name}.prof")  # pyright: ignore[reportPossiblyUnboundVariable]
                 self.shutdown(gentle=True)
                 return
 
@@ -143,7 +143,7 @@ class AnalysisStep:
         return bool(self.holding.value)
 
     def make_process(self, **kwargs):
-        return AnalysisProcess(self, **kwargs)
+        return BaseProcess(self, **kwargs)
 
     def make_thread(self, **kwargs):
         return AnalysisThread(self, **kwargs)
@@ -162,7 +162,7 @@ class AnalysisStep:
         return False
 
 
-class AnalysisProcess(multiprocessing.Process):
+class BaseProcess(multiprocessing.Process):
     """
     A wrapper around the AnalysisStep class that allows the step to be run in a separate process. This class inherits from the
     multiprocessing.Process class, and overrides the run method to call the run_loop method of the step. This class should be used
@@ -295,9 +295,9 @@ class CombinedStep(AnalysisStep):
     def __init__(
         self,
         steps: tuple[AnalysisStep, ...] = (),
-        input_queues: tuple[ExtendedQueue, ...] = (),
-        output_queues: tuple[ExtendedQueue, ...] = (),
-        intermediate_queues: tuple[ExtendedQueue, ...] = (),
+        input_queues: tuple[Queue, ...] = (),
+        output_queues: tuple[Queue, ...] = (),
+        intermediate_queues: tuple[Queue, ...] = (),
         name="Combined",
         **kwargs,
     ):

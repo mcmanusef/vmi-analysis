@@ -3,7 +3,7 @@ import time
 from typing import Any, TypeVar
 import h5py
 
-from ..data_types import ExtendedQueue, unstructure
+from ..data_types import Queue, unstructure
 from .base_process import AnalysisStep
 
 
@@ -32,8 +32,8 @@ class SaveToH5(AnalysisStep):
     """
 
     file_path: str
-    input_queues: tuple[ExtendedQueue, ...]
-    in_queues: dict[str, ExtendedQueue]
+    input_queues: tuple[Queue, ...]
+    in_queues: dict[str, Queue]
     output_queues = ()
     h5_file: h5py.File | None
 
@@ -92,11 +92,13 @@ class SaveToH5(AnalysisStep):
 
     def action(self):
         """Saves available data up to self.save_size
-          from the largest queue to the H5 file."""
+        from the largest queue to the H5 file."""
         h5f = self.h5_file
-        if h5f is None: # pragma: no cover
+        if h5f is None:  # pragma: no cover
             raise ValueError("H5 file not initialized")
-        sizes: list[tuple[int, str, ExtendedQueue]] = [(q.qsize(), k, q) for k, q in self.in_queues.items()]
+        sizes: list[tuple[int, str, Queue]] = [
+            (q.qsize(), k, q) for k, q in self.in_queues.items()
+        ]
         sizes.sort()
         max_queue = sizes[-1][2]
         max_name = sizes[-1][1]
@@ -145,8 +147,8 @@ class SaveToH5(AnalysisStep):
                         print(f"Resizing {name} to {dataset.shape[0]}")
                         print(dataset[-len(data) :])
                 else:
-                    g: h5py.Group = h5f[max_name] # type: ignore
-                    g_dataset: h5py.Dataset = g[name] # type: ignore
+                    g: h5py.Group = h5f[max_name]  # type: ignore
+                    g_dataset: h5py.Dataset = g[name]  # type: ignore
                     g_dataset.resize(g_dataset.shape[0] + len(data), axis=0)
                     g_dataset[-len(data) :] = data
                     if self.verbose:
@@ -160,8 +162,8 @@ class SaveToH5(AnalysisStep):
                         print(f"Writing {dataset.shape[0]} to {name}")
                         print(dataset[:])
                 else:
-                    g: h5py.Group = h5f[max_name] # type: ignore
-                    g_dataset: h5py.Dataset = g[name] # type: ignore
+                    g: h5py.Group = h5f[max_name]  # type: ignore
+                    g_dataset: h5py.Dataset = g[name]  # type: ignore
                     g_dataset.resize(len(data), axis=0)
                     g_dataset[:] = data
                     if self.verbose:

@@ -16,24 +16,24 @@ class PrintingProcess(AnalysisStep):
                 print(out)
 
 
-class ClusterTest(base_pipeline.AnalysisPipeline):
+class ClusterTest(base_pipeline.BasePipeline):
     def __init__(self, fname):
         super().__init__()
         self.queues = {
-            "chunk": data_types.ExtendedQueue(maxsize=1000),
-            "pixel": data_types.ExtendedQueue(),
-            "etof": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "t_etof": data_types.ExtendedQueue(
+            "chunk": data_types.Queue(maxsize=1000),
+            "pixel": data_types.Queue(),
+            "etof": data_types.Queue(force_monotone=True, maxsize=50000),
+            "itof": data_types.Queue(force_monotone=True, maxsize=50000),
+            "pulses": data_types.Queue(force_monotone=True, maxsize=50000),
+            "clusters": data_types.Queue(force_monotone=True, maxsize=50000),
+            "t_etof": data_types.Queue(
                 names=("etof_corr", ("t_etof",)), dtypes=("i", ("f",))
             ),
-            "t_itof": data_types.ExtendedQueue(
+            "t_itof": data_types.Queue(
                 names=("itof_corr", ("t_itof",)), dtypes=("i", ("f",))
             ),
-            "t_pulse": data_types.ExtendedQueue(names=("t_pulse",), dtypes=("i",)),
-            "t_cluster": data_types.ExtendedQueue(
+            "t_pulse": data_types.Queue(names=("t_pulse",), dtypes=("i",)),
+            "t_cluster": data_types.Queue(
                 names=("clust_corr", ("t", "x", "y")), dtypes=("i", ("f", "f", "f"))
             ),
         }

@@ -4,11 +4,9 @@ import typing
 
 import numpy as np
 
-from ..data_types import ExtendedQueue, Chunk
+from ..data_types import Queue, Chunk
 from .base_process import AnalysisStep
 import socket
-from numba import njit
-import numba
 
 
 class TPXFileReader(AnalysisStep):
@@ -23,7 +21,7 @@ class TPXFileReader(AnalysisStep):
 
     path: str
     input_queues = ()
-    chunk_queue: ExtendedQueue[Chunk]
+    chunk_queue: Queue[Chunk]
     file: typing.IO | None
 
     def __init__(self, path, chunk_queue, **kwargs):
@@ -47,6 +45,7 @@ class TPXFileReader(AnalysisStep):
         super().initialize()
 
     def action(self):
+        assert self.file
         try:
             packet = self.file.read(8)
         except ValueError:
@@ -69,9 +68,9 @@ class TPXFileReader(AnalysisStep):
         packets = np.frombuffer(packet_bytes, dtype=np.int64) - 2**62
         self.chunk_queue.put(packets)
 
-    def shutdown(self, **kwargs):
+    def shutdown(self, gentle=False):
         self.file.close() if self.file else None
-        super().shutdown(**kwargs)
+        super().shutdown(gentle=gentle)
 
 
 class DummyStream(TPXFileReader):
@@ -85,6 +84,7 @@ class DummyStream(TPXFileReader):
         self.name = "DummyStream"
 
     def action(self):
+        assert self.file
         try:
             packet = self.file.read(8)
             if len(packet) < 8:
@@ -96,10 +96,8 @@ class DummyStream(TPXFileReader):
                 return
             _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
             num_bytes = int.from_bytes((bytes(num_bytes)), "little")
-            packets = [
-                int.from_bytes(self.file.read(8), "little") - 2**62
-                for _ in range(num_bytes // 8)
-            ]
+            packet_bytes = self.file.read(num_bytes)
+            packets = np.frombuffer(packet_bytes, dtype=np.int64) - 2**62
             self.chunk_queue.put(packets)
             time.sleep(self.delay)
         except Exception as e:
