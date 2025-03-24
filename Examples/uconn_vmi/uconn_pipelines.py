@@ -1,9 +1,9 @@
 import uconn_processes
 from vmi_analysis.processing import data_types, processes
-from vmi_analysis.processing.pipelines import AnalysisPipeline
+from vmi_analysis.processing.pipelines import BasePipeline
 
 
-class RawVMIConverterPipeline(AnalysisPipeline):
+class RawVMIConverterPipeline(BasePipeline):
     """
     Pipeline for converting raw VMI data to h5 files.
     Specific to our VMI setup.
@@ -19,8 +19,8 @@ class RawVMIConverterPipeline(AnalysisPipeline):
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-            "pixel": data_types.ExtendedQueue(
+            "chunk": data_types.StructuredDataQueue(buffer_size=0, dtypes=(), names=()),
+            "pixel": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f", "i", "i", "i"),
                 names=("toa", "x", "y", "tot"),
@@ -29,7 +29,7 @@ class RawVMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "etof": data_types.ExtendedQueue(
+            "etof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("etof",),
@@ -37,7 +37,7 @@ class RawVMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "itof": data_types.ExtendedQueue(
+            "itof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("itof",),
@@ -45,7 +45,7 @@ class RawVMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "pulses": data_types.ExtendedQueue(
+            "pulses": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("pulses",),
@@ -78,7 +78,7 @@ class RawVMIConverterPipeline(AnalysisPipeline):
         }
 
 
-class VMIConverterPipeline(AnalysisPipeline):
+class VMIConverterPipeline(BasePipeline):
     """
     Pipeline for converting raw VMI data to UV4 files (H5 file with specific internal format).
     Specific to our VMI setup.
@@ -94,8 +94,8 @@ class VMIConverterPipeline(AnalysisPipeline):
     def __init__(self, input_path, output_path, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=()),
-            "pixel": data_types.ExtendedQueue(
+            "chunk": data_types.StructuredDataQueue(buffer_size=0, dtypes=(), names=()),
+            "pixel": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f", "i", "i", "i"),
                 names=("toa", "x", "y", "tot"),
@@ -104,7 +104,7 @@ class VMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "etof": data_types.ExtendedQueue(
+            "etof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("etof",),
@@ -112,7 +112,7 @@ class VMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "itof": data_types.ExtendedQueue(
+            "itof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("itof",),
@@ -120,7 +120,7 @@ class VMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "pulses": data_types.ExtendedQueue(
+            "pulses": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("pulses",),
@@ -128,22 +128,22 @@ class VMIConverterPipeline(AnalysisPipeline):
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "t_etof": data_types.ExtendedQueue(
+            "t_etof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("i", ("f",)),
                 names=("etof_corr", ("t_etof",)),
                 chunk_size=2000,
             ),
-            "t_itof": data_types.ExtendedQueue(
+            "t_itof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("i", ("f",)),
                 names=("itof_corr", ("t_itof",)),
                 chunk_size=2000,
             ),
-            "t_pulse": data_types.ExtendedQueue(
+            "t_pulse": data_types.StructuredDataQueue(
                 buffer_size=0, dtypes=("f",), names=("t_pulse",), chunk_size=10000
             ),
-            "t_pixel": data_types.ExtendedQueue(
+            "t_pixel": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("i", ("f", "i", "i", "i")),
                 names=("pixel_corr", ("t", "x", "y", "tot")),
@@ -180,7 +180,7 @@ class VMIConverterPipeline(AnalysisPipeline):
         }
 
 
-class CV4ConverterPipeline(AnalysisPipeline):
+class CV4ConverterPipeline(BasePipeline):
     """
     Pipeline for converting raw VMI data to CV4 files (H5 file with specific internal format).
     Specific to our VMI setup.
@@ -206,39 +206,39 @@ class CV4ConverterPipeline(AnalysisPipeline):
         super().__init__(**kwargs)
 
         self.queues = {
-            "Chunk": data_types.ExtendedQueue(chunk_size=10000),
-            "Pixel": data_types.ExtendedQueue(chunk_size=10000),
-            "Etof": data_types.ExtendedQueue(
+            "Chunk": data_types.StructuredDataQueue(chunk_size=10000),
+            "Pixel": data_types.StructuredDataQueue(chunk_size=10000),
+            "Etof": data_types.StructuredDataQueue(
                 dtypes=("f",), names=("etof",), force_monotone=True, chunk_size=10000
             ),
-            "Itof": data_types.ExtendedQueue(
+            "Itof": data_types.StructuredDataQueue(
                 dtypes=("f",), names=("itof",), force_monotone=True, chunk_size=10000
             ),
-            "Pulses": data_types.ExtendedQueue(
+            "Pulses": data_types.StructuredDataQueue(
                 dtypes=("f",), names=("pulses",), force_monotone=True, chunk_size=10000
             ),
-            "Clusters": data_types.ExtendedQueue(
+            "Clusters": data_types.StructuredDataQueue(
                 dtypes=("f", "f", "f"),
                 names=("toa", "x", "y"),
                 force_monotone=True,
                 chunk_size=10000,
             ),
-            "t_etof": data_types.ExtendedQueue(
+            "t_etof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("i", ("f",)),
                 names=("etof_corr", ("t_etof",)),
                 chunk_size=10000,
             ),
-            "t_itof": data_types.ExtendedQueue(
+            "t_itof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("i", ("f",)),
                 names=("tof_corr", ("t_tof",)),
                 chunk_size=10000,
             ),
-            "t_pulse": data_types.ExtendedQueue(
+            "t_pulse": data_types.StructuredDataQueue(
                 buffer_size=0, dtypes=("f",), names=("t_pulse",), chunk_size=10000
             ),
-            "t_cluster": data_types.ExtendedQueue(
+            "t_cluster": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("i", ("f", "f", "f")),
                 names=("cluster_corr", ("t", "x", "y")),
@@ -279,7 +279,7 @@ class CV4ConverterPipeline(AnalysisPipeline):
             }
         else:
             converter_queues, converter_processes = processes.multithread_process(
-                    uconn_processes.VMIConverter,
+                uconn_processes.VMIConverter,
                 {"chunk_queue": self.queues["Chunk"]},
                 {
                     "pixel_queue": self.queues["Pixel"],
@@ -331,7 +331,7 @@ class CV4ConverterPipeline(AnalysisPipeline):
         }
 
 
-class ClusterSavePipeline(AnalysisPipeline):
+class ClusterSavePipeline(BasePipeline):
     """
     Pipeline for clustering and saving raw VMI data to h5 files.
     Specific to our VMI setup.
@@ -347,41 +347,41 @@ class ClusterSavePipeline(AnalysisPipeline):
     def __init__(self, input_path, output_path, monotone=False, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(
+            "chunk": data_types.StructuredDataQueue(
                 buffer_size=0, dtypes=(), names=(), chunk_size=2000
             ),
-            "pixel": data_types.ExtendedQueue(
+            "pixel": data_types.StructuredDataQueue(
                 buffer_size=0, dtypes=(), names=(), chunk_size=2000
             ),
-            "etof": data_types.ExtendedQueue(
+            "etof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("etof",),
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "itof": data_types.ExtendedQueue(
+            "itof": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("itof",),
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "pulses": data_types.ExtendedQueue(
+            "pulses": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f",),
                 names=("pulses",),
                 force_monotone=monotone,
                 chunk_size=10000,
             ),
-            "clusters": data_types.ExtendedQueue(
+            "clusters": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=("f", "f", "f"),
                 names=("toa", "x", "y"),
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "clustered": data_types.ExtendedQueue(
+            "clustered": data_types.StructuredDataQueue(
                 buffer_size=0,
                 dtypes=(("f", "i", "i", "i"), "i"),
                 names=(("toa_pix", "x_pix", "y_pix", "tot_pix"), "cluster_pix"),
@@ -419,54 +419,96 @@ class ClusterSavePipeline(AnalysisPipeline):
         }
 
 
-class RunMonitorPipeline(AnalysisPipeline):
-    def __init__(self, saving_path,
-                 cluster_processes=1,
-                 toa_range=None,
-                 etof_range=None,
-                 itof_range=None,
-                 calibration=None,
-                 center=(128, 128),
-                 angle=0,
-                 **kwargs):
+class RunMonitorPipeline(BasePipeline):
+    def __init__(
+        self,
+        saving_path,
+        cluster_processes=1,
+        toa_range=None,
+        etof_range=None,
+        itof_range=None,
+        calibration=None,
+        center=(128, 128),
+        angle=0,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.queues = {
-            "chunk": data_types.ExtendedQueue(maxsize=1000),
-            "pixel": data_types.ExtendedQueue(),
-            "etof": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=50000),
-
-            "t_etof": data_types.ExtendedQueue(),
-            "t_itof": data_types.ExtendedQueue(),
-            "t_pulse": data_types.ExtendedQueue(),
-            "t_cluster": data_types.ExtendedQueue(),
-
-            "grouped": data_types.ExtendedQueue(),
+            "chunk": data_types.StructuredDataQueue(maxsize=1000),
+            "pixel": data_types.StructuredDataQueue(),
+            "etof": data_types.StructuredDataQueue(force_monotone=True, maxsize=50000),
+            "itof": data_types.StructuredDataQueue(force_monotone=True, maxsize=50000),
+            "pulses": data_types.StructuredDataQueue(
+                force_monotone=True, maxsize=50000
+            ),
+            "clusters": data_types.StructuredDataQueue(
+                force_monotone=True, maxsize=50000
+            ),
+            "t_etof": data_types.StructuredDataQueue(),
+            "t_itof": data_types.StructuredDataQueue(),
+            "t_pulse": data_types.StructuredDataQueue(),
+            "t_cluster": data_types.StructuredDataQueue(),
+            "grouped": data_types.StructuredDataQueue(),
         }
 
         self.processes = {
-            "ChunkStream": processes.TPXFileReader(saving_path, self.queues['chunk']).make_process(),
-            "Converter": uconn_processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
-                                                      self.queues['itof']).make_process(),
-            "Clusterer": processes.CustomClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
-            "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']),
-                                                    self.queues['t_pulse'],
-                                                    (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])).make_process(),
-            "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']),
-                                              self.queues['grouped']).make_process(),
-            "Display": uconn_processes.Display(self.queues['grouped'], 10000000, toa_range=toa_range, etof_range=etof_range,
-                                               itof_range=itof_range, calibration=calibration, center=center, angle=angle).make_process(),
-            "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
+            "ChunkStream": processes.TPXFileReader(
+                saving_path, self.queues["chunk"]
+            ).make_process(),
+            "Converter": uconn_processes.VMIConverter(
+                self.queues["chunk"],
+                self.queues["pixel"],
+                self.queues["pulses"],
+                self.queues["etof"],
+                self.queues["itof"],
+            ).make_process(),
+            "Clusterer": processes.CustomClusterer(
+                self.queues["pixel"], self.queues["clusters"]
+            ).make_process(),
+            "Correlator": processes.TriggerAnalyzer(
+                self.queues["pulses"],
+                (self.queues["etof"], self.queues["itof"], self.queues["clusters"]),
+                self.queues["t_pulse"],
+                (
+                    self.queues["t_etof"],
+                    self.queues["t_itof"],
+                    self.queues["t_cluster"],
+                ),
+            ).make_process(),
+            "Grouper": processes.QueueGrouper(
+                (
+                    self.queues["t_etof"],
+                    self.queues["t_itof"],
+                    self.queues["t_cluster"],
+                ),
+                self.queues["grouped"],
+            ).make_process(),
+            "Display": uconn_processes.Display(
+                self.queues["grouped"],
+                10000000,
+                toa_range=toa_range,
+                etof_range=etof_range,
+                itof_range=itof_range,
+                calibration=calibration,
+                center=center,
+                angle=angle,
+            ).make_process(),
+            "Bin": processes.QueueVoid((self.queues["t_pulse"],)).make_process(),
         }
 
         if cluster_processes > 1:
             queues, proc, weaver = processes.create_process_instances(
-                    processes.DBSCANClusterer, cluster_processes, self.queues["clusters"],
-                    process_args={"pixel_queue": self.queues['pixel'], "cluster_queue": None},
-                    queue_args={"force_monotone": True},
-                    queue_name="clust", process_name="clusterer")
+                processes.DBSCANClusterer,
+                cluster_processes,
+                self.queues["clusters"],
+                process_args={
+                    "pixel_queue": self.queues["pixel"],
+                    "cluster_queue": None,
+                },
+                queue_args={"force_monotone": True},
+                queue_name="clust",
+                process_name="clusterer",
+            )
 
             self.queues.update(queues)
             del self.processes["Clusterer"]

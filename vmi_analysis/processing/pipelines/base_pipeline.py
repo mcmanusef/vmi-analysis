@@ -29,13 +29,13 @@ class BasePipeline:
     - wait_for_completion(): Waits for all processes in the pipeline to finish.
     """
 
-    queues: dict[str, data_types.Queue]
-    processes: dict[str, processes.BaseProcess]
-    initialized: bool
-    profile: bool
-
     def __init__(self):
         self.active = multiprocessing.Value("b", True)
+        self.queues: dict[str, data_types.Queue] = {}
+        self.processes: dict[str, processes.BaseProcess] = {}
+        self.initialized: bool = False
+        self.profile: bool = False
+        self.on_finish = multiprocessing.Event()
 
     def set_profile(self, profile: bool):
         for process in self.processes.values():

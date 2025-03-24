@@ -20,6 +20,7 @@ from typing import (
     cast,
 )
 
+
 Chunk = numpy.typing.NDArray[numpy.signedinteger]
 type PixelData = tuple[int, int, int, int]  # time, x, y, tot
 type TDCData = tuple[float, int]  # time, channel

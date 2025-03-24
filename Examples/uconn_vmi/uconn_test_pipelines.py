@@ -7,54 +7,109 @@ import requests
 import uconn_processes
 from vmi_analysis import serval
 from vmi_analysis.processing import data_types, processes
-from vmi_analysis.processing.pipelines import AnalysisPipeline
+from vmi_analysis.processing.pipelines import BasePipeline
 
 
-class MonitorPipeline(AnalysisPipeline):
-    def __init__(self, saving_path, cluster_processes=1, timeout=0, toa_range=None, etof_range=None, itof_range=None, **kwargs):
+class MonitorPipeline(BasePipeline):
+    def __init__(
+        self,
+        saving_path,
+        cluster_processes=1,
+        timeout=0,
+        toa_range=None,
+        etof_range=None,
+        itof_range=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
-        self.queues = {
-            "chunk_stream": data_types.ExtendedQueue(),
-            "chunk": data_types.ExtendedQueue(),
-            "pixel": data_types.ExtendedQueue(),
-            "etof": data_types.ExtendedQueue(force_monotone=True, maxsize=5000),
-            "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=5000),
-            "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=5000),
-            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=5000),
-
-            "t_etof": data_types.ExtendedQueue(),
-            "t_itof": data_types.ExtendedQueue(),
-            "t_pulse": data_types.ExtendedQueue(),
-            "t_cluster": data_types.ExtendedQueue(),
-
-            "grouped": data_types.ExtendedQueue(),
-            "reduced_grouped": data_types.ExtendedQueue(),
+        queues = {
+            "chunk_stream": data_types.StructuredDataQueue(),
+            "chunk": data_types.Queue(),
+            "pixel": data_types.StructuredDataQueue(),
+            "etof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                force_monotone=True, maxsize=5000
+            ),
+            "itof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                force_monotone=True, maxsize=5000
+            ),
+            "pulses": data_types.StructuredDataQueue[data_types.TriggerTime](
+                force_monotone=True, maxsize=5000
+            ),
+            "clusters": data_types.StructuredDataQueue(
+                force_monotone=True, maxsize=5000
+            ),
+            "t_etof": data_types.StructuredDataQueue(),
+            "t_itof": data_types.StructuredDataQueue(),
+            "t_pulse": data_types.StructuredDataQueue(),
+            "t_cluster": data_types.StructuredDataQueue(),
+            "grouped": data_types.StructuredDataQueue(),
+            "reduced_grouped": data_types.StructuredDataQueue(),
         }
 
+        self.queues = queues
+
         self.processes = {
-            "ChunkStream": processes.FolderStream(saving_path, self.queues['chunk_stream']).make_process(),
-            "Chunk": processes.QueueReducer(self.queues['chunk_stream'], self.queues['chunk'], max_size=1000).make_process(),
-            "Converter": uconn_processes.VMIConverter(self.queues['chunk'], self.queues['pixel'], self.queues['pulses'], self.queues['etof'],
-                                                      self.queues['itof']).make_process(),
-            "Clusterer": processes.DBSCANClusterer(self.queues['pixel'], self.queues['clusters']).make_process(),
-            "Correlator": processes.TriggerAnalyzer(self.queues['pulses'], (self.queues['etof'], self.queues['itof'], self.queues['clusters']),
-                                                    self.queues['t_pulse'],
-                                                    (self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])).make_process(),
-            "Grouper": processes.QueueGrouper((self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster']),
-                                              self.queues['grouped']).make_process(),
-            "Reducer": processes.QueueReducer(self.queues['grouped'], self.queues['reduced_grouped'], max_size=1000).make_process(),
-            "Display": uconn_processes.Display(self.queues['reduced_grouped'], 1000000, toa_range=toa_range, etof_range=etof_range,
-                                               itof_range=itof_range).make_process(),
-            "Bin": processes.QueueVoid((self.queues['t_pulse'],)).make_process(),
+            "ChunkStream": processes.FolderStream(
+                saving_path, self.queues["chunk_stream"]
+            ).make_process(),
+            "Chunk": processes.QueueReducer(
+                self.queues["chunk_stream"], self.queues["chunk"], max_size=1000
+            ).make_process(),
+            "Converter": uconn_processes.VMIConverter(
+                self.queues["chunk"],
+                self.queues["pixel"],
+                queues["pulses"],
+                queues["etof"],
+                queues["itof"],
+            ).make_process(),
+            "Clusterer": processes.DBSCANClusterer(
+                self.queues["pixel"], self.queues["clusters"]
+            ).make_process(),
+            "Correlator": processes.TriggerAnalyzer(
+                self.queues["pulses"],
+                (self.queues["etof"], self.queues["itof"], self.queues["clusters"]),
+                self.queues["t_pulse"],
+                (
+                    self.queues["t_etof"],
+                    self.queues["t_itof"],
+                    self.queues["t_cluster"],
+                ),
+            ).make_process(),
+            "Grouper": processes.QueueGrouper(
+                (
+                    self.queues["t_etof"],
+                    self.queues["t_itof"],
+                    self.queues["t_cluster"],
+                ),
+                self.queues["grouped"],
+            ).make_process(),
+            "Reducer": processes.QueueReducer(
+                self.queues["grouped"], self.queues["reduced_grouped"], max_size=1000
+            ).make_process(),
+            "Display": uconn_processes.Display(
+                self.queues["reduced_grouped"],
+                1000000,
+                toa_range=toa_range,
+                etof_range=etof_range,
+                itof_range=itof_range,
+            ).make_process(),
+            "Bin": processes.QueueVoid((self.queues["t_pulse"],)).make_process(),
         }
         self.processes["Reducer"].astep.name = "r2"
 
         if cluster_processes > 1:
             queues, proc, weaver = processes.create_process_instances(
-                    processes.DBSCANClusterer, cluster_processes, self.queues["clusters"],
-                    process_args={"pixel_queue": self.queues['pixel'], "cluster_queue": None},
-                    queue_args={"force_monotone": True},
-                    queue_name="clust", process_name="clusterer")
+                processes.DBSCANClusterer,
+                cluster_processes,
+                self.queues["clusters"],
+                process_args={
+                    "pixel_queue": self.queues["pixel"],
+                    "cluster_queue": None,
+                },
+                queue_args={"force_monotone": True},
+                queue_name="clust",
+                process_name="clusterer",
+            )
 
             self.queues.update(queues)
             del self.processes["Clusterer"]
@@ -62,64 +117,72 @@ class MonitorPipeline(AnalysisPipeline):
             self.processes["Weaver"] = weaver.make_process()
 
 
-class LiveMonitorPipeline(AnalysisPipeline):
-    def __init__(self, *args,
-                 local_ip=("localhost", 1234),
-                 serval_ip=serval.DEFAULT_IP,
-                 toa_range=None,
-                 etof_range=None,
-                 itof_range=None,
-                 preview_ip_frame=("localhost", 1235),
-                 preview_ip_total=("localhost", 1236),
-                 **kwargs
-                 ):
-
+class LiveMonitorPipeline(BasePipeline):
+    def __init__(
+        self,
+        *args,
+        local_ip=("localhost", 1234),
+        serval_ip=serval.DEFAULT_IP,
+        toa_range=None,
+        etof_range=None,
+        itof_range=None,
+        preview_ip_frame=("localhost", 1235),
+        preview_ip_total=("localhost", 1236),
+        **kwargs,
+    ):
         super().__init__()
         self.serval_ip = serval_ip
         self.local_ip = local_ip
         self.preview_ip_frame = preview_ip_frame
         self.preview_ip_total = preview_ip_total
 
-        self.queues = {
-            "chunk": data_types.ExtendedQueue(maxsize=1000),
-
-            "pixel": data_types.ExtendedQueue(),
-            "etof": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
-            "itof": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
-            "pulses": data_types.ExtendedQueue(force_monotone=True, maxsize=1000),
-
-            "clusters": data_types.ExtendedQueue(force_monotone=True, maxsize=1000, loud=True),
-
-            "t_etof": data_types.ExtendedQueue(maxsize=1000),
-            "t_itof": data_types.ExtendedQueue(maxsize=1000),
-            "t_pulse": data_types.ExtendedQueue(maxsize=1000),
-            "t_cluster": data_types.ExtendedQueue(maxsize=1000),
-
-            "grouped": data_types.ExtendedQueue(maxsize=1000),
+        queues = {
+            "chunk": data_types.Queue(maxsize=1000),
+            "pixel": data_types.StructuredDataQueue(),
+            "etof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                force_monotone=True, maxsize=1000
+            ),
+            "itof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                force_monotone=True, maxsize=1000
+            ),
+            "pulses": data_types.StructuredDataQueue[data_types.TriggerTime](
+                force_monotone=True, maxsize=1000
+            ),
+            "clusters": data_types.StructuredDataQueue(
+                force_monotone=True, maxsize=1000, loud=True
+            ),
+            "t_etof": data_types.StructuredDataQueue(maxsize=1000),
+            "t_itof": data_types.StructuredDataQueue(maxsize=1000),
+            "t_pulse": data_types.StructuredDataQueue(maxsize=1000),
+            "t_cluster": data_types.StructuredDataQueue(maxsize=1000),
+            "grouped": data_types.StructuredDataQueue(maxsize=1000),
         }
+        self.queues = queues
 
         self.processes = {
-            "Listener": processes.TPXListener(self.local_ip, self.queues['chunk']).make_process(),
-
+            "Listener": processes.TPXListener(
+                self.local_ip, self.queues["chunk"]
+            ).make_process(),
             "Converter": uconn_processes.VMIConverter(
-                    self.queues['chunk'],
-                    self.queues['pixel'],
-                    self.queues['pulses'],
-                    self.queues['etof'],
-                    self.queues['itof']
+                self.queues["chunk"],
+                self.queues["pixel"],
+                queues["pulses"],
+                queues["etof"],
+                queues["itof"],
             ).make_process(),
-
             "Clusterer": processes.DBSCANClusterer(
-                    self.queues['pixel'], self.queues['clusters']
+                self.queues["pixel"], self.queues["clusters"]
             ).make_process(),
-
             # "printvoid": processes.QueueVoid((
             #     self.queues['clusters'], self.queues['etof'], self.queues['itof'], self.queues['pulses']
             # ), loud=True).make_process(),
         }
         self.latest_frame = np.zeros((256, 256), dtype=np.uint8)
         self.acc_frame = np.zeros((256, 256), dtype=np.uint8)
-        self.frame_listener = threading.Thread(target=self.process_frame_loop, args=(serval_ip, self.latest_frame, self.acc_frame))
+        self.frame_listener = threading.Thread(
+            target=self.process_frame_loop,
+            args=(serval_ip, self.latest_frame, self.acc_frame),
+        )
         self.frame_listener.start()
 
     def start(self):
@@ -127,26 +190,26 @@ class LiveMonitorPipeline(AnalysisPipeline):
         starting_thread.start()
 
         serval_destination = {
-            "Raw": [{
-                "Base": f"tcp://{self.local_ip[0]}:{self.local_ip[1]}",
-                "FilePattern": "",
-            }],
-
+            "Raw": [
+                {
+                    "Base": f"tcp://{self.local_ip[0]}:{self.local_ip[1]}",
+                    "FilePattern": "",
+                }
+            ],
             "Preview": {
                 "Period": 0.1,
                 "SamplingMode": "skipOnFrame",
-                "ImageChannels": [{
-                    "Base": self.serval_ip,
-                    "Format": "png",
-                    "Mode": "count",
-                }]
-            }
+                "ImageChannels": [
+                    {
+                        "Base": self.serval_ip,
+                        "Format": "png",
+                        "Mode": "count",
+                    }
+                ],
+            },
         }
 
-        serval.set_acquisition_parameters(
-                serval_destination,
-                frame_time=1
-        )
+        serval.set_acquisition_parameters(serval_destination, frame_time=1)
         resp = requests.get(self.serval_ip + "/server/destination")
         print(resp.text)
         serval.start_acquisition(block=False)
@@ -160,7 +223,10 @@ class LiveMonitorPipeline(AnalysisPipeline):
         while True:
             try:
                 png = requests.get(ip + "/measurement/image").content
-                if png == b"HTTP is not setup as a destination in the current measurement's destination config.\r\n":
+                if (
+                    png
+                    == b"HTTP is not setup as a destination in the current measurement's destination config.\r\n"
+                ):
                     print("HTTP not set up")
                     continue
                 frame = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_GRAYSCALE)
@@ -168,150 +234,267 @@ class LiveMonitorPipeline(AnalysisPipeline):
                 last_frame[:] = frame
                 acc_frame += frame
 
-            except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout, ConnectionRefusedError):
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ConnectTimeout,
+                ConnectionRefusedError,
+            ):
                 continue
 
 
-class CorrelatorTestDataPipeline(AnalysisPipeline):
+class CorrelatorTestDataPipeline(BasePipeline):
     def __init__(self, input_path, **kwargs):
         super().__init__(**kwargs)
-        self.queues = {
-            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
-            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
-            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
-            "Clusters": data_types.ExtendedQueue(buffer_size=0, dtypes=('f', 'f', 'f'), names=("toa", "x", "y"), force_monotone=True,
-                                                 chunk_size=2000),
+        queues = {
+            "chunk": data_types.Queue(chunk_size=2000),
+            "Pixel": data_types.StructuredDataQueue(
+                buffer_size=0, dtypes=(), names=(), chunk_size=2000
+            ),
+            "Etof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("etof",),
+                force_monotone=True,
+                chunk_size=2000,
+            ),
+            "Itof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("itof",),
+                force_monotone=True,
+                chunk_size=2000,
+            ),
+            "Pulses": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("pulses",),
+                force_monotone=True,
+                chunk_size=10000,
+            ),
+            "Clusters": data_types.StructuredDataQueue(
+                buffer_size=0,
+                dtypes=("f", "f", "f"),
+                names=("toa", "x", "y"),
+                force_monotone=True,
+                chunk_size=2000,
+            ),
         }
+        self.queues = queues
         self.processes = {
-            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
-
+            "Reader": processes.TPXFileReader(
+                input_path, self.queues["Chunk"]
+            ).make_process(),
             "Converter": uconn_processes.VMIConverter(
-                    chunk_queue=self.queues['Chunk'],
-                    pixel_queue=self.queues['Pixel'],
-                    laser_queue=self.queues['Pulses'],
-                    etof_queue=self.queues['Etof'],
-                    itof_queue=self.queues['Itof']
+                chunk_queue=self.queues["Chunk"],
+                pixel_queue=self.queues["Pixel"],
+                laser_queue=queues["Pulses"],
+                etof_queue=queues["Etof"],
+                itof_queue=queues["Itof"],
             ).make_process(),
-
             "Clusterer": processes.DBSCANClusterer(
-                    pixel_queue=self.queues['Pixel'],
-                    cluster_queue=self.queues['Clusters']
+                pixel_queue=self.queues["Pixel"], cluster_queue=self.queues["Clusters"]
             ).make_process(),
-
-            "Pulse Cache": processes.QueueCacheWriter("pulse_cache.pk", self.queues['Pulses']).make_process(),
-            "Cluster Cache": processes.QueueCacheWriter("cluster_cache.pk", self.queues['Clusters']).make_process(),
-            "Etof Cache": processes.QueueCacheWriter("etof_cache.pk", self.queues['Etof']).make_process(),
-            "Itof Cache": processes.QueueCacheWriter("itof_cache.pk", self.queues['Itof']).make_process(),
+            "Pulse Cache": processes.QueueCacheWriter(
+                "pulse_cache.pk", self.queues["Pulses"]
+            ).make_process(),
+            "Cluster Cache": processes.QueueCacheWriter(
+                "cluster_cache.pk", self.queues["Clusters"]
+            ).make_process(),
+            "Etof Cache": processes.QueueCacheWriter(
+                "etof_cache.pk", self.queues["Etof"]
+            ).make_process(),
+            "Itof Cache": processes.QueueCacheWriter(
+                "itof_cache.pk", self.queues["Itof"]
+            ).make_process(),
         }
 
 
-class CorrelatorTestPipeline(AnalysisPipeline):
+class CorrelatorTestPipeline(BasePipeline):
     def __init__(self, chunksize=10000, **kwargs):
         super().__init__(**kwargs)
         self.queues = {
-            "Pulses": data_types.ExtendedQueue(chunk_size=chunksize),
-            "Clusters": data_types.ExtendedQueue(chunk_size=chunksize),
-            "Etof": data_types.ExtendedQueue(chunk_size=chunksize),
-            "Itof": data_types.ExtendedQueue(chunk_size=chunksize),
-            "t_pulse": data_types.ExtendedQueue(buffer_size=0, dtypes=('i',), names=("t_pulse",), chunk_size=10000),
-            "t_etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=("etof_corr", ("t_etof",)), chunk_size=2000),
-            "t_itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f',)), names=("itof_corr", ("t_itof",)), chunk_size=2000),
-            "t_cluster": data_types.ExtendedQueue(buffer_size=0, dtypes=('i', ('f', 'f', 'f')), names=("clust_corr", ("t", "x", "y")),
-                                                  chunk_size=2000),
+            "Pulses": data_types.StructuredDataQueue(chunk_size=chunksize),
+            "Clusters": data_types.StructuredDataQueue(chunk_size=chunksize),
+            "Etof": data_types.StructuredDataQueue(chunk_size=chunksize),
+            "Itof": data_types.StructuredDataQueue(chunk_size=chunksize),
+            "t_pulse": data_types.StructuredDataQueue(
+                buffer_size=0, dtypes=("i",), names=("t_pulse",), chunk_size=10000
+            ),
+            "t_etof": data_types.StructuredDataQueue(
+                buffer_size=0,
+                dtypes=("i", ("f",)),
+                names=("etof_corr", ("t_etof",)),
+                chunk_size=2000,
+            ),
+            "t_itof": data_types.StructuredDataQueue(
+                buffer_size=0,
+                dtypes=("i", ("f",)),
+                names=("itof_corr", ("t_itof",)),
+                chunk_size=2000,
+            ),
+            "t_cluster": data_types.StructuredDataQueue(
+                buffer_size=0,
+                dtypes=("i", ("f", "f", "f")),
+                names=("clust_corr", ("t", "x", "y")),
+                chunk_size=2000,
+            ),
         }
 
         self.processes = {
-            "pulse_cache": processes.QueueCacheReader("pulse_cache.pk", self.queues['Pulses']).make_process(),
-            "cluster_cache": processes.QueueCacheReader("cluster_cache.pk", self.queues['Clusters']).make_process(),
-            "etof_cache": processes.QueueCacheReader("etof_cache.pk", self.queues['Etof']).make_process(),
-            "itof_cache": processes.QueueCacheReader("itof_cache.pk", self.queues['Itof']).make_process(),
-
+            "pulse_cache": processes.QueueCacheReader(
+                "pulse_cache.pk", self.queues["Pulses"]
+            ).make_process(),
+            "cluster_cache": processes.QueueCacheReader(
+                "cluster_cache.pk", self.queues["Clusters"]
+            ).make_process(),
+            "etof_cache": processes.QueueCacheReader(
+                "etof_cache.pk", self.queues["Etof"]
+            ).make_process(),
+            "itof_cache": processes.QueueCacheReader(
+                "itof_cache.pk", self.queues["Itof"]
+            ).make_process(),
             "Correlator": processes.TriggerAnalyzer(
-                    input_trigger_queue=self.queues['Pulses'],
-                    queues_to_index=(self.queues['Etof'], self.queues['Itof'], self.queues['Clusters']),
-                    output_trigger_queue=self.queues['t_pulse'],
-                    indexed_queues=(self.queues['t_etof'], self.queues['t_itof'], self.queues['t_cluster'])
+                input_trigger_queue=self.queues["Pulses"],
+                queues_to_index=(
+                    self.queues["Etof"],
+                    self.queues["Itof"],
+                    self.queues["Clusters"],
+                ),
+                output_trigger_queue=self.queues["t_pulse"],
+                indexed_queues=(
+                    self.queues["t_etof"],
+                    self.queues["t_itof"],
+                    self.queues["t_cluster"],
+                ),
             ).make_process(),
         }
 
 
-class ClusterTestDataPipeline(AnalysisPipeline):
+class ClusterTestDataPipeline(BasePipeline):
     def __init__(self, input_path, **kwargs):
         super().__init__(**kwargs)
-        self.queues = {
-            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=2000),
-            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=2000),
-            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=2000),
-            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+        queues = {
+            "chunk": data_types.Queue(chunk_size=2000),
+            "Pixel": data_types.StructuredDataQueue(
+                buffer_size=0, dtypes=(), names=(), chunk_size=2000
+            ),
+            "Etof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("etof",),
+                force_monotone=True,
+                chunk_size=2000,
+            ),
+            "Itof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("itof",),
+                force_monotone=True,
+                chunk_size=2000,
+            ),
+            "Pulses": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("pulses",),
+                force_monotone=True,
+                chunk_size=10000,
+            ),
         }
+        self.queues = queues
         self.processes = {
-            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
-
-            "Converter": uconn_processes.VMIConverter(
-                    chunk_queue=self.queues['Chunk'],
-                    pixel_queue=self.queues['Pixel'],
-                    laser_queue=self.queues['Pulses'],
-                    etof_queue=self.queues['Etof'],
-                    itof_queue=self.queues['Itof']
+            "Reader": processes.TPXFileReader(
+                input_path, self.queues["Chunk"]
             ).make_process(),
-
-            "Pixel Cache": processes.QueueCacheWriter("pixel_cache.pk", self.queues['Pixel']).make_process(),
+            "Converter": uconn_processes.VMIConverter(
+                chunk_queue=self.queues["Chunk"],
+                pixel_queue=self.queues["Pixel"],
+                laser_queue=queues["Pulses"],
+                etof_queue=queues["Etof"],
+                itof_queue=queues["Itof"],
+            ).make_process(),
+            "Pixel Cache": processes.QueueCacheWriter(
+                "pixel_cache.pk", self.queues["Pixel"]
+            ).make_process(),
         }
 
 
-class MultiprocessTestPipeline(AnalysisPipeline):
+class MultiprocessTestPipeline(BasePipeline):
     def __init__(self, n=4, **kwargs):
         super().__init__(**kwargs)
 
         self.queues = {
-            "pixel": data_types.ExtendedQueue(chunk_size=2000),
-            "cluster": data_types.ExtendedQueue(chunk_size=2000),
+            "pixel": data_types.StructuredDataQueue(chunk_size=2000),
+            "cluster": data_types.StructuredDataQueue(chunk_size=2000),
         }
-        self.processes = {
-            "reader": processes.QueueCacheReader("pixel_cache.pk", self.queues['pixel']),
-            "writer": processes.QueueCacheWriter("cluster_cache.pk", self.queues['cluster']),
+        _processes = {
+            "reader": processes.QueueCacheReader(
+                "pixel_cache.pk", self.queues["pixel"]
+            ),
+            "writer": processes.QueueCacheWriter(
+                "cluster_cache.pk", self.queues["cluster"]
+            ),
         }
 
         mp_queues, mp_processes = processes.multithread_process(
-                # processes.CuMLDBSCANClusterer,
-                # processes.DBSCANClusterer,
-                # processes.DBSCANClustererPrecomputed,
-                processes.CustomClusterer,
-                {"pixel_queue": self.queues['pixel']},
-                {"cluster_queue": self.queues['cluster']},
-                n,
-                in_queue_kw_args={"chunk_size": 2000},
-                out_queue_kw_args={"force_monotone": True, "chunk_size": 2000},
-                # astep_kw_args={"dbscan_params": {"eps": 1.5, "min_samples": 8}},
-                name="clusterer"
+            # processes.CuMLDBSCANClusterer,
+            # processes.DBSCANClusterer,
+            # processes.DBSCANClustererPrecomputed,
+            processes.CustomClusterer,
+            {"pixel_queue": self.queues["pixel"]},
+            {"cluster_queue": self.queues["cluster"]},
+            n,
+            in_queue_kw_args={"chunk_size": 2000},
+            out_queue_kw_args={"force_monotone": True, "chunk_size": 2000},
+            # astep_kw_args={"dbscan_params": {"eps": 1.5, "min_samples": 8}},
+            name="clusterer",
         )
 
-        self.processes.update(mp_processes)
+        _processes.update(mp_processes)
         self.queues.update(mp_queues)
-        for k, v in self.processes.items():
+        for k, v in _processes.items():
             self.processes[k] = v.make_process()
 
 
-class VMIConverterTestPipeline(AnalysisPipeline):
+class VMIConverterTestPipeline(BasePipeline):
     def __init__(self, input_path, **kwargs):
         super().__init__(**kwargs)
-        self.queues = {
-            "Chunk": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=10000),
-            "Pixel": data_types.ExtendedQueue(buffer_size=0, dtypes=(), names=(), chunk_size=10000),
-            "Etof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("etof",), force_monotone=True, chunk_size=10000),
-            "Itof": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("itof",), force_monotone=True, chunk_size=10000),
-            "Pulses": data_types.ExtendedQueue(buffer_size=0, dtypes=('f',), names=("pulses",), force_monotone=True, chunk_size=10000),
+        queues = {
+            "chunk": data_types.Queue(chunk_size=10000),
+            "Pixel": data_types.StructuredDataQueue(
+                buffer_size=0, dtypes=(), names=(), chunk_size=10000
+            ),
+            "Etof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("etof",),
+                force_monotone=True,
+                chunk_size=10000,
+            ),
+            "Itof": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("itof",),
+                force_monotone=True,
+                chunk_size=10000,
+            ),
+            "Pulses": data_types.StructuredDataQueue[data_types.TriggerTime](
+                buffer_size=0,
+                dtypes=("f",),
+                names=("pulses",),
+                force_monotone=True,
+                chunk_size=10000,
+            ),
         }
+        self.queues = queues
         self.processes = {
-            "Reader": processes.TPXFileReader(input_path, self.queues['Chunk']).make_process(),
+            "Reader": processes.TPXFileReader(
+                input_path, self.queues["Chunk"]
+            ).make_process(),
             "Converter": uconn_processes.VMIConverter(
-                    chunk_queue=self.queues['Chunk'],
-                    pixel_queue=self.queues['Pixel'],
-                    laser_queue=self.queues['Pulses'],
-                    etof_queue=self.queues['Etof'],
-                    itof_queue=self.queues['Itof']
+                chunk_queue=self.queues["Chunk"],
+                pixel_queue=self.queues["Pixel"],
+                laser_queue=queues["Pulses"],
+                etof_queue=queues["Etof"],
+                itof_queue=queues["Itof"],
             ).make_process(),
         }
