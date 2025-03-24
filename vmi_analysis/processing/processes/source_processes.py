@@ -5,8 +5,8 @@ from asyncio import QueueEmpty
 
 import numpy as np
 
-from ..data_types import Queue, Chunk
 from .base_process import AnalysisStep
+from ..data_types import Queue, Chunk
 
 
 class TPXFileReader(AnalysisStep):
@@ -62,8 +62,6 @@ class TPXFileReader(AnalysisStep):
             return
         _, _, _, _, chip_number, mode, *num_bytes = tuple(packet)
         num_bytes = int.from_bytes((bytes(num_bytes)), "little")
-        # packets=[int.from_bytes(self.file.read(8), 'little')-2**62 for _ in range(num_bytes//8)]
-        # packets = np.asarray(packets)
         packet_bytes = self.file.read(num_bytes)
         packets = np.frombuffer(packet_bytes, dtype=np.int64) - 2**62
         self.chunk_queue.put(packets)
@@ -82,6 +80,8 @@ class TPXListener(AnalysisStep):
         chunk_queue (ExtendedQueue[Chunk]): Queue to put the data into.
 
     """
+    raw_data_queue: Queue[bytes]
+    chunk_queue: Queue[Chunk]
 
     def __init__(self, raw_data_queue, chunk_queue, **kwargs):
         super().__init__(**kwargs)

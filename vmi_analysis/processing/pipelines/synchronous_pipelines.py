@@ -1,11 +1,11 @@
 import abc
-import threading
-import os
 import asyncio
+import os
+import threading
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 import requests
+from matplotlib.figure import Figure
 
 from .base_pipeline import BasePipeline
 from .. import data_types, processes
@@ -30,9 +30,7 @@ class SynchronousPipeline(BasePipeline, abc.ABC):
         self.on_finish = threading.Event()
 
         self.server_thread: threading.Thread | None = None
-        self.raw_data_queue: data_types.StructuredDataQueue = (
-            data_types.StructuredDataQueue(buffer_size=0, dtypes=(), names=())
-        )
+        self.raw_data_queue: data_types.Queue[bytes] = data_types.Queue()
 
     @abc.abstractmethod
     def update_display(self):
@@ -135,10 +133,14 @@ class H5AcquisitionPipeline(SynchronousPipeline):
             "raw": self.raw_data_queue,
             "chunk": data_types.Queue(),
             "pixel": data_types.StructuredDataQueue[data_types.PixelData](
-                buffer_size=0, dtypes=(), names=()
+                    buffer_size=1000,
+                    dtypes=data_types.PixelData.c_dtypes,
+                    names={"time": 'toa', "x": 'x', "y": 'y', "tot": 'tot'},
             ),
             "tdc": data_types.StructuredDataQueue[data_types.TDCData](
-                buffer_size=0, dtypes=(), names=()
+                    buffer_size=1000,
+                    dtypes=data_types.TDCData.c_dtypes,
+                    names={"time": 'tdc_time', "type": 'tdc_type'},
             ),
         }
         self.queues = queues

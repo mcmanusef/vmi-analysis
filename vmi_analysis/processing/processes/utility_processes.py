@@ -2,18 +2,17 @@ import multiprocessing
 import queue
 import time
 import typing
+
 import numpy as np
 
+from .base_process import AnalysisStep
 from ..data_types import (
     Queue,
-    TpxDataType,
-    UnstructurableData,
-    unstructure,
+    StructuredDataQueue as SDQueue, TimestampedData,
 )
-from .base_process import AnalysisStep
 
 
-class QueueTee(AnalysisStep):
+class QueueTee[T](AnalysisStep):
     """
     Copies data from one queue to multiple queues.
 
@@ -21,6 +20,8 @@ class QueueTee(AnalysisStep):
     - input_queue (ExtendedQueue): Queue to copy data from.
     - output_queues (tuple[ExtendedQueue]): Queues to copy data to.
     """
+    input_queue: Queue[T]
+    output_queues: tuple[Queue[T]]
 
     def __init__(self, input_queue, output_queues):
         super().__init__()
@@ -37,7 +38,7 @@ class QueueTee(AnalysisStep):
             q.put(data)
 
 
-class Weaver(AnalysisStep):
+class Weaver[T: TimestampedData](AnalysisStep):
     """
     Combines data from multiple sorted queues into a single sorted queue.
     Sorts on the first value of the data.
@@ -46,70 +47,50 @@ class Weaver(AnalysisStep):
     - input_queues (tuple[ExtendedQueue]): Queues to combine data from.
     - output_queue (ExtendedQueue): Queue to put combined data into.
     """
+    input_queues: tuple[SDQueue[T]]
+    output_queue: SDQueue[T]
 
     def __init__(
         self,
-        input_queues: tuple[Queue[UnstructurableData[TpxDataType]]],
-        output_queue: Queue[UnstructurableData[TpxDataType]],
+            input_queues,
+            output_queue,
     ):
         super().__init__()
         self.input_queues = input_queues
         self.output_queue = output_queue
         self.output_queues = (output_queue,)
-        self.current: list[UnstructurableData | None] = [None for _ in input_queues]
-        self.sortvals: list[int | float | str | None] = [None for _ in input_queues]
+        self.current: list[T | None] = [None for _ in input_queues]
         self.name = "Weaver"
         self.checked = False
-        self.order = 0
-
-    @staticmethod
-    def repeated_index(i, n):
-        for _ in range(n):
-            i = i[0]
-        return i
 
     def action(self):
         if any(cur is None for cur in self.current):
             for i, q in enumerate(self.input_queues):
                 if self.current[i] is None:
                     if q.closed.value and q.empty():
-                        self.current[i] = np.inf
-                        self.sortvals[i] = np.inf
+                        self.current[i] = TimestampedData(time=np.inf)
                     try:
-                        next_ = q.get(timeout=0.1)
-                        self.current[i] = next_
-                        # if not self.checked:
-                        #     try:
-                        #         self.sortvals[i] = self.current[i]
-                        #         while True:
-                        #             self.sortvals[i] = self.sortvals[i][0]
-                        #             self.order += 1
-                        #     except TypeError:
-                        #         self.checked = True
-                        # else:
-                        #     self.sortvals[i] = self.repeated_index(
-                        #         self.current[i], self.order
-                        #     )
-                        self.sortvals[i] = next(unstructure(next_))
+                        self.current[i] = q.get(timeout=0.1)
 
-                    except queue.Empty or InterruptedError:
+                    except queue.Empty:
                         time.sleep(0.1)
                         return
 
-        if all(cur == np.inf for cur in self.current):
+        if all(cur.time == np.inf for cur in self.current):
             self.shutdown()
             return
 
-        min_idx = self.sortvals.index(min(c for c in self.sortvals if c != np.inf))  # type: ignore
-        assert (c := self.current[min_idx]) is not None
-        self.output_queue.put(c)
+        min_idx = np.argmin([cur.time for cur in self.current])
+        self.output_queue.put(self.current[min_idx])
         self.current[min_idx] = None
 
 
-class QueueDecimator(AnalysisStep):
+class QueueDecimator[T](AnalysisStep):
     """
     Puts every n-th item from the input queue into the output queue.
     """
+    input_queue: Queue[T]
+    output_queue: Queue[T]
 
     def __init__(self, input_queue, output_queue, n, **kwargs):
         super().__init__(**kwargs)
@@ -123,18 +104,20 @@ class QueueDecimator(AnalysisStep):
     def action(self):
         try:
             data = self.input_queue.get(timeout=0.1)
-        except queue.Empty or InterruptedError:
+        except queue.Empty:
             return
         if self.i % self.n == 0:
             self.output_queue.put(data)
         self.i += 1
 
 
-class QueueReducer(AnalysisStep):
+class QueueReducer[T](AnalysisStep):
     """
-    Reduces the size of the input queue by moving data to the output queue until the output queue is full.
+    Reduces the size of the input queue by moving data to the output queue until the output queue is full, then discards the rest.
 
     """
+    input_queue: Queue[T]
+    output_queue: Queue[T]
 
     def __init__(self, input_queue, output_queue, max_size, **kwargs):
         super().__init__(**kwargs)
@@ -153,7 +136,7 @@ class QueueReducer(AnalysisStep):
                 data = self.input_queue.get(timeout=0.1)
                 if i < delta:
                     self.output_queue.put(data, timeout=0)
-            except queue.Empty or queue.Full or InterruptedError:
+            except queue.Empty or queue.Full:
                 return
         if self.input_queue.qsize() > self.max_size * 5:
             self.input_queue.make_empty()
@@ -229,7 +212,7 @@ def create_process_instances(
         args.append(new_args)
     processes = {f"{process_name}_{i}": process_class(**a) for i, a in enumerate(args)}
     weaver = Weaver(queues, output_queue)
-    return ({f"{queue_name}_{i}": q for i, q in enumerate(queues)}, processes, weaver)
+    return {f"{queue_name}_{i}": q for i, q in enumerate(queues)}, processes, weaver
 
 
 class QueueVoid(AnalysisStep):

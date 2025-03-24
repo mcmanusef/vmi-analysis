@@ -1,63 +1,83 @@
+import collections
 import multiprocessing
 import multiprocessing.managers
-from multiprocessing.sharedctypes import Synchronized, SynchronizedArray
 import queue
-import numpy.typing
 import time
-from collections.abc import Sequence
-import collections
-from contextlib import contextmanager, ExitStack
 from typing import (
     Any,
-    Callable,
-    Generator,
     Iterable,
-    NoReturn,
-    TypeAlias,
-    TypeVar,
-    Generic,
     NamedTuple,
-    cast,
 )
 
+import numpy.typing
 
 Chunk = numpy.typing.NDArray[numpy.signedinteger]
-type PixelData = tuple[int, int, int, int]  # time, x, y, tot
-type TDCData = tuple[float, int]  # time, channel
-ClusterData = NamedTuple("ClusterData", [("toa", float), ("x", float), ("y", float)])
-TriggerTime = ToF = float
-CameraData = TypeVar("CameraData", PixelData, ClusterData)
-
-type TpxDataType = int | float | str
-T = TypeVar("T", bound=TpxDataType, covariant=True, default=TpxDataType)
-U = TypeVar("U", bound=TpxDataType, covariant=True, default=TpxDataType)
-type StructuredData[T] = T | tuple["StructuredData[T]", ...]
 
 
-def i(t: TDCData) -> StructuredData:
-    return t
+class TimestampedData(NamedTuple):
+    time: float
+    c_dtypes = {"time": 'f8'}
+
+    def flatten(self):
+        return [self.time]
+
+    def to_dict(self):
+        return {"time": self.time}
 
 
-def structure_map(func: Callable[[T], U], t: StructuredData[T]) -> StructuredData[U]:
-    """applies function to all elements of a nested tuple"""
-    if isinstance(t, tuple):
-        return tuple(structure_map(func, sub_t) for sub_t in t)
-    else:
-        return func(t)
+class PixelData(TimestampedData):
+    time: float
+    x: int
+    y: int
+    tot: int
+    c_dtypes = {"time": 'f8', "x": 'i4', "y": 'i4', "tot": 'i4'}
+
+    def flatten(self):
+        return [self.time, self.x, self.y, self.tot]
+
+    def to_dict(self):
+        return {"time": self.time, "x": self.x, "y": self.y, "tot": self.tot}
 
 
-def structure(template: StructuredData, data: Iterable[T]) -> StructuredData[T]:
-    d_iter = iter(data)
-    return structure_map(lambda _: next(d_iter), template)
+class TDCData(TimestampedData):
+    time: float
+    type: int
+    c_dtypes = {"time": 'f8', "type": 'i4'}
+
+    def flatten(self):
+        return [self.time, self.type]
+
+    def to_dict(self):
+        return {"time": self.time, "type": self.type}
 
 
-def unstructure(t: StructuredData[T]) -> Generator[T, None, None]:
-    if isinstance(t, tuple):
-        for sub_t in t:
-            yield from (unstructure(sub_t))
-    else:
-        yield t
+class ClusterData(TimestampedData):
+    time: float
+    x: float
+    y: float
+    c_dtypes = {"time": 'f8', "x": 'f8', "y": 'f8'}
 
+    def flatten(self):
+        return [self.time, self.x, self.y]
+
+    def to_dict(self):
+        return {"time": self.time, "x": self.x, "y": self.y}
+
+
+class IndexedData[T: TimestampedData](NamedTuple):
+    index: int
+    data: T
+    c_dtypes = {"index": 'i4'}
+
+    def flatten(self):
+        return [self.index] + self.data.flatten()
+
+    def to_dict(self):
+        return {"index": self.index, **self.data.to_dict()}
+
+
+type ToF = TimestampedData
+type Trigger = TimestampedData
 
 class DequeQueue:
     def __init__(self, maxlen):
@@ -76,51 +96,51 @@ class DequeQueue:
         return len(self.deque)
 
 
-class CircularBuffer(Sequence[StructuredData[T]]):
-    def __init__(self, max_size: int, dtypes: StructuredData[str]):
-        self.max_size: int = max_size
-        self.dtypes = dtypes
-        self.arrays: tuple[SynchronizedArray[T], ...] = tuple(
-            multiprocessing.Array(d, max_size) for d in unstructure(dtypes)
-        )
-        self.index_: Synchronized[int] = multiprocessing.Value("L", 0)
-        self.size: Synchronized[int] = multiprocessing.Value("L", 0)
-
-    @contextmanager
-    def get_lock(self):
-        with ExitStack() as stack:
-            stack.enter_context(self.index_.get_lock())
-            stack.enter_context(self.size.get_lock())
-            for a in self.arrays:
-                stack.enter_context(a.get_lock())
-            yield stack
-
-    def put(self, values: StructuredData):
-        with self.get_lock():
-            for array, value in zip(self.arrays, unstructure(values)):
-                array[self.index_.value] = value
-            self.index_.value = (self.index_.value + 1) % self.max_size
-            if self.size.value < self.max_size:
-                self.size.value += 1
-
-    def __getitem__(self, idx: int | slice) -> StructuredData[T]:  # type: ignore
-        if isinstance(idx, slice):
-            raise NotImplementedError
-        if idx >= self.size.value:
-            raise IndexError
-        with self.get_lock():
-            _idx = self.index_.value - self.size.value + idx % self.max_size
-            inner = [a[_idx] for a in self.arrays]
-            return structure(
-                self.dtypes,
-                inner,  # type: ignore
-            )
-
-    def __len__(self) -> int:
-        return self.size.value
-
-    def get_all(self):
-        return [self[i] for i in range(len(self))]
+# class CircularBuffer(Sequence[StructuredData[T]]):
+#     def __init__(self, max_size: int, dtypes: StructuredData[str]):
+#         self.max_size: int = max_size
+#         self.dtypes = dtypes
+#         self.arrays: tuple[SynchronizedArray[T], ...] = tuple(
+#             multiprocessing.Array(d, max_size) for d in unstructure(dtypes)
+#         )
+#         self.index_: Synchronized[int] = multiprocessing.Value("L", 0)
+#         self.size: Synchronized[int] = multiprocessing.Value("L", 0)
+#
+#     @contextmanager
+#     def get_lock(self):
+#         with ExitStack() as stack:
+#             stack.enter_context(self.index_.get_lock())
+#             stack.enter_context(self.size.get_lock())
+#             for a in self.arrays:
+#                 stack.enter_context(a.get_lock())
+#             yield stack
+#
+#     def put(self, values: StructuredData):
+#         with self.get_lock():
+#             for array, value in zip(self.arrays, unstructure(values)):
+#                 array[self.index_.value] = value
+#             self.index_.value = (self.index_.value + 1) % self.max_size
+#             if self.size.value < self.max_size:
+#                 self.size.value += 1
+#
+#     def __getitem__(self, idx: int | slice) -> StructuredData[T]:  # type: ignore
+#         if isinstance(idx, slice):
+#             raise NotImplementedError
+#         if idx >= self.size.value:
+#             raise IndexError
+#         with self.get_lock():
+#             _idx = self.index_.value - self.size.value + idx % self.max_size
+#             inner = [a[_idx] for a in self.arrays]
+#             return structure(
+#                 self.dtypes,
+#                 inner,  # type: ignore
+#             )
+#
+#     def __len__(self) -> int:
+#         return self.size.value
+#
+#     def get_all(self):
+#         return [self[i] for i in range(len(self))]
 
 
 class Queue[T]:
@@ -245,36 +265,32 @@ class Queue[T]:
                 self.output_queue.get()
 
 
-class StructuredDataQueue[T: StructuredData](Queue[T]):
+class StructuredDataQueue[T: TimestampedData](Queue[T]):
     def __init__(
         self,
-        *args,
         chunk_size: int = 0,
         manager: multiprocessing.managers.SyncManager | None = None,
         multi_process: bool = True,
         force_monotone: bool = False,
         period: int = 25 * 2**30,
         max_back: float = 1000000000,
-        unwrap: bool = False,
         maxsize: int = 0,
         verbose: bool = False,
-        dtypes: StructuredData[str] = (),
-        names: StructuredData[str] = (),
-        **kwargs,
+            dtypes: dict[str, str] = (),
+            names: dict[str, str] = (),
+            ctx: Any = None,
     ):
         super().__init__(
-            *args,
             chunk_size=chunk_size,
             manager=manager,
             multi_process=multi_process,
             maxsize=maxsize,
             verbose=verbose,
-            **kwargs,
+                ctx=ctx,
         )
 
         self.names = names
         self.dtypes = dtypes
-        # self.buffer = CircularBuffer(buffer_size, dtypes) if buffer_size > 0 else None
         self.force_monotone = force_monotone
         self.last: float | None = None
         self.current_sum = 0
@@ -295,19 +311,22 @@ class StructuredDataQueue[T: StructuredData](Queue[T]):
         block: bool = True,
         timeout: float | None = None,
     ) -> T:
-        # return super().get_monotonic(period, max_back, block, timeout)
-        # some data has maximum timestamp, so if we wrap around to 0, we need to add the period
+
         if self.last is None:
             out = super().get(block, timeout)
-            self.last = next((unstructure(out)))  # type: ignore # assume it's a float
+            self.last = out.time
             return out
 
         current = super().get(block, timeout)
-        curr_unstruct = list(unstructure(current))  # type: ignore
-        curr_unstruct[0] += self.current_sum  # type: ignore
-        while curr_unstruct[0] < self.last - max_back:  # type: ignore
-            curr_unstruct[0] += period
+        current.time += self.current_sum
+        while current.time < self.last - max_back:
+            current.time += period
             self.current_sum += period
 
-        self.last = curr_unstruct[0]
-        return structure(current, curr_unstruct)  # type: ignore
+        self.last = current.time
+        return current
+
+
+class MonotonicQueue[T: TimestampedData](StructuredDataQueue[T]):
+    def get(self, block=True, timeout=None) -> T:
+        return self.get_monotonic(block=block, timeout=timeout)
