@@ -3,7 +3,7 @@ import time
 from typing import Any, TypeVar
 import h5py
 
-from ..data_types import Queue, unstructure
+from ..data_types import Queue, StructuredDataQueue, unstructure
 from .base_process import AnalysisStep
 
 
@@ -33,7 +33,7 @@ class SaveToH5(AnalysisStep):
 
     file_path: str
     input_queues: tuple[Queue, ...]
-    in_queues: dict[str, Queue]
+    in_queues: dict[str, StructuredDataQueue]
     output_queues = ()
     h5_file: h5py.File | None
 
