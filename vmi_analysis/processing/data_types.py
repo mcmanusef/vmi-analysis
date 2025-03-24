@@ -4,7 +4,6 @@ import multiprocessing.managers
 import queue
 import time
 from typing import (
-    Any,
     Iterable,
     NamedTuple,
 )
@@ -14,7 +13,7 @@ import numpy.typing
 Chunk = numpy.typing.NDArray[numpy.signedinteger]
 
 
-class TimestampedData(NamedTuple):
+class Timestamp(NamedTuple):
     time: float
     c_dtypes = {"time": 'f8'}
 
@@ -25,7 +24,7 @@ class TimestampedData(NamedTuple):
         return {"time": self.time}
 
 
-class PixelData(TimestampedData):
+class PixelData(NamedTuple):
     time: float
     x: int
     y: int
@@ -39,7 +38,7 @@ class PixelData(TimestampedData):
         return {"time": self.time, "x": self.x, "y": self.y, "tot": self.tot}
 
 
-class TDCData(TimestampedData):
+class TDCData(NamedTuple):
     time: float
     type: int
     c_dtypes = {"time": 'f8', "type": 'i4'}
@@ -51,7 +50,7 @@ class TDCData(TimestampedData):
         return {"time": self.time, "type": self.type}
 
 
-class ClusterData(TimestampedData):
+class ClusterData(NamedTuple):
     time: float
     x: float
     y: float
@@ -63,6 +62,8 @@ class ClusterData(TimestampedData):
     def to_dict(self):
         return {"time": self.time, "x": self.x, "y": self.y}
 
+
+type TimestampedData = PixelData | TDCData | ClusterData | Timestamp
 
 class IndexedData[T: TimestampedData](NamedTuple):
     index: int
@@ -160,14 +161,11 @@ class Queue[T]:
         multi_process: bool = True,
         maxsize: int = 0,
         verbose: bool = False,
-        ctx: Any = None,
     ):
         if multi_process:
             if manager is None:
-                self.queue = multiprocessing.Queue(maxsize=maxsize, ctx=ctx)
+                self.queue = multiprocessing.Queue(maxsize=maxsize)
             else:
-                if ctx:
-                    raise ValueError("ctx should be None for managed queue")
                 self.queue = manager.Queue(maxsize)
         else:
             self.queue = queue.Queue(maxsize=maxsize)
@@ -278,7 +276,6 @@ class StructuredDataQueue[T: TimestampedData](Queue[T]):
         verbose: bool = False,
             dtypes: dict[str, str] = (),
             names: dict[str, str] = (),
-            ctx: Any = None,
     ):
         super().__init__(
             chunk_size=chunk_size,
@@ -286,7 +283,6 @@ class StructuredDataQueue[T: TimestampedData](Queue[T]):
             multi_process=multi_process,
             maxsize=maxsize,
             verbose=verbose,
-                ctx=ctx,
         )
 
         self.names = names

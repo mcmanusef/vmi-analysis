@@ -90,7 +90,8 @@ class SaveToH5(AnalysisStep):
             self.file_structure[key] = data_sets
 
         self.h5_file = f
-        self.h5_file.swmr_mode = self.swmr
+        if self.swmr:
+            self.h5_file.swmr_mode = True
         print(f"Verbose={self.verbose}")
         super().initialize()
 

@@ -44,14 +44,14 @@ class TPXFileConverter(PostProcessingPipeline):
 
         self.processes = {
             "reader": processes.TPXFileReader(
-                    input_path, self.queues["chunk"]
+                    input_path, queues["chunk"]
             ).make_process(),
             "converter": processes.TPXConverter(
-                    self.queues["chunk"], queues["pixel"], queues["tdc"]
+                    queues["chunk"], queues["pixel"], queues["tdc"]
             ).make_process(),
             "save": processes.SaveToH5(
                     output_path,
-                    {"pixel": self.queues["pixel"], "tdc": self.queues["tdc"]},
+                    {"pixel": queues["pixel"], "tdc": queues["tdc"]},
             ).make_process(),
         }
         self.queues = queues
