@@ -8,7 +8,7 @@ import numpy as np
 from .base_process import AnalysisStep
 from ..data_types import (
     Queue,
-    StructuredDataQueue as SDQueue, TimestampedData,
+    StructuredDataQueue as SDQueue, TimestampedData, MonotonicQueue,
 )
 
 
@@ -300,7 +300,13 @@ def multithread_process(
                 if not individual_out_queue_kw_args
                 else out_queue_kw_args[queue_name]
             )
-            process_queues[queue_name] = Queue(**queue_kwargs)
+            if "force_monotone" in queue_kwargs:
+                monotone = queue_kwargs["force_monotone"]
+                queue_kwargs.pop("force_monotone")
+                if monotone:
+                    process_queues[queue_name] = MonotonicQueue(**queue_kwargs)
+                else:
+                    process_queues[queue_name] = Queue(**queue_kwargs)
 
     active_processes = {
         f"{name}_{i}": astep_class(

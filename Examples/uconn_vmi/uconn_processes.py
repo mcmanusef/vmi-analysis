@@ -10,7 +10,7 @@ from vmi_analysis.processing.data_types import (
     Chunk,
     PixelData,
     Trigger,
-    ToF,
+    ToF, Timestamp,
 )
 from vmi_analysis.processing.processes import AnalysisStep
 from vmi_analysis.processing.tpx_conversion import (
@@ -98,11 +98,11 @@ class VMIConverter(AnalysisStep):
 
         etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
         for t in etof:
-            self.etof_queue.put(t)
+            self.etof_queue.put(Timestamp(t))
         for t in itof:
-            self.itof_queue.put(t)
+            self.itof_queue.put(Timestamp(t))
         for t in pulses:
-            self.laser_queue.put(t)
+            self.laser_queue.put(Timestamp(t))
 
 class Display(AnalysisStep):
     def __init__(

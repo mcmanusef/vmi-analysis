@@ -10,7 +10,8 @@ matplotlib.use("pdf")
 import scipy.io
 import os
 
-def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.calibration_20250303):
+
+def analyze_file(fname, coincidence=False, gate='', calibration=calibrations.calibration_20250523):
     data = coincidence_v4.load_file(fname, coincidence=coincidence)
     print("Data Loaded")
     # data = coincidence_v4.load_file(r"D:\Data\c2h4_p_5W.cv4")
@@ -143,7 +144,7 @@ def analyze_file(fname, coincidence=False, gate='', calibration = calibrations.c
     plt.savefig(name+'.png')
 
 if __name__ == '__main__':
-    fname=r"J:\ctgroup\Edward\DATA\VMI\20250303\Propylene Oxide 2W"
+    fname = r"J:\ctgroup\Edward\DATA\VMI\20250522\515 Ellipticity Scan"
     for f in os.listdir(fname):
     #     for f2 in os.listdir(os.path.join(fname,f)):
         if f.endswith('.cv4'):

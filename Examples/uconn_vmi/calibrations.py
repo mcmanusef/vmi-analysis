@@ -86,4 +86,34 @@ def calibration_20250303(x,y,t, center=(121.875, 127.125, 495.9345297060858), an
             np.polyval([0.12542165461684168, -6.387291956347507, 121.53401756837005, 0, 0],t)**0.5
     )
     return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
+
+# def calibration_xe_800(x,y,t, center=(125.25, 127.5, 529), angle=-0.55, symmetrize=True, cutup=False):
+#     E_xy=lambda x: 0.000519 * x**2
+#     z = lambda t: np.where(
+#             t < 0,
+#             -np.polyval([np.float64(-15.02262617849838), np.float64(60.84789721851506), 0, 0],t)**0.5,
+#             np.polyval([np.float64(-4.238083347800266), np.float64(121.35136892151074), 0, 0],t)**0.5
+#     )
+#     return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
+def calibration_xe_800(x, y, t, center=(125.25, 127.5, 528.5), angle=-0.55, symmetrize=True, cutup=False):
+    E_xy = lambda x: 0.000519 * x ** 2
+    z = lambda t: np.where(
+            t < 0,
+            -np.polyval([np.float64(-28.025467565624975), np.float64(36.406326462639086), 0, 0], t) ** 0.5,
+            np.polyval([np.float64(-3.6478376078588153), np.float64(108.00576528842817), 0, 0], t) ** 0.5
+    )
+    return general_calibration(x, y, t, center, E_xy, lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
+
+def calibration_20250523(x, y, t, center=(118.5, 126, 500.4), angle=2.630162514320607, symmetrize=True, cutup=False):
+    E_xy = lambda x: 0.000519 * x ** 2
+    z = lambda t: np.where(
+            t < 0,
+            -np.polyval([1.0067789324603167, 129.95544764952695, 0, 0], -t) ** 0.5,
+            np.polyval([0.12542165461684168, -6.387291956347507, 121.53401756837005, 0, 0], t) ** 0.5
+    )
+    return general_calibration(x, y, t, center, E_xy, lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
 #%%

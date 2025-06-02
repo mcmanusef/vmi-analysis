@@ -1,6 +1,6 @@
 import uconn_processes
 from vmi_analysis.processing import data_types, processes
-from vmi_analysis.processing.data_types import PixelData, TimestampedData, Chunk, IndexedData, ClusterData, ToF, Trigger
+from vmi_analysis.processing.data_types import PixelData, Chunk, IndexedData, ClusterData, ToF, Trigger, Timestamp
 from vmi_analysis.processing.pipelines import BasePipeline, PostProcessingPipeline
 
 
@@ -22,30 +22,27 @@ class RawVMIConverterPipeline(PostProcessingPipeline):
         self.queues = {
             "chunk": data_types.Queue[Chunk](),
             "pixel": data_types.MonotonicQueue[PixelData](
-                buffer_size=0,
                     dtypes=PixelData.c_dtypes,
                     names={"time": "toa", "x": "x", "y": "y", "tot": "tot"},
                 unwrap=True,
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "etof": data_types.MonotonicQueue[TimestampedData](
-                buffer_size=0,
-                    dtypes=TimestampedData.c_dtypes,
+            "etof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "etof"},
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "itof": data_types.MonotonicQueue[TimestampedData](
-                buffer_size=0,
-                    dtypes=TimestampedData.c_dtypes,
+            "itof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "itof"},
                 max_back=1e9,
                 chunk_size=2000,
             ),
             "pulses": data_types.MonotonicQueue(
-                    dtypes=TimestampedData.c_dtypes,
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "pulse"},
                 max_back=1e9,
                 chunk_size=10000,
@@ -99,37 +96,37 @@ class VMIConverterPipeline(PostProcessingPipeline):
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "etof": data_types.MonotonicQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "etof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "etof"},
                 force_monotone=True,
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "itof": data_types.MonotonicQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "itof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "itof"},
                 max_back=1e9,
                 chunk_size=2000,
             ),
-            "pulses": data_types.MonotonicQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "pulses": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "pulse"},
                 max_back=1e9,
                 chunk_size=10000,
             ),
-            "t_etof": data_types.StructuredDataQueue[IndexedData[TimestampedData]](
-                    dtypes=IndexedData.c_dtypes + TimestampedData.c_dtypes,
+            "t_etof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
+                    dtypes=IndexedData.c_dtypes + Timestamp.c_dtypes,
                     names={"index": "etof_corr", "time": "t_etof"},
                 chunk_size=2000,
             ),
-            "t_itof": data_types.StructuredDataQueue[TimestampedData](
-                    dtypes=IndexedData.c_dtypes + TimestampedData.c_dtypes,
+            "t_itof": data_types.StructuredDataQueue[Timestamp](
+                    dtypes=IndexedData.c_dtypes + Timestamp.c_dtypes,
                     names={"index": "itof_corr", "time": "t_itof"},
                 chunk_size=2000,
             ),
-            "t_pulse": data_types.StructuredDataQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "t_pulse": data_types.StructuredDataQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "t_pulse"},
                     chunk_size=10000
             ),
@@ -195,20 +192,20 @@ class CV4ConverterPipeline(PostProcessingPipeline):
         self.queues = {
             "chunk": data_types.StructuredDataQueue(chunk_size=10000),
             "pixel": data_types.StructuredDataQueue(chunk_size=10000),
-            "etof": data_types.MonotonicQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "etof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "etof"},
                     force_monotone=True,
                     chunk_size=10000
             ),
-            "itof": data_types.MonotonicQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "itof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "itof"},
                     force_monotone=True,
                     chunk_size=10000
             ),
-            "pulses": data_types.MonotonicQueue[TimestampedData](
-                    dtypes=TimestampedData.c_dtypes,
+            "pulses": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "pulses"},
                     force_monotone=True,
                     chunk_size=10000
@@ -219,27 +216,24 @@ class CV4ConverterPipeline(PostProcessingPipeline):
                 force_monotone=True,
                 chunk_size=10000,
             ),
-            "t_etof": data_types.StructuredDataQueue[IndexedData[TimestampedData]](
-                buffer_size=0,
-                    dtypes=IndexedData.c_dtypes + TimestampedData.c_dtypes,
+            "t_etof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
+                    dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
                     names={"index": "etof_corr", "time": "t_etof"},
                 chunk_size=10000,
             ),
-            "t_itof": data_types.StructuredDataQueue[IndexedData[TimestampedData]](
-                buffer_size=0,
-                    dtypes=IndexedData.c_dtypes + TimestampedData.c_dtypes,
+            "t_itof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
+                    dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
                     names={"index": "itof_corr", "time": "t_itof"},
                 chunk_size=10000,
             ),
-            "t_pulse": data_types.StructuredDataQueue[TimestampedData](
-                buffer_size=0,
-                    dtypes=TimestampedData.c_dtypes,
+            "t_pulse": data_types.StructuredDataQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "t_pulse"},
                     chunk_size=10000
             ),
             "t_cluster": data_types.StructuredDataQueue[IndexedData[data_types.ClusterData]](
-                    buffer_size=0,
-                    dtypes=IndexedData.c_dtypes + data_types.ClusterData.c_dtypes,
+
+                    dtypes=IndexedData.c_dtypes | data_types.ClusterData.c_dtypes,
                     names={"index": "cluster_corr", "time": "t", "x": "x", "y": "y"},
                 chunk_size=10000,
             ),
@@ -252,15 +246,15 @@ class CV4ConverterPipeline(PostProcessingPipeline):
         if cluster_processes == 1:
             cluster_processes = {
                 "Clusterer": cluster_class(
-                    self.queues["Pixel"], self.queues["Clusters"]
+                        self.queues["pixel"], self.queues["clusters"]
                 )
             }
 
         else:
             cluster_queues, cluster_processes = processes.multithread_process(
                 cluster_class,
-                {"pixel_queue": self.queues["Pixel"]},
-                {"cluster_queue": self.queues["Clusters"]},
+                    {"pixel_queue": self.queues["pixel"]},
+                    {"cluster_queue": self.queues["clusters"]},
                 cluster_processes,
                 in_queue_kw_args={"chunk_size": 2000},
                 out_queue_kw_args={"force_monotone": True, "chunk_size": 10000},
@@ -271,22 +265,22 @@ class CV4ConverterPipeline(PostProcessingPipeline):
         if converter_processes == 1:
             converter_processes = {
                 "Converter": uconn_processes.VMIConverter(
-                    chunk_queue=self.queues["Chunk"],
-                    pixel_queue=self.queues["Pixel"],
-                    laser_queue=self.queues["Pulses"],
-                    etof_queue=self.queues["Etof"],
-                    itof_queue=self.queues["Itof"],
+                        chunk_queue=self.queues["chunk"],
+                        pixel_queue=self.queues["pixel"],
+                        laser_queue=self.queues["pulses"],
+                        etof_queue=self.queues["etof"],
+                        itof_queue=self.queues["itof"],
                 )
             }
         else:
             converter_queues, converter_processes = processes.multithread_process(
                 uconn_processes.VMIConverter,
-                {"chunk_queue": self.queues["Chunk"]},
+                    {"chunk_queue": self.queues["chunk"]},
                 {
-                    "pixel_queue": self.queues["Pixel"],
-                    "laser_queue": self.queues["Pulses"],
-                    "etof_queue": self.queues["Etof"],
-                    "itof_queue": self.queues["Itof"],
+                    "pixel_queue": self.queues["pixel"],
+                    "laser_queue": self.queues["pulses"],
+                    "etof_queue": self.queues["etof"],
+                    "itof_queue": self.queues["itof"],
                 },
                 converter_processes,
                 in_queue_kw_args={"chunk_size": 2000},
@@ -302,16 +296,16 @@ class CV4ConverterPipeline(PostProcessingPipeline):
 
         self.processes = {
             "Reader": processes.TPXFileReader(
-                input_path, self.queues["Chunk"]
+                    input_path, self.queues["chunk"]
             ).make_process(),
             **{n: k.make_process() for n, k in converter_processes.items()},
             **{n: k.make_process() for n, k in cluster_processes.items()},
             "Correlator": processes.TriggerAnalyzer(
-                input_trigger_queue=self.queues["Pulses"],
+                    input_trigger_queue=self.queues["pulses"],
                 queues_to_index=(
-                    self.queues["Etof"],
-                    self.queues["Itof"],
-                    self.queues["Clusters"],
+                    self.queues["etof"],
+                    self.queues["itof"],
+                    self.queues["clusters"],
                 ),
                 output_trigger_queue=self.queues["t_pulse"],
                 indexed_queues=(
@@ -350,41 +344,36 @@ class ClusterSavePipeline(PostProcessingPipeline):
         self.queues = {
             "chunk": data_types.StructuredDataQueue(chunk_size=2000),
             "pixel": data_types.StructuredDataQueue[PixelData](
-                buffer_size=0,
                     dtypes=PixelData.c_dtypes,
                     names={"time": "toa", "x": "x", "y": "y", "tot": "tot"},
                     chunk_size=2000
             ),
-            "etof": data_types.StructuredDataQueue[TimestampedData](
-                    buffer_size=0,
-                    dtypes=TimestampedData.c_dtypes,
+            "etof": data_types.StructuredDataQueue[Timestamp](
+
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "etof"},
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "itof": data_types.StructuredDataQueue[TimestampedData](
-                buffer_size=0,
-                    dtypes=TimestampedData.c_dtypes,
+            "itof": data_types.StructuredDataQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "itof"},
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
-            "pulses": data_types.StructuredDataQueue[TimestampedData](
-                buffer_size=0,
-                    dtypes=TimestampedData.c_dtypes,
+            "pulses": data_types.StructuredDataQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
                     names={"time": "pulses"},
                 force_monotone=monotone,
                 chunk_size=10000,
             ),
             "clusters": data_types.StructuredDataQueue[data_types.ClusterData](
-                buffer_size=0,
                     dtypes=data_types.ClusterData.c_dtypes,
                     names={"time": "toa", "x": "x", "y": "y"},
                 force_monotone=monotone,
                 chunk_size=2000,
             ),
             "clustered": data_types.StructuredDataQueue[IndexedData[PixelData]](
-                buffer_size=0,
                     dtypes=IndexedData.c_dtypes + PixelData.c_dtypes,
                     names={"index": "cluster_pix", "time": "toa_pix", "x": "x_pix", "y": "y_pix", "tot": "tot_pix"},
                 force_monotone=monotone,

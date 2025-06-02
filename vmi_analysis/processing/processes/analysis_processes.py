@@ -21,7 +21,7 @@ from ..data_types import (
     TDCData,
     Trigger,
     TimestampedData,
-    IndexedData,
+    IndexedData, Timestamp,
 )
 from ..tpx_constants import PERIOD
 
@@ -337,7 +337,7 @@ class TriggerAnalyzer(AnalysisStep):
 
                 except queue.Empty or InterruptedError:
                     if q.closed.value and q.empty():
-                        self.current[i] = TimestampedData(time=np.inf)
+                        self.current[i] = Timestamp(time=np.inf)
                     time.sleep(0.1)
                     return
         n = 0
@@ -361,11 +361,11 @@ class TriggerAnalyzer(AnalysisStep):
         if any(c is None for c in self.current):
             return
 
-        self.output_trigger_queue.put(TimestampedData(time=self.last_trigger_time))
+        self.output_trigger_queue.put(Timestamp(time=self.last_trigger_time))
         self.last_trigger_time = self.current_trigger_time
 
         try:
-            self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1)
+            self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1).time
         except queue.Empty or InterruptedError:
             self.current_trigger_time = None
         self.current_trigger_idx += 1
@@ -375,8 +375,8 @@ class TDCFilter(AnalysisStep):
     def __init__(
             self,
             tdc_queue: SDQueue[TDCData],
-            tdc1_queue: SDQueue[TimestampedData],
-            tdc2_queue: SDQueue[TimestampedData],
+            tdc1_queue: SDQueue[Timestamp],
+            tdc2_queue: SDQueue[Timestamp],
             **kwargs
     ):
         super().__init__(**kwargs)
@@ -395,6 +395,6 @@ class TDCFilter(AnalysisStep):
             return
 
         if tdc[1] == 1:
-            self.tdc1_queue.put(TimestampedData(time=tdc[0]))
+            self.tdc1_queue.put(Timestamp(time=tdc[0]))
         elif tdc[1] == 3:
-            self.tdc2_queue.put(TimestampedData(time=tdc[0]))
+            self.tdc2_queue.put(Timestamp(time=tdc[0]))

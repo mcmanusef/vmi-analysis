@@ -314,9 +314,9 @@ class StructuredDataQueue[T: TimestampedData](Queue[T]):
             return out
 
         current = super().get(block, timeout)
-        current.time += self.current_sum
+        current = current._replace(time=self.current_sum + current.time)
         while current.time < self.last - max_back:
-            current.time += period
+            current = current._replace(time=period + current.time)
             self.current_sum += period
 
         self.last = current.time

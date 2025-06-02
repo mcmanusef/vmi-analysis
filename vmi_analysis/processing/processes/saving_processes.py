@@ -77,6 +77,8 @@ class SaveToH5(AnalysisStep):
             data_sets = {}
             if self.flat[key]:
                 for sub_key in q.names.keys():
+                    print(sub_key)
+                    print(q.names, q.dtypes)
                     name = q.names[sub_key]
                     dtype = q.dtypes[sub_key]
                     data_sets[sub_key] = f.create_dataset(name, (self.chunk_size,), dtype=dtype, maxshape=(None,))
@@ -125,6 +127,11 @@ class SaveToH5(AnalysisStep):
                 if self.verbose:
                     print(f"Queue {max_name} empty")
                 break
+
+        if len(to_write) == 0:
+            self.time_since_last_save += 1
+            time.sleep(1)
+            return
 
         data_lists = {k: [d[k] for d in to_write] for k in to_write[0].keys()}
 
