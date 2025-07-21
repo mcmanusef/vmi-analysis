@@ -1,22 +1,8 @@
-import logging
-import time
-
-import matplotlib.pyplot as plt
-
-import uconn_test_pipelines
+import uconn_pipelines
+from vmi_analysis.processing.pipelines import run_pipeline
+from vmi_analysis.processing.processes import CustomClusterer
 
 if __name__ == "__main__":
-    pipeline = uconn_test_pipelines.LiveMonitorPipeline()
-    logger = logging.getLogger()
-
-    with pipeline:
-        print("Pipeline Initialized")
-        for process in pipeline.processes.values():
-            print(process.status())
-        pipeline.start()
-        print("Pipeline Started")
-        time.sleep(30)
-    print("Pipeline Exited")
-    plt.figure()
-    plt.imshow(pipeline.acc_frame)
-    plt.show()
+    pipeline = uconn_pipelines.CV4ConverterPipeline(input_path=r"J:\ctgroup\Edward\DATA\VMI\20250522\515 Ellipticity Scan\0",
+                                                    output_path="test.cv4", cluster_class=CustomClusterer)
+    run_pipeline(pipeline)

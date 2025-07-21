@@ -303,7 +303,7 @@ class StructuredDataQueue[T: TimestampedData](Queue[T]):
     def get_monotonic(
         self,
         period: int = 25 * 2**30,
-        max_back: float = 0,
+            max_back: float = 1e9,
         block: bool = True,
         timeout: float | None = None,
     ) -> T:

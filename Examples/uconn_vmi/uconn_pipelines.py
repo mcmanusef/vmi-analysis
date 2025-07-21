@@ -92,7 +92,6 @@ class VMIConverterPipeline(PostProcessingPipeline):
             "pixel": data_types.MonotonicQueue[PixelData](
                     dtypes=PixelData.c_dtypes,
                     names={"time": "toa", "x": "x", "y": "y", "tot": "tot"},
-                unwrap=True,
                 max_back=1e9,
                 chunk_size=10000,
             ),
@@ -116,12 +115,12 @@ class VMIConverterPipeline(PostProcessingPipeline):
                 chunk_size=10000,
             ),
             "t_etof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
-                    dtypes=IndexedData.c_dtypes + Timestamp.c_dtypes,
+                    dtypes={**IndexedData.c_dtypes, **Timestamp.c_dtypes},
                     names={"index": "etof_corr", "time": "t_etof"},
                 chunk_size=2000,
             ),
             "t_itof": data_types.StructuredDataQueue[Timestamp](
-                    dtypes=IndexedData.c_dtypes + Timestamp.c_dtypes,
+                    dtypes={**IndexedData.c_dtypes, **Timestamp.c_dtypes},
                     names={"index": "itof_corr", "time": "t_itof"},
                 chunk_size=2000,
             ),
