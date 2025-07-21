@@ -268,8 +268,9 @@ class CustomClusterer(AnalysisStep):
 
         for c in clusters:
             self.cluster_queue.put(ClusterData(time=c[0], x=c[1], y=c[2]))
-        for i, p in enumerate(pixels):
-            if self.output_pixel_queue:
+
+        if self.output_pixel_queue:
+            for i, p in enumerate(pixels):
                 (
                     self.output_pixel_queue.put(IndexedData(index=self.group_index + cluster_index[i], data=p))
                     if cluster_index[i] >= 0
@@ -347,7 +348,7 @@ class TriggerAnalyzer(AnalysisStep):
                     return
                 n += 1
 
-                out = self.current[i]._replace(time=self.current[i].time - self.current_trigger_time)
+                out = self.current[i]._replace(time=self.current[i].time - self.last_trigger_time)
 
                 self.indexed_queues[i].put(
                         IndexedData(index=self.current_trigger_idx, data=out)

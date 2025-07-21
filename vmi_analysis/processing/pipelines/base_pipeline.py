@@ -1,7 +1,8 @@
+import logging
 import multiprocessing
 import time
+
 from .. import data_types, processes
-import logging
 
 
 class BasePipeline:
@@ -109,7 +110,7 @@ class BasePipeline:
         return False
 
 
-def run_pipeline(target_pipeline: BasePipeline, forever=False):
+def run_pipeline(target_pipeline: BasePipeline, forever=False, sample=False):
     print("Initializing pipeline")
     with target_pipeline:
         for name, process in target_pipeline.processes.items():
@@ -130,5 +131,10 @@ def run_pipeline(target_pipeline: BasePipeline, forever=False):
                         print(
                             f"\t{qname} ({'Closed' if q.closed.value else 'Open'}) queue size: {q.qsize()} (internal: {q.queue.qsize()})"
                         )
+                        if sample:
+                            if not q.closed.value and q.qsize() > 0:
+                                print(f"\tSample: {q.get()}")
+                            if isinstance(q, data_types.MonotonicQueue):
+                                print(q.current_sum)
             time.sleep(1)
             print("\n")

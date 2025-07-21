@@ -6,6 +6,7 @@ from vmi_analysis.processing.pipelines import TPXFileConverter
 if __name__ == "__main__":
     pipelines = {
         'TPX Converter': (TPXFileConverter, ".h5"),
+        'UV4 Converter': (uconn_pipelines.VMIConverterPipeline, ".h5"),
         'CV4 Converter': (uconn_pipelines.CV4ConverterPipeline, ".cv4")
     }
     synchronous_pipelines = {
