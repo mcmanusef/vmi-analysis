@@ -1,21 +1,15 @@
-import time
-import typing
 import queue
+import time
 
-
-import sklearn.cluster
 import numpy as np
+import sklearn.cluster
 
 from vmi_analysis.processing.tpx_conversion import (
-    apply_timewalk,
     average_over_clusters,
     cluster,
     find_distance_matrix,
     precompute_distance_matrix,
-    process_chunk,
     process_packet,
-    sort_tdcs,
-    toa_correction,
 )
 from .base_process import AnalysisStep
 from ..data_types import (
@@ -25,12 +19,13 @@ from ..data_types import (
     Chunk,
     PixelData,
     TDCData,
-    ToF,
-    TriggerTime,
-    structure,
-    unstructure,
+    Trigger,
+    TimestampedData,
+    IndexedData, Timestamp,
 )
 from ..tpx_constants import PERIOD
+
+
 # from ..tpx_conversion import *
 
 
@@ -50,11 +45,10 @@ class TPXConverter(AnalysisStep):
     def __init__(
         self,
         chunk_queue: Queue[Chunk],
-        pixel_queue: SDQueue[PixelData],
+            pixel_queue: SDQueue[PixelData],  # Need to fix. should be SDQueue[list[PixelData]]?
         tdc_queue: SDQueue[TDCData],
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
         self.name = "TPXConverter"
         self.chunk_queue = chunk_queue
         self.pixel_queue = pixel_queue
@@ -65,13 +59,15 @@ class TPXConverter(AnalysisStep):
     def action(self):
         try:
             chunk = self.chunk_queue.get(timeout=1)
-        except queue.Empty or InterruptedError:
+        except queue.Empty:
             return
 
         for packet in chunk:
             data_type, packet_data = process_packet(packet)
             if data_type == 1:
-                self.pixel_queue.put(packet_data)
+                self.pixel_queue.put(
+                        PixelData(time=packet_data[0], x=packet_data[1], y=packet_data[2], tot=packet_data[3])
+                )
             elif data_type == 0:
                 tdc_type, c_time, ftime, _ = packet_data
                 tdc_time = 3.125 * c_time + 0.260 * ftime
@@ -86,92 +82,9 @@ class TPXConverter(AnalysisStep):
                     if tdc_type == 11
                     else 0
                 )
-                self.tdc_queue.put((tdc_time, tdc_type))
-
-
-class VMIConverter(AnalysisStep):
-    """
-    Converts binary data from the VMI into PixelData, TriggerTime, electron ToF, and ion ToF, and puts them into the appropriate queues.
-    Experiment specific, but can be used as a template for other experiments
-
-    Parameters:
-    - chunk_queue: The queue containing the binary data chunks
-    - pixel_queue: The queue to put PixelData into (Chunked [[(time, x, y, tot), ...], ...])
-    - laser_queue: The queue to put TriggerTime into (Unchunked [time, ...])
-    - etof_queue: The queue to put electron ToF into (Unchunked [time, ...])
-    - itof_queue: The queue to put ion ToF into (Unchunked [time, ...])
-
-    - cutoff: The cutoff for distinguishing between ion tof and laser pulses, where a TDC1 event with length greater than the cutoff
-    is considered a laser pulse, and a TDC1 event with length less than the cutoff is considered an ion pulse.
-
-    - timewalk_file: The file containing the timewalk correction data. Not well tested, but should work.
-    - toa_corr: The time of arrival correction to apply to the data. Specific to our experiment, as there is an area of
-    artificially high toa values that need to be corrected
-
-    - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
-    """
-
-    cutoff: float
-    chunk_queue: Queue[Chunk]
-    pixel_queue: Queue[list[PixelData]]
-    laser_queue: Queue[TriggerTime]
-    etof_queue: Queue[ToF]
-    itof_queue: Queue[ToF]
-
-    def __init__(
-        self,
-        chunk_queue,
-        pixel_queue,
-        laser_queue,
-        etof_queue,
-        itof_queue,
-        cutoff=300,
-        timewalk_file=None,
-        toa_corr=25,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.chunk_queue = chunk_queue
-        self.pixel_queue = pixel_queue
-        self.laser_queue = laser_queue
-        self.etof_queue = etof_queue
-        self.itof_queue = itof_queue
-        self.cutoff = cutoff
-        self.output_queues = (pixel_queue, laser_queue, etof_queue, itof_queue)
-        self.input_queues = (chunk_queue,)
-        self.timewalk_file = timewalk_file
-        self.timewalk_correction = None
-        self.toa_correction = toa_corr
-        self.name = "VMIConverter"
-
-    def initialize(self):
-        if self.timewalk_file:
-            self.timewalk_correction = np.loadtxt(self.timewalk_file)
-        super().initialize()
-
-    def action(self):
-        try:
-            chunk = self.chunk_queue.get(timeout=1)
-        except queue.Empty or InterruptedError:
-            return
-        pixels, tdcs = process_chunk(chunk)
-        # pixels = [(toa * PIXEL_RES, x, y, tot) for toa, x, y, tot in pixels]
-
-        if pixels:
-            if self.timewalk_correction is not None:
-                pixels = apply_timewalk(pixels, self.timewalk_correction)
-            if self.toa_correction:
-                pixels = toa_correction(pixels, self.toa_correction)
-
-        self.pixel_queue.put(pixels) if pixels else None
-
-        etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
-        for t in etof:
-            self.etof_queue.put(t)
-        for t in itof:
-            self.itof_queue.put(t)
-        for t in pulses:
-            self.laser_queue.put(t)
+                self.tdc_queue.put(
+                        TDCData(time=tdc_time, type=tdc_type)
+                )
 
 
 class DBSCANClusterer(AnalysisStep):
@@ -190,6 +103,7 @@ class DBSCANClusterer(AnalysisStep):
 
     pixel_queue: Queue[list[PixelData]]
     cluster_queue: Queue[ClusterData]
+    output_pixel_queue: Queue[IndexedData[PixelData]] | None
 
     def __init__(
         self,
@@ -233,7 +147,12 @@ class DBSCANClusterer(AnalysisStep):
             return
         if len(pixels) == 0:
             return
-        toa, x, y, tot = map(np.asarray, zip(*pixels))
+
+        toa = np.array([p.time for p in pixels])
+        x = np.array([p.x for p in pixels])
+        y = np.array([p.y for p in pixels])
+        tot = np.array([p.tot for p in pixels])
+
         if np.max(toa) - np.min(toa) > PERIOD / 2:
             return
 
@@ -242,12 +161,14 @@ class DBSCANClusterer(AnalysisStep):
         clusters = average_over_clusters(cluster_index, toa, x, y, tot)
 
         for c in clusters:
-            self.cluster_queue.put(c)
+            self.cluster_queue.put(ClusterData(time=c[0], x=c[1], y=c[2]))
         for i, p in enumerate(pixels):
             if self.output_pixel_queue:
-                self.output_pixel_queue.put(
-                    (p, self.group_index + cluster_index[i])
-                ) if cluster_index[i] >= 0 else self.output_pixel_queue.put((p, -1))
+                (
+                    self.output_pixel_queue.put(IndexedData(index=self.group_index + cluster_index[i], data=p))
+                    if cluster_index[i] >= 0
+                    else self.output_pixel_queue.put(IndexedData(index=-1, data=p))
+                )
 
         self.group_index += np.max(cluster_index) + 1
 
@@ -301,13 +222,13 @@ class CustomClusterer(AnalysisStep):
 
     pixel_queue: Queue[list[PixelData]]
     cluster_queue: Queue[ClusterData]
+    output_pixel_queue: Queue[IndexedData[PixelData]]
 
     def __init__(
         self,
         pixel_queue,
         cluster_queue,
         output_pixel_queue=None,
-        clusterer=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -333,7 +254,12 @@ class CustomClusterer(AnalysisStep):
             return
         if len(pixels) == 0:
             return
-        toa, x, y, tot = map(np.asarray, zip(*pixels))
+
+        toa = np.array([p.time for p in pixels])
+        x = np.array([p.x for p in pixels])
+        y = np.array([p.y for p in pixels])
+        tot = np.array([p.tot for p in pixels])
+
         if np.max(toa) - np.min(toa) > PERIOD / 2:
             return
 
@@ -341,12 +267,14 @@ class CustomClusterer(AnalysisStep):
         clusters = average_over_clusters(cluster_index, toa, x, y, tot)
 
         for c in clusters:
-            self.cluster_queue.put(c)
+            self.cluster_queue.put(ClusterData(time=c[0], x=c[1], y=c[2]))
         for i, p in enumerate(pixels):
             if self.output_pixel_queue:
-                self.output_pixel_queue.put(
-                    (p, self.group_index + cluster_index[i])
-                ) if cluster_index[i] >= 0 else self.output_pixel_queue.put((p, -1))
+                (
+                    self.output_pixel_queue.put(IndexedData(index=self.group_index + cluster_index[i], data=p))
+                    if cluster_index[i] >= 0
+                    else self.output_pixel_queue.put(IndexedData(index=-1, data=p))
+                )
         self.group_index += np.max(cluster_index) + 1
 
 
@@ -366,10 +294,10 @@ class TriggerAnalyzer(AnalysisStep):
     time relative to the trigger time.
     """
 
-    input_trigger_queue: Queue[TriggerTime]
-    queues_to_index: tuple[Queue, ...]
-    output_trigger_queue: Queue[TriggerTime]
-    indexed_queues: tuple[Queue[tuple[int, typing.Any]], ...]
+    input_trigger_queue: Queue[Trigger]
+    queues_to_index: tuple[Queue[TimestampedData], ...]
+    output_trigger_queue: Queue[Trigger]
+    indexed_queues: tuple[Queue[tuple[int, TimestampedData]], ...]
 
     def __init__(
         self,
@@ -389,16 +317,15 @@ class TriggerAnalyzer(AnalysisStep):
         self.name = "TriggerAnalyzer"
 
         # The current value being processed for each queue
-        self.current: list[list[int | float] | None] = [None for _ in queues_to_index]
+        self.current: list[TimestampedData | None] = [None for _ in queues_to_index]
         self.current_trigger_idx = 0
         self.last_trigger_time = -1
         self.current_trigger_time = None
-        self.current_samples = [None for _ in queues_to_index]
 
     def action(self):
         while self.current_trigger_time is None:
             try:
-                self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1)
+                self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1).time
             except queue.Empty or InterruptedError:
                 time.sleep(0.1)
                 return
@@ -406,33 +333,27 @@ class TriggerAnalyzer(AnalysisStep):
         for i, q in enumerate(self.queues_to_index):
             if self.current[i] is None:
                 try:
-                    c = q.get(timeout=0.1)
-                    if self.current_samples[i] is None:
-                        self.current_samples[i] = c
-                    self.current[i] = list(unstructure(c))
+                    self.current[i] = q.get(timeout=0.1)
 
                 except queue.Empty or InterruptedError:
                     if q.closed.value and q.empty():
-                        self.current[i] = [
-                            np.inf,
-                        ]
+                        self.current[i] = Timestamp(time=np.inf)
                     time.sleep(0.1)
                     return
         n = 0
         for i, q in enumerate(self.queues_to_index):
-            while self.current[i][0] < self.current_trigger_time:  # type: ignore
+            while self.current[i].time < self.current_trigger_time:
                 if n > 1000:
                     return
                 n += 1
 
-                out: list[int | float] = self.current[i]  # type: ignore
-                out[0] -= self.last_trigger_time
+                out = self.current[i]._replace(time=self.current[i].time - self.current_trigger_time)
+
                 self.indexed_queues[i].put(
-                    (self.current_trigger_idx, structure(self.current_samples[i], out))
+                        IndexedData(index=self.current_trigger_idx, data=out)
                 )
                 try:
-                    c = q.get(block=False)
-                    self.current[i] = list(unstructure(c))
+                    self.current[i] = q.get(block=False)
                 except queue.Empty or InterruptedError:
                     self.current[i] = None
                     break
@@ -440,19 +361,24 @@ class TriggerAnalyzer(AnalysisStep):
         if any(c is None for c in self.current):
             return
 
-        self.output_trigger_queue.put(self.last_trigger_time)
+        self.output_trigger_queue.put(Timestamp(time=self.last_trigger_time))
         self.last_trigger_time = self.current_trigger_time
 
         try:
-            self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1)
+            self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1).time
         except queue.Empty or InterruptedError:
             self.current_trigger_time = None
-        # print(self.current_trigger_time, self.last_trigger_time, self.current_trigger_idx, self.current)
         self.current_trigger_idx += 1
 
 
 class TDCFilter(AnalysisStep):
-    def __init__(self, tdc_queue, tdc1_queue, tdc2_queue, **kwargs):
+    def __init__(
+            self,
+            tdc_queue: SDQueue[TDCData],
+            tdc1_queue: SDQueue[Timestamp],
+            tdc2_queue: SDQueue[Timestamp],
+            **kwargs
+    ):
         super().__init__(**kwargs)
         self.tdc_queue = tdc_queue
         self.tdc1_queue = tdc1_queue
@@ -467,7 +393,8 @@ class TDCFilter(AnalysisStep):
         except queue.Empty:
             time.sleep(0.1)
             return
+
         if tdc[1] == 1:
-            self.tdc1_queue.put(tdc[0])
+            self.tdc1_queue.put(Timestamp(time=tdc[0]))
         elif tdc[1] == 3:
-            self.tdc2_queue.put(tdc[0])
+            self.tdc2_queue.put(Timestamp(time=tdc[0]))

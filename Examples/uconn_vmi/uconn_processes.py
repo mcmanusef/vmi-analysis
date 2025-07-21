@@ -6,12 +6,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from vmi_analysis.processing.data_types import (
-    StructuredDataQueue,
     Queue,
     Chunk,
     PixelData,
-    TriggerTime,
-    ToF,
+    Trigger,
+    ToF, Timestamp,
 )
 from vmi_analysis.processing.processes import AnalysisStep
 from vmi_analysis.processing.tpx_conversion import (
@@ -44,17 +43,24 @@ class VMIConverter(AnalysisStep):
     - kwargs: Additional keyword arguments to pass to the AnalysisStep constructor
     """
 
+    cutoff: float
+    chunk_queue: Queue[Chunk]
+    pixel_queue: Queue[list[PixelData]]
+    laser_queue: Queue[Trigger]
+    etof_queue: Queue[ToF]
+    itof_queue: Queue[ToF]
+
     def __init__(
-        self,
-        chunk_queue: Queue[Chunk],
-        pixel_queue: Queue[list[PixelData]],
-        laser_queue: StructuredDataQueue[TriggerTime],
-        etof_queue: StructuredDataQueue[ToF],
-        itof_queue: StructuredDataQueue[ToF],
-        cutoff: float = 300.0,
-        timewalk_file=None,
-        toa_corr=25,
-        **kwargs,
+            self,
+            chunk_queue: Queue[Chunk],
+            pixel_queue: Queue[list[PixelData]],
+            laser_queue: Queue[Trigger],
+            etof_queue: Queue[ToF],
+            itof_queue: Queue[ToF],
+            cutoff=300,
+            timewalk_file=None,
+            toa_corr=25,
+            **kwargs,
     ):
         super().__init__(**kwargs)
         self.chunk_queue = chunk_queue
@@ -81,7 +87,6 @@ class VMIConverter(AnalysisStep):
         except queue.Empty or InterruptedError:
             return
         pixels, tdcs = process_chunk(chunk)
-        # pixels = [(toa * PIXEL_RES, x, y, tot) for toa, x, y, tot in pixels]
 
         if pixels:
             if self.timewalk_correction is not None:
@@ -89,16 +94,15 @@ class VMIConverter(AnalysisStep):
             if self.toa_correction:
                 pixels = toa_correction(pixels, self.toa_correction)
 
-        self.pixel_queue.put(pixels) if pixels else None
+        self.pixel_queue.put([PixelData(time=pix[0], x=pix[1], y=pix[2], tot=pix[3]) for pix in pixels]) if pixels else None
 
         etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
         for t in etof:
-            self.etof_queue.put(t)
+            self.etof_queue.put(Timestamp(t))
         for t in itof:
-            self.itof_queue.put(t)
+            self.itof_queue.put(Timestamp(t))
         for t in pulses:
-            self.laser_queue.put(t)
-
+            self.laser_queue.put(Timestamp(t))
 
 class Display(AnalysisStep):
     def __init__(

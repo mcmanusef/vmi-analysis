@@ -13,10 +13,13 @@ dependencies = [
     "numba>=0.61.0",
     "numpy>=2.1.3",
     "opencv-python>=4.11.0.86",
+    "orca>=1.8",
     "pandas>=2.2.3",
     "plotly>=6.0.0",
     "requests>=2.32.3",
+    "scikit-image>=0.25.2",
     "scikit-learn>=1.6.1",
+    "tables>=3.10.2",
 ]
 
 [dependency-groups]

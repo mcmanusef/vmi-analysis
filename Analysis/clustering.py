@@ -7,7 +7,7 @@ def convert_cv4(fname):
     pipeline = CV4ConverterPipeline(
         fname,
         fname + ".cv4",
-        cluster_processes=4,
+            cluster_processes=1,
         converter_processes=1,
         cluster_class=CustomClusterer,
     )
@@ -43,7 +43,7 @@ def continuous_bulk_convert_cv4(dirname):
 
 
 if __name__ == "__main__":
-    file = r"C:\DATA\20250227\xe_2,5W"
-    bulk_convert_cv4(file)
+    file = r"J:\ctgroup\Edward\DATA\VMI\20250404\1w 515nm PO"
+    convert_cv4(file)
     # continuous_bulk_convert_cv4(file)
 # %%
