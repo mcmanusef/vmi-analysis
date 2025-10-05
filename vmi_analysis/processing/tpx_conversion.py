@@ -105,14 +105,20 @@ def cluster_pixels(pixels, dbscan):
 
 @njit(cache=True)
 def average_over_clusters(cluster_index, toa, x, y, tot):
+    tot_thresh = 0
+    cluster_index, toa, x, y, tot = cluster_index[tot > tot_thresh], toa[tot > tot_thresh], x[tot > tot_thresh], y[tot > tot_thresh], tot[
+        tot > tot_thresh],
     clusters = []
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
         for i in range(max(cluster_index) + 1):
+            if np.sum(cluster_index == i) < 3:
+                continue
             clusters.append(
                 (
-                    np.average(
-                        toa[cluster_index == i], weights=tot[cluster_index == i]
+                    np.min(
+                            toa[cluster_index == i]
                     ),
+                    # np.average(toa[cluster_index == i], weights=tot[cluster_index == i]),
                     np.average(x[cluster_index == i], weights=tot[cluster_index == i]),
                     np.average(y[cluster_index == i], weights=tot[cluster_index == i]),
                 )

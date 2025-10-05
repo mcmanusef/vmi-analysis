@@ -104,7 +104,7 @@ class VMIConverterPipeline(PostProcessingPipeline):
             ),
             "itof": data_types.MonotonicQueue[Timestamp](
                     dtypes=Timestamp.c_dtypes,
-                    names={"time": "itof"},
+                    names={"time": "tof"},
                 max_back=1e9,
                 chunk_size=2000,
             ),
@@ -119,9 +119,9 @@ class VMIConverterPipeline(PostProcessingPipeline):
                     names={"index": "etof_corr", "time": "t_etof"},
                 chunk_size=2000,
             ),
-            "t_itof": data_types.StructuredDataQueue[Timestamp](
+            "t_tof": data_types.StructuredDataQueue[Timestamp](
                     dtypes={**IndexedData.c_dtypes, **Timestamp.c_dtypes},
-                    names={"index": "itof_corr", "time": "t_itof"},
+                    names={"index": "tof_corr", "time": "t_tof"},
                 chunk_size=2000,
             ),
             "t_pulse": data_types.StructuredDataQueue[Timestamp](
@@ -151,14 +151,14 @@ class VMIConverterPipeline(PostProcessingPipeline):
                 self.queues["pulses"],
                 (self.queues["etof"], self.queues["itof"], self.queues["pixel"]),
                 self.queues["t_pulse"],
-                (self.queues["t_etof"], self.queues["t_itof"], self.queues["t_pixel"]),
+                    (self.queues["t_etof"], self.queues["t_tof"], self.queues["t_pixel"]),
             ).make_process(),
             "Saver": processes.SaveToH5(
                 output_path,
                 {
                     "pixel": self.queues["t_pixel"],
                     "etof": self.queues["t_etof"],
-                    "itof": self.queues["t_itof"],
+                    "tof": self.queues["t_tof"],
                     "pulses": self.queues["t_pulse"],
                 },
             ).make_process(),
@@ -222,7 +222,7 @@ class CV4ConverterPipeline(PostProcessingPipeline):
             ),
             "t_itof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
                     dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
-                    names={"index": "itof_corr", "time": "t_itof"},
+                    names={"index": "tof_corr", "time": "t_tof"},
                 chunk_size=10000,
             ),
             "t_pulse": data_types.StructuredDataQueue[Timestamp](
