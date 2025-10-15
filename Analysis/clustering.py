@@ -52,8 +52,8 @@ def continuous_bulk_convert_cv4(dirname):
 
 
 if __name__ == "__main__":
-    file = r"J:\ctgroup\Edward\DATA\VMI\20250926\PO 2,0 W 515nm\test000125.tpx3"
-    convert_cv4(file)
+    file = r"C:\DATA\StonyBrookCollab\2025_10_01_tpx\CHD\servalcode_test1_2025-10-01_11-49"
+    convert_stonybrook(file)
     # bulk_convert_cv4(file)
     # continuous_bulk_convert_cv4(file)
 # %%

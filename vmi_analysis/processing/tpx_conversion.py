@@ -198,7 +198,7 @@ def apply_timewalk(pixels, timewalk_correction):
 # @njit(cache=True)
 def toa_correction(pixels, correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
-        pixels[i] = (toa - correction, x, y, tot)
+        pixels[i] = (toa - correction, x, y, tot) if 194 <= x < 204 else (toa, x, y, tot)
     return pixels
 
 

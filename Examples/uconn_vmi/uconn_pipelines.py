@@ -115,12 +115,12 @@ class VMIConverterPipeline(PostProcessingPipeline):
                 chunk_size=10000,
             ),
             "t_etof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
-                    dtypes={**IndexedData.c_dtypes, **Timestamp.c_dtypes},
+                    dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
                     names={"index": "etof_corr", "time": "t_etof"},
                 chunk_size=2000,
             ),
             "t_tof": data_types.StructuredDataQueue[Timestamp](
-                    dtypes={**IndexedData.c_dtypes, **Timestamp.c_dtypes},
+                    dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
                     names={"index": "tof_corr", "time": "t_tof"},
                 chunk_size=2000,
             ),
@@ -130,7 +130,7 @@ class VMIConverterPipeline(PostProcessingPipeline):
                     chunk_size=10000
             ),
             "t_pixel": data_types.StructuredDataQueue[IndexedData[PixelData]](
-                    dtypes=IndexedData.c_dtypes + PixelData.c_dtypes,
+                    dtypes=IndexedData.c_dtypes | PixelData.c_dtypes,
                     names={"index": "pixel_corr", "time": "t", "x": "x", "y": "y", "tot": "tot"},
                 chunk_size=10000,
             ),
@@ -146,6 +146,8 @@ class VMIConverterPipeline(PostProcessingPipeline):
                 self.queues["pulses"],
                 self.queues["etof"],
                 self.queues["itof"],
+                    unpack_pixels=True,
+                    max_back=1e9,
             ).make_process(),
             "Correlator": processes.TriggerAnalyzer(
                 self.queues["pulses"],
@@ -269,6 +271,7 @@ class CV4ConverterPipeline(PostProcessingPipeline):
                         laser_queue=self.queues["pulses"],
                         etof_queue=self.queues["etof"],
                         itof_queue=self.queues["itof"],
+                        timewalk_file=r"timewalk_correction.npy"
                 )
             }
         else:

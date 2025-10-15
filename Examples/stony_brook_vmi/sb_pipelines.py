@@ -37,7 +37,7 @@ class StonyBrookClusterPipeline(BasePipeline):
             "Reader": processes.TPXFileReader(
                 input_path, self.queues["chunk"]
             ).make_process(),
-            "Converter": VMIConverter(
+            "Converter": SBVMIConverter(
                 self.queues["chunk"], queues["pixel"], queues["tdc"]
             ).make_process(),
             "Clusterer": processes.CustomClusterer(

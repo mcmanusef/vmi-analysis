@@ -263,7 +263,7 @@ class CustomClusterer(AnalysisStep):
         if np.max(toa) - np.min(toa) > PERIOD / 2:
             return
 
-        cluster_index = cluster(x, y, 10, 10, 15)
+        cluster_index = cluster(x, y, 2, 10, 15)
         clusters = average_over_clusters(cluster_index, toa, x, y, tot)
 
         for c in clusters:
