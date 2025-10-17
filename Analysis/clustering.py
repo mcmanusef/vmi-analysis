@@ -1,3 +1,4 @@
+from sb_pipelines import StonyBrookClusterPipeline
 from uconn_pipelines import CV4ConverterPipeline
 from vmi_analysis.processing.pipelines import run_pipeline
 from vmi_analysis.processing.processes import *
@@ -10,6 +11,14 @@ def convert_cv4(fname):
             cluster_processes=1,
         converter_processes=1,
         cluster_class=CustomClusterer,
+    )
+    run_pipeline(pipeline)
+
+
+def convert_stonybrook(fname):
+    pipeline = StonyBrookClusterPipeline(
+            fname,
+            fname + ".cv4",
     )
     run_pipeline(pipeline)
 
@@ -43,7 +52,8 @@ def continuous_bulk_convert_cv4(dirname):
 
 
 if __name__ == "__main__":
-    file = r"J:\ctgroup\Edward\DATA\VMI\20250701\1,5_W_Pump__3_W_Probe"
+    file = r"J:\ctgroup\Edward\DATA\VMI\20251015\Xenon Ellipticity Scan 4W"
+    # convert_stonybrook(file)
     bulk_convert_cv4(file)
     # continuous_bulk_convert_cv4(file)
 # %%

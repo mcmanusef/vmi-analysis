@@ -60,6 +60,7 @@ class VMIConverter(AnalysisStep):
             cutoff=300,
             timewalk_file=None,
             toa_corr=25,
+            unpack_pixels=False,
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -75,10 +76,11 @@ class VMIConverter(AnalysisStep):
         self.timewalk_correction = None
         self.toa_correction = toa_corr
         self.name = "VMIConverter"
+        self.unpack_pixels = unpack_pixels
 
     def initialize(self):
         if self.timewalk_file:
-            self.timewalk_correction = np.loadtxt(self.timewalk_file)
+            self.timewalk_correction = np.load(self.timewalk_file)
         super().initialize()
 
     def action(self):
@@ -94,7 +96,11 @@ class VMIConverter(AnalysisStep):
             if self.toa_correction:
                 pixels = toa_correction(pixels, self.toa_correction)
 
-        self.pixel_queue.put([PixelData(time=pix[0], x=pix[1], y=pix[2], tot=pix[3]) for pix in pixels]) if pixels else None
+        if not self.unpack_pixels:
+            self.pixel_queue.put([PixelData(time=pix[0], x=pix[1], y=pix[2], tot=pix[3]) for pix in pixels]) if pixels else None
+        else:
+            for pix in pixels:
+                self.pixel_queue.put(PixelData(time=pix[0], x=pix[1], y=pix[2], tot=pix[3]))
 
         etof, itof, pulses = sort_tdcs(self.cutoff, tdcs) if tdcs else ([], [], [])
         for t in etof:

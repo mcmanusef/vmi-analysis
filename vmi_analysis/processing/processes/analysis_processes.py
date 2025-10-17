@@ -263,7 +263,7 @@ class CustomClusterer(AnalysisStep):
         if np.max(toa) - np.min(toa) > PERIOD / 2:
             return
 
-        cluster_index = cluster(x, y, 10, 10, 15)
+        cluster_index = cluster(x, y, 2, 10, 15)
         clusters = average_over_clusters(cluster_index, toa, x, y, tot)
 
         for c in clusters:
@@ -290,7 +290,7 @@ class TriggerAnalyzer(AnalysisStep):
     - queues_to_index: A tuple of queues containing the data to index. The data should be in some nested tuple format, where the
     first element is the time of the data point, and the rest of the elements are the data associated with that time.
     - output_trigger_queue: A passthrough queue for the trigger times.
-    - indexed_queues: A tuple of queues to put the indexed data into. The indexed data is in the format (trigger_index, data) where
+    - indexed_queues: A tuple of queues to put the indexed data into. The indexed data is in the format (trigger_index, data) whered
     trigger_index is the index of the trigger time associated with the data point, and data is as in the input queues, but with the
     time relative to the trigger time.
     """

@@ -105,14 +105,20 @@ def cluster_pixels(pixels, dbscan):
 
 @njit(cache=True)
 def average_over_clusters(cluster_index, toa, x, y, tot):
+    tot_thresh = 0
+    cluster_index, toa, x, y, tot = cluster_index[tot > tot_thresh], toa[tot > tot_thresh], x[tot > tot_thresh], y[tot > tot_thresh], tot[
+        tot > tot_thresh],
     clusters = []
     if len(cluster_index) > 0 and max(cluster_index) >= 0:
         for i in range(max(cluster_index) + 1):
+            if np.sum(cluster_index == i) < 3:
+                continue
             clusters.append(
                 (
-                    np.average(
-                        toa[cluster_index == i], weights=tot[cluster_index == i]
+                    np.min(
+                            toa[cluster_index == i]
                     ),
+                    # np.average(toa[cluster_index == i], weights=tot[cluster_index == i]),
                     np.average(x[cluster_index == i], weights=tot[cluster_index == i]),
                     np.average(y[cluster_index == i], weights=tot[cluster_index == i]),
                 )
@@ -185,14 +191,17 @@ def apply_timewalk(pixels, timewalk_correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
         if tot >= len(timewalk_correction):
             pixels[i] = (toa - timewalk_correction[-1], x, y, tot)
-        pixels[i] = (toa - timewalk_correction[tot], x, y, tot)
+            # print(f"Warning: ToT {tot} out of range for timewalk correction")
+        else:
+            pixels[i] = (toa - timewalk_correction[tot], x, y, tot)
+            # print(f"corrected {toa} by {timewalk_correction[tot]}, tot {tot}")
     return pixels
 
 
 # @njit(cache=True)
 def toa_correction(pixels, correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
-        pixels[i] = (toa - correction, x, y, tot)
+        pixels[i] = (toa - correction, x, y, tot) if 194 <= x < 204 else (toa, x, y, tot)
     return pixels
 
 

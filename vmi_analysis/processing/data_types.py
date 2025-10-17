@@ -325,4 +325,20 @@ class StructuredDataQueue[T: TimestampedData](Queue[T]):
 
 class MonotonicQueue[T: TimestampedData](StructuredDataQueue[T]):
     def get(self, block=True, timeout=None) -> T:
-        return self.get_monotonic(block=block, timeout=timeout)
+        return self.get_monotonic(block=block, timeout=timeout, max_back=self.max_back, period=self.period)
+
+
+class UnpackingQueue[T: TimestampedData](StructuredDataQueue[Iterable[T]]):
+    def __init__(
+            self,
+            *args,
+            **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.out_queue = Queue[T]
+
+    def get(self, block=True, timeout=None) -> T:
+        if self.out_queue.empty():
+            chunk = super().get(block=block, timeout=timeout)
+            self.out_queue.put_all(chunk)
+        return self.out_queue.get()

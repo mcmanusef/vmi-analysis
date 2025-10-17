@@ -149,5 +149,5 @@ if __name__ == '__main__':
     #     for f2 in os.listdir(os.path.join(fname,f)):
         if f.endswith('.cv4'):
             print(f"Analyzing {f}")
-            analyze_file(os.path.join(fname,f))
+            analyze_file(os.path.join(fname, f), calibration=calibrations.calibration_20250303)
             print(f"Finished {f}")

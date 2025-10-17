@@ -1,10 +1,10 @@
 import os
-from attrs import define
-from cattrs import structure, transform_error
-import requests
 import pathlib
 import time
 
+import requests
+from attrs import define
+from cattrs import structure, transform_error
 
 DEFAULT_IP = "http://localhost:8080"
 
@@ -26,7 +26,8 @@ def set_acquisition_parameters(
             f"Error getting current acquisition parameters: {resp.text}"
         )
     config = resp.json()
-    config["BiasVoltage"] = 100
+    config["BiasVoltage"] = 50
+    config["BiasEnabled"] = True
     config["TriggerMode"] = "CONTINUOUS"
     config["ExposureTime"] = config["TriggerPeriod"] = frame_time
     config["nTriggers"] = int(duration / frame_time)
