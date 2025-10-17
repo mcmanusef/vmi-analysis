@@ -191,7 +191,10 @@ def apply_timewalk(pixels, timewalk_correction):
     for i, (toa, x, y, tot) in enumerate(pixels):
         if tot >= len(timewalk_correction):
             pixels[i] = (toa - timewalk_correction[-1], x, y, tot)
-        pixels[i] = (toa - timewalk_correction[tot], x, y, tot)
+            # print(f"Warning: ToT {tot} out of range for timewalk correction")
+        else:
+            pixels[i] = (toa - timewalk_correction[tot], x, y, tot)
+            # print(f"corrected {toa} by {timewalk_correction[tot]}, tot {tot}")
     return pixels
 
 

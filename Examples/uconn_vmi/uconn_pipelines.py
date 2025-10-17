@@ -271,7 +271,7 @@ class CV4ConverterPipeline(PostProcessingPipeline):
                         laser_queue=self.queues["pulses"],
                         etof_queue=self.queues["etof"],
                         itof_queue=self.queues["itof"],
-                        timewalk_file=r"timewalk_correction.npy"
+                        # timewalk_file=r"timewalk_correction.npy"
                 )
             }
         else:
