@@ -328,6 +328,9 @@ class TriggerAnalyzer(AnalysisStep):
             try:
                 self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1).time
             except queue.Empty or InterruptedError:
+                if self.input_trigger_queue.empty() and self.input_trigger_queue.closed.value:
+                    self.current_trigger_time = np.inf
+                    return
                 time.sleep(0.1)
                 return
 
@@ -362,8 +365,16 @@ class TriggerAnalyzer(AnalysisStep):
         if any(c is None for c in self.current):
             return
 
+        if self.last_trigger_time == np.inf:
+            if all(c.time == np.inf for c in self.current):
+                self.shutdown()
+            return
         self.output_trigger_queue.put(Timestamp(time=self.last_trigger_time))
         self.last_trigger_time = self.current_trigger_time
+
+        if self.current_trigger_time == np.inf:
+            return
+
 
         try:
             self.current_trigger_time = self.input_trigger_queue.get(timeout=0.1).time
