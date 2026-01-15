@@ -18,7 +18,7 @@ def convert_cv4(fname):
 def convert_stonybrook(fname):
     pipeline = StonyBrookClusterPipeline(
             fname,
-            fname + ".cv4",
+            fname + "cv4",
     )
     run_pipeline(pipeline)
 
@@ -52,8 +52,20 @@ def continuous_bulk_convert_cv4(dirname):
 
 
 if __name__ == "__main__":
-    file = r"J:\ctgroup\Edward\DATA\VMI\20251015\Xenon Ellipticity Scan 4W"
+    # dir =r"C:\DATA\StonyBrookCollab\2025_11_05_tpx"
+    # # file = r"C:\DATA\StonyBrookCollab\2025_11_05_tpx\prop_oxide_rotated_t0_2025-11-05_18-12"
+    # for folder in os.listdir(dir):
+    #     for f in os.listdir(os.path.join(dir, folder)):
+    #         if f.endswith(".tpx3"):
+    #             if not os.path.exists(os.path.join(dir,folder, f[:-4] + "cv4")):
+    #                 convert_stonybrook(os.path.join(dir, folder, f))
+
+    folder = r"C:\DATA\StonyBrookCollab\2025_11_05_tpx\prop_oxide_coarse_2025-11-05_16-34"
+    convert_stonybrook(folder)
+
+
     # convert_stonybrook(file)
-    bulk_convert_cv4(file)
+    # convert_cv4(file)
+    # bulk_convert_cv4(file)x
     # continuous_bulk_convert_cv4(file)
 # %%

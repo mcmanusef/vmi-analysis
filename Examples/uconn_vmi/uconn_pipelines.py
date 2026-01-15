@@ -502,3 +502,166 @@ class RunMonitorPipeline(BasePipeline):
             del self.processes["Clusterer"]
             self.processes.update({n: k.make_process() for n, k in proc.items()})
             self.processes["Weaver"] = weaver.make_process()
+
+
+class DiagnosticQueuePipeline(PostProcessingPipeline):
+    """
+    Pipeline for converting raw VMI data to CV4 files (H5 file with specific internal format).
+    Specific to our VMI setup.
+    Converts raw data to clustered pixel data, etof, itof, and pulse data.
+    Data are correlated with laser pulses.
+    Output Format:
+    - clusters: cluster_corr, t, x, y
+    - etof: etof_corr, t_etof
+    - itof: itof_corr, t_itof
+    - pulses: t_pulse
+    """
+
+    def __init__(
+            self,
+            input_path,
+            cluster_processes=1,
+            converter_processes=1,
+            cluster_class=None,
+    ):
+        super().__init__(input_path, "")
+
+        self.queues = {
+            "chunk": data_types.StructuredDataQueue(chunk_size=10000),
+            "pixel": data_types.StructuredDataQueue(chunk_size=10000),
+            "etof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
+                    names={"time": "etof"},
+                    force_monotone=True,
+                    chunk_size=10000
+            ),
+            "itof": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
+                    names={"time": "itof"},
+                    force_monotone=True,
+                    chunk_size=10000
+            ),
+            "pulses": data_types.MonotonicQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
+                    names={"time": "pulses"},
+                    force_monotone=True,
+                    chunk_size=10000
+            ),
+            "clusters": data_types.MonotonicQueue[data_types.ClusterData](
+                    dtypes=data_types.ClusterData.c_dtypes,
+                    names={"time": "toa", "x": "x", "y": "y"},
+                    force_monotone=True,
+                    chunk_size=10000,
+            ),
+            "t_etof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
+                    dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
+                    names={"index": "etof_corr", "time": "t_etof"},
+                    chunk_size=10000,
+            ),
+            "t_itof": data_types.StructuredDataQueue[IndexedData[Timestamp]](
+                    dtypes=IndexedData.c_dtypes | Timestamp.c_dtypes,
+                    names={"index": "tof_corr", "time": "t_tof"},
+                    chunk_size=10000,
+            ),
+            "t_pulse": data_types.StructuredDataQueue[Timestamp](
+                    dtypes=Timestamp.c_dtypes,
+                    names={"time": "t_pulse"},
+                    chunk_size=10000
+            ),
+            "t_cluster": data_types.StructuredDataQueue[IndexedData[data_types.ClusterData]](
+
+                    dtypes=IndexedData.c_dtypes | data_types.ClusterData.c_dtypes,
+                    names={"index": "cluster_corr", "time": "t", "x": "x", "y": "y"},
+                    chunk_size=10000,
+            ),
+            "grouped": data_types.Queue(),
+        }
+
+        cluster_class = (
+            processes.DBSCANClusterer if cluster_class is None else cluster_class
+        )
+
+        if cluster_processes == 1:
+            cluster_processes = {
+                "Clusterer": cluster_class(
+                        self.queues["pixel"], self.queues["clusters"]
+                )
+            }
+
+        else:
+            cluster_queues, cluster_processes = processes.multithread_process(
+                    cluster_class,
+                    {"pixel_queue": self.queues["pixel"]},
+                    {"cluster_queue": self.queues["clusters"]},
+                    cluster_processes,
+                    in_queue_kw_args={"chunk_size": 2000},
+                    out_queue_kw_args={"force_monotone": True, "chunk_size": 10000},
+                    name="Clusterer",
+            )
+            self.queues.update(cluster_queues)
+
+        if converter_processes == 1:
+            converter_processes = {
+                "Converter": uconn_processes.VMIConverter(
+                        chunk_queue=self.queues["chunk"],
+                        pixel_queue=self.queues["pixel"],
+                        laser_queue=self.queues["pulses"],
+                        etof_queue=self.queues["etof"],
+                        itof_queue=self.queues["itof"],
+                        # timewalk_file=r"timewalk_correction.npy"
+                )
+            }
+        else:
+            converter_queues, converter_processes = processes.multithread_process(
+                    uconn_processes.VMIConverter,
+                    {"chunk_queue": self.queues["chunk"]},
+                    {
+                        "pixel_queue": self.queues["pixel"],
+                        "laser_queue": self.queues["pulses"],
+                        "etof_queue": self.queues["etof"],
+                        "itof_queue": self.queues["itof"],
+                    },
+                    converter_processes,
+                    in_queue_kw_args={"chunk_size": 2000},
+                    out_queue_kw_args={
+                        "pixel_queue": {"chunk_size": 2000},
+                        "laser_queue": {"chunk_size": 10000, "force_monotone": True},
+                        "etof_queue": {"chunk_size": 2000, "force_monotone": True},
+                        "itof_queue": {"chunk_size": 2000, "force_monotone": True},
+                    },
+                    name="Converter",
+            )
+            self.queues.update(converter_queues)
+
+        self.processes = {
+            "Reader": processes.TPXFileReader(
+                    input_path, self.queues["chunk"]
+            ).make_process(),
+            **{n: k.make_process() for n, k in converter_processes.items()},
+            **{n: k.make_process() for n, k in cluster_processes.items()},
+            "Correlator": processes.TriggerAnalyzer(
+                    input_trigger_queue=self.queues["pulses"],
+                    queues_to_index=(
+                        self.queues["etof"],
+                        self.queues["itof"],
+                        self.queues["clusters"],
+                    ),
+                    output_trigger_queue=self.queues["t_pulse"],
+                    indexed_queues=(
+                        self.queues["t_etof"],
+                        self.queues["t_itof"],
+                        self.queues["t_cluster"],
+                    ),
+            ).make_process(),
+            "Grouper": processes.QueueGrouper(
+                    (
+                        self.queues["t_etof"],
+                        self.queues["t_itof"],
+                        self.queues["t_cluster"],
+                    ),
+                    self.queues["grouped"],
+            ).make_process(),
+        }
+
+    def get_grouped_queue(self):
+        return self.queues["grouped"]
