@@ -6,6 +6,11 @@ import coincidence_v4
 def itof_calibration(itof, t0=670.54):
     return ((itof - t0)/1803.29)**2
 
+def itof_calibration_20260820(itof, t0=582, scale=1735):
+    """Ion ToF calibration for the 20260820 runs: t = t0 + scale * sqrt(m/z),
+    inverted here as m/z = ((t - t0) / scale) ** 2."""
+    return ((itof - t0) / scale)**2
+
 def general_calibration(x, y, t, center, E_xy, E_t, angle=0., symmetrize=True, cutup=False):
     px = np.sqrt(2 * 0.0367493 * E_xy(x - center[0])) * np.sign(x - center[0])
     py = np.sqrt(2 * 0.0367493 * E_xy(y - center[1])) * np.sign(y - center[1])
@@ -115,5 +120,15 @@ def calibration_20250523(x, y, t, center=(118.5, 126, 500.4), angle=2.6301625143
             np.polyval([0.12542165461684168, -6.387291956347507, 121.53401756837005, 0, 0], t) ** 0.5
     )
     return general_calibration(x, y, t, center, E_xy, lambda t: E_xy(z(t)), angle, symmetrize, cutup)
+
+
+def calibration_20260820(x,y,t, center=(132.5, 134.5, 500.9), angle=-0.68, symmetrize=True, cutup=False):
+	E_xy=lambda x: 0.000519 * x**2
+	z = lambda t: np.where(
+		t < 0,
+		-np.polyval([np.float64(149.05172409357328), 0, 0],t)**0.5,
+		np.polyval([np.float64(-3.5601004407664214), np.float64(114.65309565154722), 0, 0],t)**0.5
+	)
+	return general_calibration(x,y,t, center ,E_xy,lambda t: E_xy(z(t)), angle, symmetrize, cutup)
 
 #%%
