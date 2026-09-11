@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "attrs>=25.1.0",
     "cattrs>=24.1.2",
+    "cmasher>=1.9.2",
     "h5py>=3.13.0",
     "matplotlib>=3.10.1",
     "notebook>=7.3.3",
@@ -15,11 +16,18 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "orca>=1.8",
     "pandas>=2.2.3",
+    "pandas-stubs~=2.2.3",
     "plotly>=6.0.0",
     "pyside6>=6.10.1",
+    "python-qt5>=0.1.10",
+    "pyvista>=0.48.4",
+    "pyvistaqt>=0.11.4",
+    "pywavelets>=1.9.0",
+    "qtwidgets>=1.1",
     "requests>=2.32.3",
     "scikit-image>=0.25.2",
     "scikit-learn>=1.6.1",
+    "scipy-stubs~=1.15.2",
     "tables>=3.10.2",
 ]
 
